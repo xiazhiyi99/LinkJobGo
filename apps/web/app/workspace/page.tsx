@@ -1,0 +1,7 @@
+import { WorkspaceHeader } from "../../components/workspace/WorkspaceHeader";
+import { OverviewCard } from "../../components/workspace/OverviewCard";
+import { overviewStats, recentActivities } from "../../features/workspace/overview/overview-data";
+
+export default function WorkspacePage() {
+  return <div className="workspace-content"><WorkspaceHeader /><section className="workspace-intro"><div><p className="eyebrow">欢迎回来，林同学</p><h2>今天也向前一步。</h2></div><span className="intro-note">这是你的求职进展概览</span></section><section className="overview-grid">{overviewStats.map((stat) => <OverviewCard key={stat.label} {...stat} />)}</section><div className="workspace-columns"><section className="workspace-panel"><div className="panel-heading"><div><span className="panel-kicker">今日进展</span><h2>待处理事项</h2></div><span className="count-badge">3</span></div><div className="task-list"><div><i className="task-dot blue" /><span>确认产品经理实习网申信息</span><small>今天</small></div><div><i className="task-dot" /><span>补充一个项目经历</span><small>今天</small></div><div><i className="task-dot" /><span>准备明日面试问题</span><small>明天</small></div></div></section><section className="workspace-panel"><div className="panel-heading"><div><span className="panel-kicker">最近活动</span><h2>投递航迹</h2></div><a href="/workspace/applications">查看全部</a></div><div className="activity-list">{recentActivities.map((activity) => <div key={activity.title}><div><strong>{activity.title}</strong><small>{activity.company}</small></div><span>{activity.status}</span><time>{activity.time}</time></div>)}</div></section></div></div>;
+}
