@@ -216,7 +216,8 @@ export default function ProfilePage() {
   const undoRecord = (index: number) => { const entry = removed[index]; if (!entry) return; setDraftRecords((current) => ({ ...current, [entry.section]: [...(current[entry.section] || []), entry.item] })); setRemoved((current) => current.filter((_, itemIndex) => itemIndex !== index)); };
 
   const displayName = values.name || '林同学';
-  const savedExperienceCount = Object.values(records).flat().length;
+  const headline = values.targetTitles || '把经历整理成下一次机会';
+  const location = values.homeCity || '中国 · 开放求职中';
 
   return <div className="workspace-content profile-page linkedin-profile-page">
     <WorkspaceHeader title="个人资料" />
@@ -227,14 +228,13 @@ export default function ProfilePage() {
           <div className="profile-avatar profile-hero-portrait">{displayName.slice(0, 1)}</div>
           <div className="profile-identity-main">
             <h1>{displayName}</h1>
+            <p>{headline} <span>·</span> 领客求职者</p>
+            <div className="profile-location">{location}</div>
             <div className="profile-hero-actions"><button className="profile-primary-action" onClick={() => beginEdit(singleSections[0])}>编辑资料</button><button className="profile-secondary-action" onClick={() => document.getElementById('resume-parser')?.scrollIntoView()}>简历解析</button></div>
           </div>
           <aside className="profile-identity-side">
             <div className="profile-identity-side-heading"><span>资料完成度</span><strong>{progress}%</strong></div>
             <div className="profile-identity-side-progress"><i style={{ width: `${progress}%` }} /></div>
-            <div className="profile-identity-side-divider" />
-            <div className="profile-identity-side-heading"><span>资料概览</span><em>已同步</em></div>
-            <div className="profile-identity-stats"><div><strong>{Object.values(values).filter(Boolean).length}</strong><span>已填写字段</span></div><div><strong>{savedExperienceCount}</strong><span>经历条目</span></div><div><strong>{allSections.length}</strong><span>资料分区</span></div></div>
           </aside>
         </div>
       </section>
