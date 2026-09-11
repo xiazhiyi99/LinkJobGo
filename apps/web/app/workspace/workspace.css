@@ -29,7 +29,7 @@
 .brand-dot { margin-left: 0; color: #fff; }
 .sidebar-caption { display:none; }
 .workspace-nav-label { display:none; }
-.workspace-nav { display:flex; flex-direction:column; gap:10px; }
+.workspace-nav { display:flex; flex-direction:column; gap:10px; margin-top:64px; }
 .workspace-nav a { padding:16px 14px; display:flex; align-items:center; gap:13px; border:1px solid transparent; border-radius:12px; font-size:14px; color:#fff; transition:background .2s,border-color .2s; }
 .workspace-nav a:hover { background:#ffffff15; }
 .workspace-nav a.active { background:#ffffff22; border-color:#ffffff38; }
