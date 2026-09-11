@@ -1,2 +1,2 @@
 import Link from 'next/link'; import { AuthForm } from '../../components/auth/AuthForm';
-export default function Login(){return <main className="auth-page"><div className="auth-card"><Link className="auth-brand" href="/">领客<span>.</span></Link><p className="auth-eyebrow">求职空间</p><h1>欢迎回来</h1><p>登录后继续整理你的求职准备。</p><AuthForm mode="login"/><div className="auth-links"><Link href="/register">创建账户</Link><Link href="/forgot-password">忘记密码</Link></div></div></main>}
+export default function Login(){return <main className="auth-page"><div className="auth-card"><Link className="auth-brand" href="/">领客<span>.</span></Link><h1>欢迎回来</h1><AuthForm mode="login"/><div className="auth-links"><Link href="/register">创建账户</Link><Link href="/forgot-password">忘记密码</Link></div></div></main>}
