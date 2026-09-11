@@ -234,12 +234,14 @@ export default function ProfilePage() {
             <div className="profile-location">{location}</div>
             <div className="profile-hero-actions"><button className="profile-primary-action" onClick={() => beginEdit(singleSections[0])}>编辑资料</button><button className="profile-secondary-action" onClick={() => document.getElementById('resume-parser')?.scrollIntoView()}>简历解析</button></div>
           </div>
+          <aside className="profile-identity-side">
+            <div className="profile-identity-side-heading"><span>资料完成度</span><strong>{progress}%</strong></div>
+            <div className="profile-identity-side-progress"><i style={{ width: `${progress}%` }} /></div><small className="profile-identity-side-note">持续完善，让每次投递都更准确</small>
+            <div className="profile-identity-side-divider" />
+            <div className="profile-identity-side-heading"><span>资料概览</span><em>已同步</em></div>
+            <div className="profile-identity-stats"><div><strong>{Object.values(values).filter(Boolean).length}</strong><span>已填写字段</span></div><div><strong>{savedExperienceCount}</strong><span>经历条目</span></div><div><strong>{allSections.length}</strong><span>资料分区</span></div></div>
+          </aside>
         </div>
-      </section>
-
-      <section className="profile-top-overview">
-        <article className="profile-completion-card"><div className="profile-card-heading"><div><span className="profile-overline">资料完成度</span><h2>继续完善你的求职资料</h2></div><strong className="profile-completion-value">{progress}%</strong></div><div className="profile-completion-line"><span><i style={{ width: `${progress}%` }} /></span></div><p>补齐教育、经历和作品链接，方便后续自动填写网申。</p><button className="profile-secondary-action" onClick={() => beginEdit(singleSections[0])}>继续完善资料</button></article>
-        <article className="profile-snapshot-card"><div className="profile-card-heading"><span className="profile-overline">资料概览</span><span className="profile-verified">已同步</span></div><div className="profile-snapshot-grid"><div><strong>{Object.values(values).filter(Boolean).length}</strong><span>已填写字段</span></div><div><strong>{savedExperienceCount}</strong><span>经历条目</span></div><div><strong>{allSections.length}</strong><span>资料分区</span></div></div></article>
       </section>
 
       <div className="profile-public-layout">
