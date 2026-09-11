@@ -1,0 +1,3 @@
+'use client';
+import { FormEvent, useState } from 'react';
+export function AuthForm({ mode }: { mode: 'login'|'register'|'forgot' }) { const [message,setMessage]=useState(''); const submit=(e:FormEvent)=>{e.preventDefault();setMessage('认证接口正在接入中，请先完成 API 配置。')}; return <form className="auth-form" onSubmit={submit}><label>邮箱<input type="email" required placeholder="name@example.com" /></label>{mode!=='forgot'&&<label>密码<input type="password" required minLength={8} placeholder="至少 8 位" /></label>}<button type="submit">{mode==='login'?'登录':mode==='register'?'创建账户':'发送重置邮件'}</button>{message&&<p>{message}</p>}</form>; }
