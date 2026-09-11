@@ -6,7 +6,7 @@ import { workspaceNavigation } from "../../features/workspace/navigation";
 export function WorkspaceSidebar() {
   const pathname = usePathname();
   return <aside className="workspace-sidebar">
-    <Link className="workspace-brand" href="/" aria-label="领客首页"><span className="brand-symbol" aria-hidden="true">L</span>领客<span className="brand-dot">.</span></Link>
+    <Link className="workspace-brand" href="/" aria-label="领客首页">领客<span className="brand-dot">.</span></Link>
     <div className="workspace-nav-label">功能</div>
     <nav className="workspace-nav" aria-label="功能导航">
       {workspaceNavigation.map((item, index) => <Link key={item.href} href={item.href} aria-current={pathname === item.href ? "page" : undefined} className={pathname === item.href ? "active" : ""}>
@@ -14,6 +14,6 @@ export function WorkspaceSidebar() {
         <span>{item.label}</span><span className="nav-indicator" aria-hidden="true" />
       </Link>)}
     </nav>
-    <div className="sidebar-bottom"><div className="user-card"><span className="avatar">林</span><div><strong>林同学</strong><small>求职者账户</small></div></div><Link href="/" className="sidebar-home">返回首页 <span aria-hidden="true">↗</span></Link></div>
+    <div className="sidebar-bottom"><div className="user-card"><span className="avatar">林</span><div><strong>林同学</strong><small>求职者账户</small></div></div></div>
   </aside>;
 }

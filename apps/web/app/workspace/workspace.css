@@ -25,9 +25,8 @@
   flex-direction: column;
 }
 .workspace-sidebar a:focus-visible { outline-color: white; }
-.workspace-brand { display:flex; align-items:center; gap: 10px; padding: 0 12px; font-size: 25px; font-weight: 600; letter-spacing: -.04em; }
-.brand-symbol { width: 32px; height:32px; display:grid; place-items:center; border:1px solid #ffffff70; border-radius:10px; font-size:22px; font-style:italic; }
-.brand-dot { margin-left: -9px; }
+.workspace-brand { display:flex; align-items:center; padding: 0 12px; font-size: 25px; font-weight: 700; letter-spacing: -.08em; }
+.brand-dot { margin-left: 0; color: #fff; }
 .sidebar-caption { display:none; }
 .workspace-nav-label { font-size:11px; margin:62px 14px 18px; color:#d1e3ff; }
 .workspace-nav { display:flex; flex-direction:column; gap:10px; }
@@ -42,7 +41,6 @@
 .user-card strong,.user-card small { display:block; }
 .user-card strong { font-size:12px; }
 .user-card small { margin-top:4px; color:#deebff; font-size:10px; }
-.sidebar-home { display:flex; justify-content:space-between; border-top:1px solid #ffffff30; padding-top:22px; font-size:12px; }
 .workspace-main { margin-left:276px; min-width:0; overflow-x:clip; }
 .workspace-content { max-width:1250px; margin:0 auto; padding:38px clamp(24px,4vw,64px) 24px; }
 .workspace-header { display:flex; justify-content:space-between; align-items:center; padding:8px 0 26px; border-bottom:1px solid var(--ws-line); }
