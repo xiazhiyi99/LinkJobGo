@@ -39,7 +39,7 @@ export default function HomePage() {
     <main ref={page} className="page-shell overflow-x-hidden w-full max-w-full">
       <nav className="nav-wrap">
         <a className="wordmark" href="#top">领客<span>.</span></a>
-        <div className="nav-links"><a href="#workflow">怎么工作</a><a href="#features">能力</a><a href="#workflow">开始使用</a></div>
+        <div className="nav-links"><a href="#features">功能</a><a href="#profile">资料中枢</a><a href="#autofill">智能填写</a><a href="#applications">投递航迹</a></div>
         <a className="nav-login" href="#workflow">登录 <span>↗</span></a>
       </nav>
 
