@@ -307,3 +307,12 @@
   .profile-identity-side-divider { margin: 17px 0 14px; }
 }
 .profile-identity-side-note { display: block; margin-top: 9px; color: #8b9aaf; font-size: 10px; line-height: 1.5; }
+
+/* Keep the profile header visually separated from the workspace breadcrumb. */
+.linkedin-profile-page .profile-hero { margin-top: 20px; }
+/* The entire right rail stays below the identity block and follows the viewport. */
+.linkedin-profile-page .profile-public-layout { align-items: start; }
+.linkedin-profile-page .profile-public-secondary { position: sticky; top: 24px; align-self: start; height: fit-content; z-index: 4; }
+@media (max-width: 980px) {
+  .linkedin-profile-page .profile-public-secondary { position: static; }
+}
