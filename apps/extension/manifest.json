@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "Job Assistant (Placeholder)",
+  "version": "0.1.0",
+  "description": "Browser extension shell for the job assistant platform.",
+  "permissions": ["storage"],
+  "background": {"service_worker": "src/background.js"},
+  "action": {"default_title": "Job Assistant"}
+}

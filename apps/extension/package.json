@@ -1,0 +1,1 @@
+{"name":"@job-assistant/extension","private":true,"version":"0.1.0","scripts":{"build":"node --check src/background.js","lint":"node --check src/background.js","test":"node --check src/background.js"}}

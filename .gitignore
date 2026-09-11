@@ -1,0 +1,10 @@
+autofill-mvp/local-config.js
+autofill-mvp/*.local.json
+.DS_Store
+fake_resume.txt
+.env
+*.env
+*.env.*
+!.env.example
+node_modules/
+.pnpm-store/

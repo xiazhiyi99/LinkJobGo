@@ -1,0 +1,12 @@
+{
+  "name": "job-assistant-platform",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @job-assistant/api --filter @job-assistant/worker --filter @job-assistant/web dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test"
+  }
+}
