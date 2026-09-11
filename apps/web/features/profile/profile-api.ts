@@ -10,6 +10,7 @@ export type ProfilePayload = {
   campusExperiences?: ProfileRecord[];
   projects?: ProfileRecord[];
   awards?: ProfileRecord[];
+  publications?: ProfileRecord[];
   skills?: ProfileRecord[];
   [key: string]: unknown;
 };

@@ -120,6 +120,7 @@ const profilePayload = async (userId, email) => {
     campusExperiences: experiences.filter((record) => sectionOf(record) === '在校经历').map(expandRecord),
     projects: projects.filter((record) => !sectionOf(record) || sectionOf(record) === '项目经历').map(expandRecord),
     awards: projects.filter((record) => sectionOf(record) === '获奖经历').map(expandRecord),
+    publications: projects.filter((record) => sectionOf(record) === '论文与专利').map(expandRecord),
     skills: skills.map(expandRecord),
   };
 };
@@ -216,6 +217,7 @@ const server = http.createServer(async (req, res) => {
           项目经历: 'projects',
           '在校经历': 'experiences',
           获奖经历: 'projects',
+          '论文与专利': 'projects',
           语言能力: 'skills',
           证书信息: 'skills',
           技能: 'skills',

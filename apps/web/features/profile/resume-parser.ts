@@ -12,6 +12,7 @@ const valueAfterLabel = (text: string, labels: string[]) => {
 
 const sectionText = (text: string, heading: string) => text.match(new RegExp(`##\\s*${heading}[\\s\\S]*?(?=\\n##\\s|$)`))?.[0] || '';
 const bulletLines = (text: string) => [...text.matchAll(/^[-*]\s+(.+)$/gm)].map((item) => item[1].trim());
+const numberedLines = (text: string) => [...text.matchAll(/^\d+\.\s+(.+)$/gm)].map((item) => item[1].trim());
 const entryBlocks = (text: string, heading: string) => {
   const block = sectionText(text, heading);
   const headings = [...block.matchAll(/^###\s+([^\n]+)$/gm)];
@@ -62,6 +63,11 @@ const parseAwards = (text: string) => bulletLines(sectionText(text, '竞赛、�
   return { date: match?.[1] || '', name: match?.[2] || item, category: '竞赛/荣誉', level: '', rank: '' };
 });
 
+const parsePublications = (text: string) => numberedLines(sectionText(text, '论文与专利')).map((item) => {
+  const title = item.match(/\*\*(.+?)\*\*/)?.[1] || item;
+  return { name: title, title, type: /专利/.test(item) ? '专利' : '论文', year: item.match(/[,，]\s*(\d{4})/)?.[1] || '', role: item.match(/(第一作者|第二作者)/)?.[1] || '', description: item };
+});
+
 const parseSkillRecords = (text: string) => {
   const lines = bulletLines(sectionText(text, '技能与证书'));
   const skills: Array<Record<string, string>> = [];
@@ -103,6 +109,7 @@ export function parseResumeText(text: string, sourceName = 'resume.txt'): Resume
       项目经历: parseProjects(text),
       在校经历: parseCampus(text),
       获奖经历: parseAwards(text),
+      论文与专利: parsePublications(text),
       技能: skillRecords.skills,
       语言能力: skillRecords.languages,
       证书信息: skillRecords.certificates,

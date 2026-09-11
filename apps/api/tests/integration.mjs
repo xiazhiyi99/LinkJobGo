@@ -44,6 +44,7 @@ try {
       在校经历: [{ title: '协会负责人' }],
       项目经历: [{ name: '测试项目' }],
       获奖经历: [{ name: '测试奖项' }],
+      '论文与专利': [{ name: '测试论文' }],
       技能: [{ name: 'TypeScript', kind: 'skill' }],
       语言能力: [{ language: '英语', kind: 'language' }],
       证书信息: [{ name: '测试证书', kind: 'certificate' }],
@@ -60,6 +61,7 @@ try {
   assert.equal(saved.payload.campusExperiences.length, 1);
   assert.equal(saved.payload.projects.length, 1);
   assert.equal(saved.payload.awards.length, 1);
+  assert.equal(saved.payload.publications.length, 1);
   assert.equal(saved.payload.skills.length, 3);
 
   const fakeResumePath = process.env.FAKE_RESUME_PATH || '/Users/dp/Downloads/fake_resume.txt';

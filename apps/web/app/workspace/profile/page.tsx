@@ -130,6 +130,16 @@ const repeatSections: SectionDefinition[] = [
     ],
   },
   {
+    title: '论文与专利', eyebrow: '学术成果', description: '记录论文、专利和公开发表信息。', kind: 'repeat',
+    fields: [
+      { key: 'name', label: '成果名称', placeholder: '论文或专利名称', span: 'full' },
+      { key: 'type', label: '成果类型', kind: 'select', options: ['论文', '专利'], span: 'quarter' },
+      { key: 'year', label: '发表年份', kind: 'number', placeholder: '如：2026', span: 'quarter' },
+      { key: 'role', label: '作者身份', placeholder: '如：第一作者', span: 'half' },
+      { key: 'description', label: '发表信息', kind: 'textarea', placeholder: '会议、期刊、专利公开号等', span: 'full', rows: 3 },
+    ],
+  },
+  {
     title: '在校经历', eyebrow: '校园实践', description: '补充学生组织、校园活动和领导力经历。', kind: 'repeat',
     fields: [
       { key: 'title', label: '职务名称', placeholder: '如：学生会部长', span: 'half' },
@@ -224,6 +234,7 @@ function hydrateProfile(payload: ProfilePayload) {
     教育经历: recordsValue(source.educations, { active: '在读', inactive: '已毕业' }),
     '工作/实习经历': recordsValue(source.experiences, { active: '在职', inactive: '已离职' }),
     项目经历: recordsValue(source.projects),
+    '论文与专利': recordsValue(source.publications),
     在校经历: recordsValue(source.campusExperiences),
     获奖经历: recordsValue(source.awards),
     语言能力: skills.filter((item) => item.kind === 'language'),
