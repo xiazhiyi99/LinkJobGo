@@ -105,8 +105,7 @@ export function ProfileSidebar({ sections }: { sections: ProfileSectionLink[] })
     <aside className="profile-public-secondary" ref={railRef}>
       <section className="profile-side-card profile-resume-card" id="resume-parser">
         <div className="profile-card-heading">
-          <div><span className="profile-overline">简历管理</span><h2>AI 简历解析</h2></div>
-          <span className="coming-soon">即将开放</span>
+          <div><h2>AI 简历解析</h2></div>
         </div>
         <p>上传 PDF、Word 或 Markdown 简历，生成待确认的资料草稿。</p>
         <button className="profile-primary-action profile-primary-action--wide" disabled>功能即将开放</button>
@@ -132,7 +131,7 @@ export function ProfileSidebar({ sections }: { sections: ProfileSectionLink[] })
               onClick={() => jumpToSection(section.id)}
             >
               <span className="profile-map-node" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
-              <span className="profile-map-copy"><strong>{section.title}</strong><small>{section.description}</small></span>
+              <span className="profile-map-copy"><strong>{section.title}</strong></span>
             </button>
           ))}
         </div>

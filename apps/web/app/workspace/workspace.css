@@ -231,6 +231,7 @@
 .profile-public-section { box-shadow: 0 10px 32px rgba(30, 67, 120, .045); }
 .profile-public-section .profile-kicker { color: #7792b7; }
 .profile-public-section .profile-section-description { max-width: 540px; }
+.profile-public-section > header h3 { margin-top: 0; }
 .profile-public-secondary { position: sticky; top: 24px; }
 .profile-side-card { padding: 23px 24px; }
 .profile-interest-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }

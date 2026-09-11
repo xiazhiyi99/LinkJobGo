@@ -216,8 +216,6 @@ export default function ProfilePage() {
   const undoRecord = (index: number) => { const entry = removed[index]; if (!entry) return; setDraftRecords((current) => ({ ...current, [entry.section]: [...(current[entry.section] || []), entry.item] })); setRemoved((current) => current.filter((_, itemIndex) => itemIndex !== index)); };
 
   const displayName = values.name || '林同学';
-  const headline = values.targetTitles || '把经历整理成下一次机会';
-  const location = values.homeCity || '中国 · 开放求职中';
   const savedExperienceCount = Object.values(records).flat().length;
 
   return <div className="workspace-content profile-page linkedin-profile-page">
@@ -228,15 +226,12 @@ export default function ProfilePage() {
         <div className="profile-identity-card">
           <div className="profile-avatar profile-hero-portrait">{displayName.slice(0, 1)}</div>
           <div className="profile-identity-main">
-            <span className="profile-overline">个人主页</span>
             <h1>{displayName}</h1>
-            <p>{headline} <span>·</span> 领客求职者</p>
-            <div className="profile-location">{location}</div>
             <div className="profile-hero-actions"><button className="profile-primary-action" onClick={() => beginEdit(singleSections[0])}>编辑资料</button><button className="profile-secondary-action" onClick={() => document.getElementById('resume-parser')?.scrollIntoView()}>简历解析</button></div>
           </div>
           <aside className="profile-identity-side">
             <div className="profile-identity-side-heading"><span>资料完成度</span><strong>{progress}%</strong></div>
-            <div className="profile-identity-side-progress"><i style={{ width: `${progress}%` }} /></div><small className="profile-identity-side-note">持续完善，让每次投递都更准确</small>
+            <div className="profile-identity-side-progress"><i style={{ width: `${progress}%` }} /></div>
             <div className="profile-identity-side-divider" />
             <div className="profile-identity-side-heading"><span>资料概览</span><em>已同步</em></div>
             <div className="profile-identity-stats"><div><strong>{Object.values(values).filter(Boolean).length}</strong><span>已填写字段</span></div><div><strong>{savedExperienceCount}</strong><span>经历条目</span></div><div><strong>{allSections.length}</strong><span>资料分区</span></div></div>
@@ -250,7 +245,7 @@ export default function ProfilePage() {
             const isEditing = editing === section.title;
             const sectionRecords = isEditing ? draftRecords[section.title] || [] : records[section.title] || [];
             return <section id={`profile-section-${sectionIndex}`} className={`profile-section profile-public-section profile-section--${section.kind}`} key={section.title}>
-              <header><div><span className="profile-kicker">{section.eyebrow}</span><h3>{section.title}</h3><p className="profile-section-description">{section.description}</p></div><div className="profile-actions">{isEditing && <button className="profile-button profile-button--quiet" onClick={cancelEdit}>取消</button>}<button className="profile-button" onClick={() => isEditing ? save(section) : beginEdit(section)}>{isEditing ? '保存' : '编辑'}</button></div></header>
+              <header><div><h3>{section.title}</h3></div><div className="profile-actions">{isEditing && <button className="profile-button profile-button--quiet" onClick={cancelEdit}>取消</button>}<button className="profile-button" onClick={() => isEditing ? save(section) : beginEdit(section)}>{isEditing ? '保存' : '编辑'}</button></div></header>
               {section.kind === 'single' ? (isEditing ? <div className="profile-form">{section.fields.map((field) => <FormField key={field.key} field={field} value={draftValues[field.key] || ''} onChange={(value) => setDraftValues((current) => ({ ...current, [field.key]: value }))} />)}</div> : <div className="profile-read-grid">{section.fields.map((field) => <div className={`profile-read-item profile-read-item--${field.span || 'half'}`} key={field.key}><span>{field.label}</span><strong>{values[field.key] || '未填写'}</strong></div>)}</div>) : <>
                 {isEditing && <div className="profile-form profile-form--repeat">{sectionRecords.map((item) => <div className="profile-record" key={item.id}><div className="profile-record-heading"><span>经历条目</span><button className="profile-remove" onClick={() => removeRecord(section.title, item.id)}>移除</button></div><div className="profile-form">{section.fields.map((field) => <FormField key={field.key} field={field} value={item[field.key] || ''} onChange={(value) => setDraftRecords((current) => ({ ...current, [section.title]: (current[section.title] || []).map((entry) => entry.id === item.id ? { ...entry, [field.key]: value } : entry) }))} />)}</div></div>)}</div>}
                 {!isEditing && sectionRecords.map((item, index) => <RecordPreview key={item.id} item={item} fields={section.fields} index={index} />)}
