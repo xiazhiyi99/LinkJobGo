@@ -39,8 +39,8 @@ export default function HomePage() {
     <main ref={page} className="page-shell overflow-x-hidden w-full max-w-full">
       <nav className="nav-wrap">
         <a className="wordmark" href="#top">领客<span>.</span></a>
-        <div className="nav-links"><a href="#workflow">怎么工作</a><a href="#features">能力</a><a href="#start">开始使用</a></div>
-        <a className="nav-login" href="#start">登录 <span>↗</span></a>
+        <div className="nav-links"><a href="#workflow">怎么工作</a><a href="#features">能力</a><a href="#workflow">开始使用</a></div>
+        <a className="nav-login" href="#workflow">登录 <span>↗</span></a>
       </nav>
 
       <section id="top" className="hero section-space">
@@ -48,7 +48,7 @@ export default function HomePage() {
           <p className="eyebrow">AI 求职助手 / 2026</p>
           <h1>把求职的每一步，<em>领</em>到更好的机会。</h1>
           <p className="hero-lede">从发现职位、整理经历，到确认网申。领客把漫长的求职流程，变成一条清晰可走的路。</p>
-          <div className="hero-actions"><a className="button button-dark" href="#start">开始使用 <span>↗</span></a><a className="text-link" href="#workflow">看看它如何工作 <span>↓</span></a></div>
+          <div className="hero-actions"><a className="button button-dark" href="#workflow">开始使用 <span>↗</span></a><a className="text-link" href="#workflow">看看它如何工作 <span>↓</span></a></div>
         </div>
         <div className="hero-visual group"><div className="visual-orbit" /><div className="visual-card visual-card-main"><span className="card-kicker">TODAY / NEXT MOVE</span><strong>产品经理实习</strong><span className="card-meta">上海 · 互联网 · 12 min ago</span><div className="progress-line"><i /></div></div><div className="visual-card visual-card-float"><span>已为你准备</span><strong>8</strong><small>个下一步</small></div></div>
         <div className="hero-bottom"><span>让准备成为你的优势</span><span>↓ 向下探索</span></div>
