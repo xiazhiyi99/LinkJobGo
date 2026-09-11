@@ -167,3 +167,20 @@
   .profile-field, .profile-field--full, .profile-field--half, .profile-field--third, .profile-field--quarter, .profile-field--twoThirds, .profile-field--threeQuarter { grid-column: 1 / -1; }
   .profile-record-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Repeat-entry cards must occupy the full form width. Without this rule the
+   nested grid auto-places each card into a single narrow column. */
+.profile-form--repeat > .profile-record {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.profile-form--repeat > .profile-record .profile-form {
+  width: 100%;
+}
+.profile-record-heading {
+  min-height: 20px;
+}
+.profile-record-heading > span,
+.profile-record-heading > button {
+  white-space: nowrap;
+}
