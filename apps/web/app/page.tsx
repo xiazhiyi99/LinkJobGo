@@ -5,10 +5,10 @@ import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 const features = [
-  { title: "资料中枢", body: "经历、项目和简历版本各就各位，随时准备出发。", className: "feature-a" },
-  { title: "智能填写", body: "识别页面字段，匹配你的资料，确认之后一键完成填写。", className: "feature-b" },
-  { title: "投递航迹", body: "从待投递到 Offer，每一次进展都留下可回看的路径；面试、测评和截止时间，也集中在下一步行动里。", className: "feature-c" },
-  { title: "职位雷达", body: "把散落在不同招聘官网的机会，收进一个清晰的求职视野。", className: "feature-d", status: "测试中" },
+  { title: "资料中枢", body: "经历、项目和简历版本各就各位，随时准备出发。", className: "feature-a", href: "#profile" },
+  { title: "智能填写", body: "识别页面字段，匹配你的资料，确认之后一键完成填写。", className: "feature-b", href: "#autofill" },
+  { title: "投递航迹", body: "从待投递到 Offer，每一次进展都留下可回看的路径；面试、测评和截止时间，也集中在下一步行动里。", className: "feature-c", href: "#applications" },
+  { title: "职位雷达", body: "把散落在不同招聘官网的机会，收进一个清晰的求职视野。", className: "feature-d", status: "测试中", href: "#features" },
 ];
 
 export default function HomePage() {
@@ -56,7 +56,7 @@ export default function HomePage() {
 
       <section id="features" className="features section-space">
         <div className="section-intro"><p className="eyebrow">你需要的，不止一份简历</p><h2>把复杂留给领客，<br /><span>把专注留给你。</span></h2></div>
-        <div className="bento-grid grid-flow-dense">{features.map((feature) => <article key={feature.title} className={`feature-card ${feature.className} group`}><div><span className="feature-index">0{features.indexOf(feature) + 1}</span><h3>{feature.title}{feature.status && <small className="feature-status">（{feature.status}）</small>}</h3><p>{feature.body}</p></div><span className="arrow">↗</span></article>)}</div>
+        <div className="bento-grid grid-flow-dense">{features.map((feature) => <a key={feature.title} href={feature.href} className={`feature-card ${feature.className} group`}><div><span className="feature-index">0{features.indexOf(feature) + 1}</span><h3>{feature.title}{feature.status && <small className="feature-status">（{feature.status}）</small>}</h3><p>{feature.body}</p></div><span className="arrow">↗</span></a>)}</div>
       </section>
 
       <section id="workflow" className="feature-details section-space">
