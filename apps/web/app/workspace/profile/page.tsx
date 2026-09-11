@@ -39,13 +39,19 @@ const singleSections: SectionDefinition[] = [
       { key: 'birthday', label: '出生日期', kind: 'date', span: 'quarter' },
       { key: 'phone', label: '手机号', kind: 'tel', placeholder: '请输入手机号', span: 'half' },
       { key: 'email', label: '邮箱', kind: 'email', placeholder: '登录邮箱', span: 'half', readOnly: true },
+      { key: 'wechat', label: '微信', placeholder: '选填', span: 'half' },
+      { key: 'citizenship', label: '国籍', placeholder: '如：中国', span: 'quarter' },
+      { key: 'nationality', label: '民族', placeholder: '如：汉族', span: 'quarter' },
+      { key: 'nativePlace', label: '籍贯', placeholder: '如：江苏省苏州市', span: 'half' },
       { key: 'homeCity', label: '家庭所在城市', placeholder: '如：深圳', span: 'third' },
       { key: 'homeDistrict', label: '家庭所在区县', placeholder: '如：南山区', span: 'third' },
       { key: 'schoolCity', label: '学校所在城市', placeholder: '如：广州', span: 'third' },
       { key: 'address', label: '详细地址', placeholder: '选填', span: 'full' },
       { key: 'politicalStatus', label: '政治面貌', kind: 'select', options: ['请选择', '群众', '共青团员', '中共党员', '其他'], span: 'third' },
-      { key: 'nationality', label: '民族', placeholder: '如：汉族', span: 'third' },
+      { key: 'highestEducation', label: '最高学历', placeholder: '如：硕士研究生', span: 'third' },
       { key: 'workExperience', label: '工作经验', kind: 'select', options: ['应届生', '1 年以内', '1–3 年', '3–5 年', '5 年以上'], span: 'third' },
+      { key: 'firstWorkYear', label: '首次参加工作年份', kind: 'number', placeholder: '如：2023', span: 'third' },
+      { key: 'fullTimeStudent', label: '全日制在校生', kind: 'select', options: ['请选择', '是', '否'], span: 'third' },
       { key: 'interests', label: '兴趣爱好', placeholder: '如：摄影、跑步、开源', span: 'full' },
       { key: 'website', label: '个人主页', kind: 'url', placeholder: 'https://', span: 'half' },
       { key: 'github', label: 'GitHub / 作品集', kind: 'url', placeholder: 'https://', span: 'half' },
@@ -61,6 +67,9 @@ const singleSections: SectionDefinition[] = [
       { key: 'availableFrom', label: '到岗时间', kind: 'date', span: 'quarter' },
       { key: 'salaryExpectation', label: '期望薪资', kind: 'number', placeholder: '月薪（元）', span: 'quarter' },
       { key: 'relocation', label: '接受岗位调剂', kind: 'select', options: ['请选择', '接受', '不接受'], span: 'quarter' },
+      { key: 'hasRelativesInCompany', label: '应聘企业亲友', kind: 'select', options: ['请选择', '有', '无'], span: 'quarter' },
+      { key: 'workVisaRequired', label: '需要工作签证', kind: 'select', options: ['请选择', '是', '否'], span: 'quarter' },
+      { key: 'recommendationMethod', label: '推荐方式', placeholder: '如：本人直接申请', span: 'half' },
       { key: 'preferenceNote', label: '补充说明', kind: 'textarea', placeholder: '可填写岗位偏好、城市排序等', span: 'full', rows: 3 },
     ],
   },
@@ -73,6 +82,7 @@ const repeatSections: SectionDefinition[] = [
       { key: 'school', label: '学校名称', placeholder: '如：中山大学', span: 'half' },
       { key: 'college', label: '学院名称', placeholder: '如：计算机学院', span: 'half' },
       { key: 'schoolCity', label: '学校所在城市', placeholder: '如：广州', span: 'third' },
+      { key: 'educationType', label: '培养方式', placeholder: '如：统招全日制', span: 'third' },
       { key: 'degree', label: '学历', kind: 'select', options: ['请选择学历', '大专', '本科', '硕士', '博士'], span: 'third' },
       { key: 'major', label: '专业', placeholder: '如：软件工程', span: 'third' },
       { key: 'research', label: '研究方向', placeholder: '选填', span: 'half' },
@@ -113,6 +123,7 @@ const repeatSections: SectionDefinition[] = [
       { key: 'startDate', label: '开始时间', kind: 'date', span: 'quarter' },
       { key: 'endDate', label: '结束时间', kind: 'date', span: 'quarter' },
       { key: 'url', label: '项目链接', kind: 'url', placeholder: 'https://', span: 'half' },
+      { key: 'organization', label: '所属单位', placeholder: '如：清华大学', span: 'half' },
       { key: 'description', label: '项目详情', kind: 'textarea', placeholder: '项目背景、目标和使用的技术/方法', span: 'full', rows: 4 },
       { key: 'responsibilities', label: '项目中职责', kind: 'textarea', placeholder: '描述你具体负责的部分', span: 'full', rows: 4 },
       { key: 'achievements', label: '项目业绩', kind: 'textarea', placeholder: '描述结果、数据和影响', span: 'full', rows: 4 },
@@ -162,6 +173,13 @@ const repeatSections: SectionDefinition[] = [
     ],
   },
   {
+    title: '技能', eyebrow: '技术能力', description: '记录编程语言、模型框架、工程工具和其他技能。', kind: 'repeat',
+    fields: [
+      { key: 'category', label: '技能类别', placeholder: '如：编程语言', span: 'third' },
+      { key: 'name', label: '技能名称', placeholder: '如：Python、PyTorch', span: 'twoThirds' },
+    ],
+  },
+  {
     title: '自我介绍', eyebrow: '个人概述', description: '用一段简洁的话概括你的优势和发展方向。', kind: 'single',
     fields: [{ key: 'selfIntroduction', label: '自我介绍', kind: 'textarea', placeholder: '建议 100–300 字，突出经历、能力和求职方向', span: 'full', rows: 6 }],
   },
@@ -190,18 +208,27 @@ function hydrateProfile(payload: ProfilePayload) {
   const profile = ((source.profile || source) || {}) as Record<string, unknown>;
   const preferences = (source.preferences || {}) as Record<string, unknown>;
   const values: Record<string, string> = {
-    name: textValue(profile.name), phone: textValue(profile.phone), email: textValue(profile.email),
+    name: textValue(profile.name), phone: textValue(profile.phone), email: textValue(profile.email), gender: textValue(profile.gender), birthday: textValue(profile.birthday),
+    citizenship: textValue(profile.citizenship), nationality: textValue(profile.nationality), politicalStatus: textValue(profile.politicalStatus),
+    wechat: textValue(profile.wechat), nativePlace: textValue(profile.nativePlace), highestEducation: textValue(profile.highestEducation),
+    firstWorkYear: textValue(profile.firstWorkYear), fullTimeStudent: textValue(profile.fullTimeStudent), hasRelativesInCompany: textValue(profile.hasRelativesInCompany),
     homeCity: textValue(profile.city || profile.homeCity), website: textValue(profile.personalWebsite || profile.website),
     github: textValue(profile.githubUrl || profile.github), selfIntroduction: textValue(profile.selfIntroduction),
     targetTitles: textValue(preferences.targetTitles), targetCities: textValue(preferences.targetCities),
     targetIndustries: textValue(preferences.targetIndustries), employmentType: textValue(preferences.employmentType),
-    availableFrom: textValue(preferences.availableFrom), salaryExpectation: textValue(preferences.salaryExpectation),
+    availableFrom: textValue(preferences.availableFrom), salaryExpectation: textValue(preferences.salaryExpectation), relocation: textValue(preferences.relocation),
+    recommendationMethod: textValue(profile.recommendationMethod), workVisaRequired: textValue(profile.workVisaRequired),
   };
+  const skills = recordsValue(source.skills);
   const records: Record<string, ProfileRecord[]> = {
     教育经历: recordsValue(source.educations, { active: '在读', inactive: '已毕业' }),
     '工作/实习经历': recordsValue(source.experiences, { active: '在职', inactive: '已离职' }),
     项目经历: recordsValue(source.projects),
-    '证书信息': recordsValue(source.skills),
+    在校经历: recordsValue(source.campusExperiences),
+    获奖经历: recordsValue(source.awards),
+    语言能力: skills.filter((item) => item.kind === 'language'),
+    证书信息: skills.filter((item) => item.kind === 'certificate'),
+    技能: skills.filter((item) => item.kind === 'skill'),
   };
   return { values, records };
 }
@@ -210,6 +237,11 @@ function toApiProfile(values: Record<string, string>) {
   return {
     name: values.name || '', phone: values.phone || '', city: values.homeCity || '',
     personalWebsite: values.website || '', githubUrl: values.github || '', selfIntroduction: values.selfIntroduction || '',
+    gender: values.gender || '', birthday: values.birthday || '', citizenship: values.citizenship || '', nationality: values.nationality || '',
+    politicalStatus: values.politicalStatus || '', wechat: values.wechat || '', nativePlace: values.nativePlace || '',
+    highestEducation: values.highestEducation || '', firstWorkYear: values.firstWorkYear || '', fullTimeStudent: values.fullTimeStudent || '',
+    hasRelativesInCompany: values.hasRelativesInCompany || '', recommendationMethod: values.recommendationMethod || '',
+    workVisaRequired: values.workVisaRequired || '',
   };
 }
 
@@ -218,6 +250,7 @@ function toApiPreferences(values: Record<string, string>) {
     targetTitles: values.targetTitles || '', targetCities: values.targetCities || '',
     targetIndustries: values.targetIndustries || '', employmentType: values.employmentType || '',
     availableFrom: values.availableFrom || '', salaryExpectation: values.salaryExpectation || '',
+    relocation: values.relocation || '', preferenceNote: values.preferenceNote || '',
   };
 }
 

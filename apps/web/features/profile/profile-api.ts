@@ -7,7 +7,9 @@ export type ProfilePayload = {
   preferences?: ProfileRecord | null;
   educations?: ProfileRecord[];
   experiences?: ProfileRecord[];
+  campusExperiences?: ProfileRecord[];
   projects?: ProfileRecord[];
+  awards?: ProfileRecord[];
   skills?: ProfileRecord[];
   [key: string]: unknown;
 };

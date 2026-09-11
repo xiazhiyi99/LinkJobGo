@@ -37,12 +37,30 @@ try {
 
   const profile = await request('/profiles/me', { method: 'PATCH', body: JSON.stringify({ profile: { name: '集成测试用户' } }) }, cookie);
   assert.equal(profile.response.status, 200);
+  const grouped = await request('/profiles/me', { method: 'PATCH', body: JSON.stringify({
+    profile: { gender: '男' },
+    records: {
+      '工作/实习经历': [{ company: '测试公司' }],
+      在校经历: [{ title: '协会负责人' }],
+      项目经历: [{ name: '测试项目' }],
+      获奖经历: [{ name: '测试奖项' }],
+      技能: [{ name: 'TypeScript', kind: 'skill' }],
+      语言能力: [{ language: '英语', kind: 'language' }],
+      证书信息: [{ name: '测试证书', kind: 'certificate' }],
+    },
+  }) }, cookie);
+  assert.equal(grouped.response.status, 200);
   const education = await request('/profiles/me/educations', json({ school: '测试大学', degree: '硕士' }), cookie);
   assert.equal(education.response.status, 201);
   const educationId = education.payload.item.id;
   const saved = await request('/profiles/me', {}, cookie);
   assert.equal(saved.payload.profile.name, '集成测试用户');
   assert.equal(saved.payload.educations.length, 1);
+  assert.equal(saved.payload.experiences.length, 1);
+  assert.equal(saved.payload.campusExperiences.length, 1);
+  assert.equal(saved.payload.projects.length, 1);
+  assert.equal(saved.payload.awards.length, 1);
+  assert.equal(saved.payload.skills.length, 3);
 
   const fakeResumePath = process.env.FAKE_RESUME_PATH || '/Users/dp/Downloads/fake_resume.txt';
   const resumeContent = existsSync(fakeResumePath) ? readFileSync(fakeResumePath, 'utf8') : '# 测试简历\n姓名：集成测试用户';

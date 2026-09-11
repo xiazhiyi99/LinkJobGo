@@ -111,12 +111,15 @@ const profilePayload = async (userId, email) => {
     prisma.project.findMany({ where: { userId, deletedAt: null }, orderBy: { createdAt: 'asc' } }),
     prisma.skill.findMany({ where: { userId, deletedAt: null }, orderBy: { createdAt: 'asc' } }),
   ]);
+  const sectionOf = (record) => record.extra && typeof record.extra === 'object' ? record.extra.profileSection : null;
   return {
     profile: { ...(profile ? expandRecord(profile) : { userId }), email },
     preferences: preferences ? expandRecord(preferences) : { userId },
     educations: educations.map(expandRecord),
-    experiences: experiences.map(expandRecord),
-    projects: projects.map(expandRecord),
+    experiences: experiences.filter((record) => !sectionOf(record) || sectionOf(record) === '工作/实习经历').map(expandRecord),
+    campusExperiences: experiences.filter((record) => sectionOf(record) === '在校经历').map(expandRecord),
+    projects: projects.filter((record) => !sectionOf(record) || sectionOf(record) === '项目经历').map(expandRecord),
+    awards: projects.filter((record) => sectionOf(record) === '获奖经历').map(expandRecord),
     skills: skills.map(expandRecord),
   };
 };
@@ -215,19 +218,22 @@ const server = http.createServer(async (req, res) => {
           获奖经历: 'projects',
           语言能力: 'skills',
           证书信息: 'skills',
+          技能: 'skills',
         };
         const grouped = {};
         for (const [section, items] of Object.entries(data.records)) {
           const collection = sectionNames[section];
           if (!collection || !Array.isArray(items)) continue;
-          grouped[collection] = [...(grouped[collection] || []), ...items];
+          grouped[collection] = [...(grouped[collection] || []), ...items.map((item) => ({ item, section }))];
         }
         await prisma.$transaction(async (tx) => {
           for (const [collection, definition] of Object.entries(modelFields)) {
             const modelForGroup = tx[definition.model];
             await modelForGroup.updateMany({ where: { userId: user.id, deletedAt: null }, data: { deletedAt: new Date() } });
-            for (const item of grouped[collection] || []) {
-              await modelForGroup.create({ data: { userId: user.id, ...splitData(item, definition.fields) } });
+            for (const { item, section } of grouped[collection] || []) {
+              const recordData = splitData(item, definition.fields);
+              recordData.extra = { ...(recordData.extra || {}), profileSection: section };
+              await modelForGroup.create({ data: { userId: user.id, ...recordData } });
             }
           }
         });
