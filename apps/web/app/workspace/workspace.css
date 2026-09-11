@@ -328,3 +328,17 @@
 @media (max-width: 980px) {
   .linkedin-profile-page .profile-public-secondary { position: static; }
 }
+
+/* A quiet anchor card below the sticky rail for jumping back to the first profile section. */
+.profile-sticky-outline { padding: 16px 17px; border: 1px solid #e6edf6; border-radius: 13px; background: rgba(255, 255, 255, .52); }
+.profile-outline-heading { display: flex; justify-content: space-between; gap: 10px; color: #9aa8b9; font-size: 10px; letter-spacing: .04em; }
+.profile-outline-link { display: grid; grid-template-columns: 25px minmax(0, 1fr) 17px; align-items: center; gap: 10px; width: 100%; margin-top: 14px; padding: 10px 0 2px; border: 0; border-top: 1px solid #edf2f8; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.profile-outline-index { color: #9eb1c8; font-size: 10px; letter-spacing: .08em; }
+.profile-outline-copy { min-width: 0; }
+.profile-outline-copy strong { display: block; color: #526987; font-size: 12px; font-weight: 500; }
+.profile-outline-copy small { display: block; margin-top: 4px; overflow: hidden; color: #a0adbd; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.profile-outline-arrow { color: #7c9ccc; font-size: 15px; text-align: right; }
+.profile-outline-link:focus-visible { outline: 2px solid #7da9e9; outline-offset: 4px; }
+@media (max-width: 980px) {
+  .profile-sticky-outline { margin-top: 0; }
+}
