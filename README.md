@@ -15,13 +15,12 @@
 ## 仓库结构
 
 ```text
-autofill-mvp/       自动填写 MVP
-autofill-reuse/     可复用的 ATS 适配与字段匹配模块
-oss-jobautofill/    开源自动填写实现
-src/                已安装插件源码与分析材料
-tests/              自动填写验证测试
-docs/               产品与架构设计
-scripts/            构建和分析脚本
+apps/web/         Next.js 用户端与官网
+apps/api/         NestJS API 占位
+apps/worker/      异步任务占位
+apps/extension/   浏览器插件占位
+packages/shared/  跨应用共享代码
+docs/             架构与开发环境说明
 ```
 
 ## 规划技术栈
