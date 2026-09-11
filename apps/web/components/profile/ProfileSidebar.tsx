@@ -9,16 +9,24 @@ import {
   type ProfileNavigationClick,
   type ProfileSectionLink,
 } from '../../features/profile/profile-navigation';
+import { parseResumeText, type ResumeDraft } from '../../features/profile/resume-parser';
 
 const RAIL_TOP = 24;
 const RAIL_BOTTOM = 24;
 
-export function ProfileSidebar({ sections }: { sections: ProfileSectionLink[] }) {
+export function ProfileSidebar({ sections, onApplyResumeDraft }: {
+  sections: ProfileSectionLink[];
+  onApplyResumeDraft?: (draft: ResumeDraft) => Promise<void> | void;
+}) {
   const railRef = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const clickedRef = useRef<ProfileNavigationClick | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeId, setActiveId] = useState(sections[0]?.id ?? null);
   const [layout, setLayout] = useState({ columns: 1, rows: Math.max(1, sections.length) });
+  const [resumeDraft, setResumeDraft] = useState<ResumeDraft | null>(null);
+  const [resumeStatus, setResumeStatus] = useState('');
+  const [isApplyingResume, setIsApplyingResume] = useState(false);
 
   useEffect(() => {
     const rail = railRef.current;
@@ -101,6 +109,37 @@ export function ProfileSidebar({ sections }: { sections: ProfileSectionLink[] })
     setActiveId(id);
   };
 
+  const handleResumeFile = async (file?: File) => {
+    if (!file) return;
+    const extension = file.name.toLowerCase().split('.').pop();
+    if (!['txt', 'md', 'markdown'].includes(extension || '')) {
+      setResumeDraft(null);
+      setResumeStatus('已选择文件；PDF 和 Word 解析将在 API 接入后开放。');
+      return;
+    }
+    try {
+      const draft = parseResumeText(await file.text(), file.name);
+      setResumeDraft(draft);
+      setResumeStatus(`已读取 ${file.name}，请确认后保存。`);
+    } catch {
+      setResumeDraft(null);
+      setResumeStatus('文件读取失败，请重新选择。');
+    }
+  };
+
+  const applyResumeDraft = async () => {
+    if (!resumeDraft || !onApplyResumeDraft) return;
+    setIsApplyingResume(true);
+    try {
+      await onApplyResumeDraft(resumeDraft);
+      setResumeStatus('简历内容已保存到资料草稿。');
+    } catch {
+      setResumeStatus('资料保存失败，请确认 API 已启动后重试。');
+    } finally {
+      setIsApplyingResume(false);
+    }
+  };
+
   return (
     <aside className="profile-public-secondary" ref={railRef}>
       <section className="profile-side-card profile-resume-card" id="resume-parser">
@@ -108,7 +147,24 @@ export function ProfileSidebar({ sections }: { sections: ProfileSectionLink[] })
           <div><h2>AI 简历解析</h2></div>
         </div>
         <p>上传 PDF、Word 或 Markdown 简历，生成待确认的资料草稿。</p>
-        <button className="profile-primary-action profile-primary-action--wide" disabled>功能即将开放</button>
+        <input
+          ref={fileInputRef}
+          className="profile-resume-input"
+          type="file"
+          accept=".txt,.md,.markdown,.pdf,.doc,.docx"
+          onChange={(event) => { void handleResumeFile(event.target.files?.[0]); event.currentTarget.value = ''; }}
+        />
+        <button className="profile-secondary-action profile-secondary-action--wide" onClick={() => fileInputRef.current?.click()}>
+          选择简历文件
+        </button>
+        {resumeStatus && <p className="profile-resume-status" role="status">{resumeStatus}</p>}
+        {resumeDraft && <div className="profile-resume-draft">
+          <strong>{resumeDraft.values.name || '未识别姓名'}</strong>
+          <span>{[resumeDraft.values.targetTitles, resumeDraft.values.email].filter(Boolean).join(' · ') || '已生成待确认资料'}</span>
+          <button className="profile-primary-action profile-primary-action--wide" onClick={() => void applyResumeDraft()} disabled={isApplyingResume}>
+            {isApplyingResume ? '保存中…' : '保存到个人资料'}
+          </button>
+        </div>}
       </section>
 
       <nav className="profile-section-map" aria-label="资料目录">

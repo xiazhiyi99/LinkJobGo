@@ -1,6 +1,188 @@
-generator client { provider = "prisma-client-js" }
-datasource db { provider = "postgresql" url = env("DATABASE_URL") }
-model User { id String @id @default(cuid()) email String @unique passwordHash String role String @default("user") emailVerifiedAt DateTime? createdAt DateTime @default(now()) updatedAt DateTime @updatedAt sessions Session[] passwordResetTokens PasswordResetToken[] emailVerificationTokens EmailVerificationToken[] }
-model Session { id String @id @default(cuid()) userId String type String user User @relation(fields:[userId], references:[id], onDelete:Cascade) refreshTokenHash String? expiresAt DateTime revokedAt DateTime? userAgent String? createdAt DateTime @default(now()) }
-model PasswordResetToken { id String @id @default(cuid()) userId String user User @relation(fields:[userId], references:[id], onDelete:Cascade) tokenHash String expiresAt DateTime usedAt DateTime? createdAt DateTime @default(now()) }
-model EmailVerificationToken { id String @id @default(cuid()) userId String user User @relation(fields:[userId], references:[id], onDelete:Cascade) tokenHash String expiresAt DateTime usedAt DateTime? createdAt DateTime @default(now()) }
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                       String                    @id @default(cuid())
+  email                    String                    @unique
+  passwordHash             String
+  role                     String                    @default("user")
+  emailVerifiedAt          DateTime?
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  sessions                 Session[]
+  passwordResetTokens      PasswordResetToken[]
+  emailVerificationTokens  EmailVerificationToken[]
+  profile                  Profile?
+  jobPreference            JobPreference?
+  educations               Education[]
+  experiences              Experience[]
+  projects                 Project[]
+  skills                   Skill[]
+  resumeDocuments          ResumeDocument[]
+}
+
+model Session {
+  id               String   @id @default(cuid())
+  userId           String
+  type             String
+  refreshTokenHash String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  userAgent        String?
+  createdAt        DateTime @default(now())
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, type])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+
+model Profile {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  name             String?
+  avatarUrl        String?
+  phone            String?
+  city             String?
+  personalWebsite   String?
+  githubUrl        String?
+  portfolioUrl     String?
+  gender           String?
+  birthday         String?
+  homeCity         String?
+  homeDistrict     String?
+  schoolCity       String?
+  address          String?
+  politicalStatus  String?
+  nationality      String?
+  workExperience   String?
+  interests        String?
+  selfIntroduction String?
+  extra            Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model JobPreference {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  targetTitles      String?
+  targetCities      String?
+  employmentType    String?
+  targetIndustries  String?
+  availableFrom     String?
+  salaryExpectation String?
+  relocation        String?
+  preferenceNote    String?
+  extra             Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Education {
+  id          String    @id @default(cuid())
+  userId      String
+  school      String?
+  degree      String?
+  major       String?
+  startDate   String?
+  endDate     String?
+  current     Boolean   @default(false)
+  gpa         String?
+  courses     String?
+  extra       Json?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, deletedAt])
+}
+
+model Experience {
+  id          String    @id @default(cuid())
+  userId      String
+  company     String?
+  title       String?
+  city        String?
+  startDate   String?
+  endDate     String?
+  current     Boolean   @default(false)
+  description String?
+  extra       Json?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, deletedAt])
+}
+
+model Project {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String?
+  role        String?
+  startDate   String?
+  endDate     String?
+  url         String?
+  description String?
+  extra       Json?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, deletedAt])
+}
+
+model Skill {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String?
+  level       String?
+  certificate String?
+  issuer      String?
+  obtainedAt  String?
+  extra       Json?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, deletedAt])
+}
+
+model ResumeDocument {
+  id          String   @id @default(cuid())
+  userId      String
+  filename    String
+  contentType String
+  content     String
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+}

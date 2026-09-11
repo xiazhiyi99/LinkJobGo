@@ -1,8 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { WorkspaceHeader } from '../../../components/workspace/WorkspaceHeader';
 import { ProfileSidebar } from '../../../components/profile/ProfileSidebar';
+import { getProfile, updateProfile, updateProfilePreferences, uploadResume, type ProfilePayload } from '../../../features/profile/profile-api';
+import type { ResumeDraft } from '../../../features/profile/resume-parser';
 import { validateProfile } from '../../../features/profile/profile-validation';
 
 type FieldKind = 'text' | 'email' | 'tel' | 'url' | 'date' | 'number' | 'select' | 'textarea';
@@ -168,6 +170,56 @@ const repeatSections: SectionDefinition[] = [
 const allSections = [...singleSections, ...repeatSections];
 const blankRecord = (fields: FieldSpec[]): ProfileRecord => ({ id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, ...Object.fromEntries(fields.map((field) => [field.key, ''])) });
 const cloneRecords = (records: Record<string, ProfileRecord[]>) => Object.fromEntries(Object.entries(records).map(([key, value]) => [key, value.map((item) => ({ ...item }))]));
+const textValue = (value: unknown) => Array.isArray(value) ? value.join('、') : typeof value === 'string' ? value : value == null ? '' : String(value);
+const recordValue = (value: unknown): ProfileRecord => {
+  const source = (value || {}) as Record<string, unknown>;
+  return { id: textValue(source.id) || `server-${Math.random().toString(16).slice(2)}`, ...Object.fromEntries(Object.entries(source).filter(([key]) => key !== 'id').map(([key, item]) => [key, textValue(item)])) };
+};
+const recordsValue = (value: unknown, currentLabels?: { active: string; inactive: string }) => Array.isArray(value)
+  ? value.map((item) => {
+    const record = recordValue(item);
+    if (currentLabels && typeof (item as Record<string, unknown>)?.current === 'boolean') {
+      record.current = (item as Record<string, unknown>).current ? currentLabels.active : currentLabels.inactive;
+    }
+    return record;
+  })
+  : [];
+
+function hydrateProfile(payload: ProfilePayload) {
+  const source = ((payload as Record<string, unknown>).data as ProfilePayload | undefined) || payload;
+  const profile = ((source.profile || source) || {}) as Record<string, unknown>;
+  const preferences = (source.preferences || {}) as Record<string, unknown>;
+  const values: Record<string, string> = {
+    name: textValue(profile.name), phone: textValue(profile.phone), email: textValue(profile.email),
+    homeCity: textValue(profile.city || profile.homeCity), website: textValue(profile.personalWebsite || profile.website),
+    github: textValue(profile.githubUrl || profile.github), selfIntroduction: textValue(profile.selfIntroduction),
+    targetTitles: textValue(preferences.targetTitles), targetCities: textValue(preferences.targetCities),
+    targetIndustries: textValue(preferences.targetIndustries), employmentType: textValue(preferences.employmentType),
+    availableFrom: textValue(preferences.availableFrom), salaryExpectation: textValue(preferences.salaryExpectation),
+  };
+  const records: Record<string, ProfileRecord[]> = {
+    教育经历: recordsValue(source.educations, { active: '在读', inactive: '已毕业' }),
+    '工作/实习经历': recordsValue(source.experiences, { active: '在职', inactive: '已离职' }),
+    项目经历: recordsValue(source.projects),
+    '证书信息': recordsValue(source.skills),
+  };
+  return { values, records };
+}
+
+function toApiProfile(values: Record<string, string>) {
+  return {
+    name: values.name || '', phone: values.phone || '', city: values.homeCity || '',
+    personalWebsite: values.website || '', githubUrl: values.github || '', selfIntroduction: values.selfIntroduction || '',
+  };
+}
+
+function toApiPreferences(values: Record<string, string>) {
+  return {
+    targetTitles: values.targetTitles || '', targetCities: values.targetCities || '',
+    targetIndustries: values.targetIndustries || '', employmentType: values.employmentType || '',
+    availableFrom: values.availableFrom || '', salaryExpectation: values.salaryExpectation || '',
+  };
+}
 
 function FormField({ field, value, onChange }: { field: FieldSpec; value: string; onChange: (value: string) => void }) {
   const common = { value, onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => onChange(event.target.value), placeholder: field.placeholder, readOnly: field.readOnly };
@@ -187,6 +239,7 @@ export default function ProfilePage() {
   const [draftRecords, setDraftRecords] = useState<Record<string, ProfileRecord[]>>({});
   const [removed, setRemoved] = useState<RemovedItem[]>([]);
   const [message, setMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
   const progress = useMemo(() => {
     const total = allSections.reduce((sum, section) => sum + section.fields.length, 0);
     const filledSingles = Object.values(values).filter(Boolean).length;
@@ -195,11 +248,42 @@ export default function ProfilePage() {
   }, [values, records]);
 
   const notify = (text: string) => { setMessage(text); window.setTimeout(() => setMessage(''), 2200); };
+  useEffect(() => {
+    let cancelled = false;
+    getProfile().then((payload) => {
+      if (cancelled) return;
+      const hydrated = hydrateProfile(payload);
+      setValues((current) => ({ ...current, ...hydrated.values }));
+      setRecords(hydrated.records);
+    }).catch((error) => {
+      if (!cancelled && error?.status !== 401) notify('资料服务暂不可用，当前可继续编辑本地草稿');
+    }).finally(() => { if (!cancelled) setIsLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
   const beginEdit = (section: SectionDefinition) => { setEditing(section.title); setDraftValues({ ...values }); setDraftRecords(cloneRecords(records)); setRemoved([]); };
   const cancelEdit = () => { setEditing(null); setRemoved([]); };
-  const save = (section: SectionDefinition) => {
+  const save = async (section: SectionDefinition) => {
     if (section.title === '基本信息') { const errors = validateProfile({ name: draftValues.name || '' }); if (errors.name) { notify(errors.name); return; } }
     setValues({ ...draftValues }); setRecords(cloneRecords(draftRecords)); setEditing(null); setRemoved([]); notify('已保存');
+    try {
+      if (section.title === '求职意向') await updateProfilePreferences(toApiPreferences(draftValues));
+      else await updateProfile({ profile: toApiProfile(draftValues), preferences: toApiPreferences(draftValues), records: draftRecords });
+    } catch (error) {
+      notify(error?.status === 401 ? '请先登录后再同步资料' : '已保存本地草稿，服务暂不可用');
+    }
+  };
+
+  const applyResumeDraft = async (draft: ResumeDraft) => {
+    const nextValues = { ...values, ...draft.values };
+    const nextRecords = cloneRecords({ ...records, ...Object.fromEntries(Object.entries(draft.records).map(([key, items]) => [key, items.map(recordValue)])) });
+    setValues(nextValues);
+    setRecords(nextRecords);
+    try {
+      await updateProfile({ profile: toApiProfile(nextValues), preferences: toApiPreferences(nextValues), records: nextRecords, source: draft.sourceName });
+      await uploadResume({ filename: draft.sourceName, contentType: 'text/plain', content: draft.sourceText });
+    } catch (error) {
+      throw error;
+    }
   };
   const addRecord = (section: SectionDefinition) => {
     const nextRecords = cloneRecords(editing === section.title ? draftRecords : records);
@@ -222,7 +306,7 @@ export default function ProfilePage() {
 
   return <div className="workspace-content profile-page linkedin-profile-page">
     <WorkspaceHeader title="个人资料" />
-    <main className="profile-public">
+    <main className="profile-public" aria-busy={isLoading}>
       <section className="profile-hero">
         <div className="profile-cover"><div className="profile-cover-orb" /><div className="profile-cover-lines" /></div>
         <div className="profile-identity-card">
@@ -258,7 +342,10 @@ export default function ProfilePage() {
             </section>;
           })}
         </div>
-        <ProfileSidebar sections={allSections.map((section, sectionIndex) => ({ id: `profile-section-${sectionIndex}`, title: section.title, description: section.eyebrow }))} />
+        <ProfileSidebar
+          sections={allSections.map((section, sectionIndex) => ({ id: `profile-section-${sectionIndex}`, title: section.title, description: section.eyebrow }))}
+          onApplyResumeDraft={applyResumeDraft}
+        />
       </div>
     </main>
     {message && <div className="profile-toast">{message}</div>}
