@@ -1,0 +1,2 @@
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+export async function apiRequest<T>(path: string, init: RequestInit = {}) { const response=await fetch(`${API_URL}${path}`,{...init,credentials:'include',headers:{'content-type':'application/json',...(init.headers||{})}}); const data=await response.json(); if(!response.ok) throw new Error(data.error||'请求失败'); return data as T; }
