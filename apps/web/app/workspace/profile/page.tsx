@@ -246,10 +246,10 @@ export default function ProfilePage() {
 
       <div className="profile-public-layout">
         <div className="profile-public-primary">
-          {allSections.map((section) => {
+          {allSections.map((section, sectionIndex) => {
             const isEditing = editing === section.title;
             const sectionRecords = isEditing ? draftRecords[section.title] || [] : records[section.title] || [];
-            return <section id={section.title === '基本信息' ? 'basic-info' : undefined} className={`profile-section profile-public-section profile-section--${section.kind}`} key={section.title}>
+            return <section id={`profile-section-${sectionIndex}`} className={`profile-section profile-public-section profile-section--${section.kind}`} key={section.title}>
               <header><div><span className="profile-kicker">{section.eyebrow}</span><h3>{section.title}</h3><p className="profile-section-description">{section.description}</p></div><div className="profile-actions">{isEditing && <button className="profile-button profile-button--quiet" onClick={cancelEdit}>取消</button>}<button className="profile-button" onClick={() => isEditing ? save(section) : beginEdit(section)}>{isEditing ? '保存' : '编辑'}</button></div></header>
               {section.kind === 'single' ? (isEditing ? <div className="profile-form">{section.fields.map((field) => <FormField key={field.key} field={field} value={draftValues[field.key] || ''} onChange={(value) => setDraftValues((current) => ({ ...current, [field.key]: value }))} />)}</div> : <div className="profile-read-grid">{section.fields.map((field) => <div className={`profile-read-item profile-read-item--${field.span || 'half'}`} key={field.key}><span>{field.label}</span><strong>{values[field.key] || '未填写'}</strong></div>)}</div>) : <>
                 {isEditing && <div className="profile-form profile-form--repeat">{sectionRecords.map((item) => <div className="profile-record" key={item.id}><div className="profile-record-heading"><span>经历条目</span><button className="profile-remove" onClick={() => removeRecord(section.title, item.id)}>移除</button></div><div className="profile-form">{section.fields.map((field) => <FormField key={field.key} field={field} value={item[field.key] || ''} onChange={(value) => setDraftRecords((current) => ({ ...current, [section.title]: (current[section.title] || []).map((entry) => entry.id === item.id ? { ...entry, [field.key]: value } : entry) }))} />)}</div></div>)}</div>}
@@ -263,7 +263,7 @@ export default function ProfilePage() {
         </div>
         <aside className="profile-public-secondary">
           <section className="profile-side-card profile-resume-card" id="resume-parser"><div className="profile-card-heading"><div><span className="profile-overline">简历管理</span><h2>AI 简历解析</h2></div><span className="coming-soon">即将开放</span></div><p>上传 PDF、Word 或 Markdown 简历，生成待确认的资料草稿。</p><button className="profile-primary-action profile-primary-action--wide" disabled>功能即将开放</button></section>
-          <section className="profile-sticky-outline"><div className="profile-outline-heading"><span>快速定位</span><span>资料目录</span></div><button className="profile-outline-link" onClick={() => document.getElementById('basic-info')?.scrollIntoView()}><span className="profile-outline-index">01</span><span className="profile-outline-copy"><strong>基本信息</strong><small>姓名、联系方式、所在地</small></span><span className="profile-outline-arrow" aria-hidden="true">↗</span></button></section>
+          <section className="profile-section-map"><div className="profile-outline-heading"><span>资料目录</span><span>{allSections.length} 个分区</span></div><div className="profile-map-list">{allSections.map((section, sectionIndex) => <button className="profile-map-item" key={section.title} onClick={() => document.getElementById(`profile-section-${sectionIndex}`)?.scrollIntoView()}><span className="profile-map-node"><span>{String(sectionIndex + 1).padStart(2, '0')}</span></span><span className="profile-map-copy"><strong>{section.title}</strong><small>{section.eyebrow}</small></span><span className="profile-map-arrow" aria-hidden="true">→</span></button>)}</div></section>
         </aside>
       </div>
     </main>

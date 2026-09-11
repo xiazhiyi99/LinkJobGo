@@ -342,3 +342,21 @@
 @media (max-width: 980px) {
   .profile-sticky-outline { margin-top: 0; }
 }
+
+/* Section map: a quiet vertical timeline for every profile card. */
+.profile-section-map { padding: 17px 17px 13px; border: 1px solid #e6edf6; border-radius: 13px; background: rgba(255, 255, 255, .52); }
+.profile-section-map .profile-outline-heading { display: flex; justify-content: space-between; gap: 10px; color: #9aa8b9; font-size: 10px; letter-spacing: .04em; }
+.profile-map-list { position: relative; margin-top: 12px; }
+.profile-map-list::before { position: absolute; top: 17px; bottom: 17px; left: 14px; width: 1px; background: #dbe7f5; content: ''; }
+.profile-map-item { position: relative; display: grid; grid-template-columns: 29px minmax(0, 1fr) 15px; align-items: center; gap: 8px; width: 100%; min-height: 48px; padding: 5px 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.profile-map-node { position: relative; z-index: 1; display: grid; place-items: center; width: 29px; height: 29px; border: 1px solid #cfe0f4; border-radius: 50%; background: #fff; color: #7795bd; font-size: 9px; letter-spacing: .04em; }
+.profile-map-copy { min-width: 0; }
+.profile-map-copy strong { display: block; overflow: hidden; color: #526987; font-size: 11px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.profile-map-copy small { display: block; margin-top: 3px; overflow: hidden; color: #a0adbd; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.profile-map-arrow { color: #92aaca; font-size: 13px; text-align: right; }
+.profile-map-item:hover .profile-map-node { border-color: #7da9e9; color: #0755c7; }
+.profile-map-item:hover .profile-map-copy strong { color: #0755c7; }
+.profile-map-item:focus-visible { outline: 2px solid #7da9e9; outline-offset: 3px; }
+@media (max-width: 980px) {
+  .profile-section-map { margin-top: 0; }
+}
