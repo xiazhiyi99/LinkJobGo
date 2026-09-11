@@ -1,6 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { WorkspaceHeader } from '../../../components/workspace/WorkspaceHeader';
 import { validateProfile } from '../../../features/profile/profile-validation';
 
@@ -173,9 +175,9 @@ function FormField({ field, value, onChange }: { field: FieldSpec; value: string
   return <label className={`profile-field profile-field--${field.span || 'half'}`}><span>{field.label}</span>{field.kind === 'textarea' ? <textarea {...common} rows={field.rows || 4} /> : field.kind === 'select' ? <select {...common}>{field.options?.map((option) => <option key={option} value={option === '请选择' || option.startsWith('请选择') ? '' : option}>{option}</option>)}</select> : <input {...common} type={field.kind || 'text'} />}</label>;
 }
 
-function RecordPreview({ item, fields }: { item: ProfileRecord; fields: FieldSpec[] }) {
+function RecordPreview({ item, fields, index }: { item: ProfileRecord; fields: FieldSpec[]; index: number }) {
   const preview = fields.filter((field) => item[field.key]).slice(0, 4);
-  return <div className="profile-record-preview"><div className="profile-record-index">{String(fields.length ? 1 : 0).padStart(2, '0')}</div><div className="profile-record-summary">{preview.length ? preview.map((field) => <div key={field.key}><span>{field.label}</span><strong>{item[field.key]}</strong></div>) : <span className="profile-empty">尚未填写内容</span>}</div></div>;
+  return <div className="profile-record-preview"><div className="profile-record-index">{String(index + 1).padStart(2, '0')}</div><div className="profile-record-summary">{preview.length ? preview.map((field) => <div key={field.key}><span>{field.label}</span><strong>{item[field.key]}</strong></div>) : <span className="profile-empty">尚未填写内容</span>}</div></div>;
 }
 
 export default function ProfilePage() {
@@ -186,6 +188,18 @@ export default function ProfilePage() {
   const [draftRecords, setDraftRecords] = useState<Record<string, ProfileRecord[]>>({});
   const [removed, setRemoved] = useState<RemovedItem[]>([]);
   const [message, setMessage] = useState('');
+  const profileRef = useRef<HTMLElement>(null);
+
+  useLayoutEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+    const context = gsap.context(() => {
+      gsap.fromTo('.profile-hero-portrait', { scale: 0.8, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.8, ease: 'power3.out' });
+      gsap.fromTo('.profile-intro-grid .profile-stack-card', { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, stagger: 0.08, ease: 'power2.out', scrollTrigger: { trigger: '.profile-intro-grid', start: 'top 84%', toggleActions: 'play none none reverse' } });
+      gsap.fromTo('.profile-public-layout .profile-stack-card', { y: 28, scale: 0.96, opacity: 0 }, { y: 0, scale: 1, opacity: 1, duration: 0.65, stagger: 0.06, ease: 'power2.out', scrollTrigger: { trigger: '.profile-public-layout', start: 'top 80%', toggleActions: 'play none none reverse' } });
+      gsap.to('.profile-cover-orb', { yPercent: 18, ease: 'none', scrollTrigger: { trigger: '.profile-hero', start: 'top top', end: 'bottom top', scrub: true } });
+    }, profileRef);
+    return () => context.revert();
+  }, []);
 
   const progress = useMemo(() => {
     const total = allSections.reduce((sum, section) => sum + section.fields.length, 0);
@@ -215,26 +229,60 @@ export default function ProfilePage() {
   };
   const undoRecord = (index: number) => { const entry = removed[index]; if (!entry) return; setDraftRecords((current) => ({ ...current, [entry.section]: [...(current[entry.section] || []), entry.item] })); setRemoved((current) => current.filter((_, itemIndex) => itemIndex !== index)); };
 
-  return <div className="workspace-content profile-page">
+  const displayName = values.name || '林同学';
+  const headline = values.targetTitles || '把经历整理成下一次机会';
+  const location = values.homeCity || '中国 · 开放求职中';
+  const about = values.selfIntroduction || '还没有写下自我介绍。用一段简洁的话，让招聘方快速了解你的方向、能力和正在寻找的机会。';
+  const interestTags = (values.targetTitles || '').split(/[，,、]/).map((item) => item.trim()).filter(Boolean).slice(0, 5);
+  const savedExperienceCount = Object.values(records).flat().length;
+
+  return <div className="workspace-content profile-page linkedin-profile-page">
     <WorkspaceHeader title="个人资料" />
-    <div className="profile-toolbar"><div><span className="workspace-eyebrow">求职资料</span><h2>个人资料</h2><p>集中管理网申中常用的个人信息和经历。</p></div><div className="profile-progress"><span>资料完成度</span><strong>{progress}%</strong><i><b style={{ width: `${progress}%` }} /></i></div></div>
+    <main className="profile-public" ref={profileRef}>
+      <section className="profile-hero profile-stack-card">
+        <div className="profile-cover"><div className="profile-cover-orb" /><div className="profile-cover-lines" /></div>
+        <div className="profile-identity-card">
+          <div className="profile-avatar profile-hero-portrait">{displayName.slice(0, 1)}</div>
+          <div className="profile-identity-main">
+            <span className="profile-overline">个人主页</span>
+            <h1>{displayName}</h1>
+            <p>{headline} <span>·</span> 领客求职者</p>
+            <div className="profile-location">{location}</div>
+            <div className="profile-hero-actions"><button className="profile-primary-action" onClick={() => beginEdit(singleSections[0])}>编辑资料</button><button className="profile-secondary-action" onClick={() => document.getElementById('resume-parser')?.scrollIntoView({ behavior: 'smooth' })}>简历解析</button></div>
+          </div>
+          <div className="profile-hero-progress"><span>资料完成度</span><strong>{progress}%</strong><i><b style={{ width: `${progress}%` }} /></i><small>持续完善，让每次投递都更准确</small></div>
+        </div>
+      </section>
+
+      <section className="profile-intro-grid">
+        <article className="profile-about-card profile-stack-card"><div className="profile-card-heading"><div><span className="profile-overline">关于我</span><h2>让经历有清晰的方向</h2></div><button className="profile-text-action" onClick={() => beginEdit(allSections.find((section) => section.title === '自我介绍') || singleSections[0])}>编辑</button></div><p>{about}</p></article>
+        <article className="profile-snapshot-card profile-stack-card"><div className="profile-card-heading"><span className="profile-overline">资料概览</span><span className="profile-verified">已同步</span></div><div className="profile-snapshot-grid"><div><strong>{Object.values(values).filter(Boolean).length}</strong><span>已填写字段</span></div><div><strong>{savedExperienceCount}</strong><span>经历条目</span></div><div><strong>{interestTags.length || 0}</strong><span>求职方向</span></div></div></article>
+      </section>
+
+      <div className="profile-public-layout">
+        <div className="profile-public-primary">
+          {allSections.map((section) => {
+            const isEditing = editing === section.title;
+            const sectionRecords = isEditing ? draftRecords[section.title] || [] : records[section.title] || [];
+            return <section className={`profile-section profile-public-section profile-stack-card profile-section--${section.kind}`} key={section.title}>
+              <header><div><span className="profile-kicker">{section.eyebrow}</span><h3>{section.title}</h3><p className="profile-section-description">{section.description}</p></div><div className="profile-actions">{isEditing && <button className="profile-button profile-button--quiet" onClick={cancelEdit}>取消</button>}<button className="profile-button" onClick={() => isEditing ? save(section) : beginEdit(section)}>{isEditing ? '保存' : '编辑'}</button></div></header>
+              {section.kind === 'single' ? (isEditing ? <div className="profile-form">{section.fields.map((field) => <FormField key={field.key} field={field} value={draftValues[field.key] || ''} onChange={(value) => setDraftValues((current) => ({ ...current, [field.key]: value }))} />)}</div> : <div className="profile-read-grid">{section.fields.map((field) => <div className={`profile-read-item profile-read-item--${field.span || 'half'}`} key={field.key}><span>{field.label}</span><strong>{values[field.key] || '未填写'}</strong></div>)}</div>) : <>
+                {isEditing && <div className="profile-form profile-form--repeat">{sectionRecords.map((item) => <div className="profile-record" key={item.id}><div className="profile-record-heading"><span>经历条目</span><button className="profile-remove" onClick={() => removeRecord(section.title, item.id)}>移除</button></div><div className="profile-form">{section.fields.map((field) => <FormField key={field.key} field={field} value={item[field.key] || ''} onChange={(value) => setDraftRecords((current) => ({ ...current, [section.title]: (current[section.title] || []).map((entry) => entry.id === item.id ? { ...entry, [field.key]: value } : entry) }))} />)}</div></div>)}</div>}
+                {!isEditing && sectionRecords.map((item, index) => <RecordPreview key={item.id} item={item} fields={section.fields} index={index} />)}
+                {!sectionRecords.length && !isEditing && <div className="profile-empty-state">还没有添加{section.title}，从一条经历开始。</div>}
+                {isEditing && removed.filter((entry) => entry.section === section.title).map((entry) => <div className="profile-undo" key={entry.item.id}>已移除一条记录<button onClick={() => undoRecord(removed.findIndex((item) => item.item.id === entry.item.id))}>撤销</button></div>)}
+                <button className="add-profile" onClick={() => addRecord(section)}>＋ 添加{section.title}</button>
+              </>}
+            </section>;
+          })}
+        </div>
+        <aside className="profile-public-secondary">
+          <section className="profile-side-card profile-stack-card"><div className="profile-card-heading"><div><span className="profile-overline">方向</span><h2>正在寻找</h2></div><button className="profile-text-action" onClick={() => beginEdit(singleSections[1])}>编辑</button></div>{interestTags.length ? <div className="profile-interest-list">{interestTags.map((tag) => <span key={tag}>{tag}</span>)}</div> : <p className="profile-side-empty">添加期望职位后，这里会显示你的求职方向。</p>}</section>
+          <section className="profile-side-card profile-stack-card"><div className="profile-card-heading"><div><span className="profile-overline">资料状态</span><h2>让主页更完整</h2></div></div><div className="profile-completion-line"><span><i style={{ width: `${progress}%` }} /></span><strong>{progress}%</strong></div><p>补齐教育、经历和作品链接，方便后续自动填写网申。</p><button className="profile-secondary-action profile-secondary-action--wide" onClick={() => beginEdit(singleSections[0])}>继续完善资料</button></section>
+          <section className="profile-side-card profile-stack-card profile-resume-card" id="resume-parser"><div className="profile-card-heading"><div><span className="profile-overline">简历管理</span><h2>AI 简历解析</h2></div><span className="coming-soon">即将开放</span></div><p>上传 PDF、Word 或 Markdown 简历，生成待确认的资料草稿。</p><button className="profile-primary-action profile-primary-action--wide" disabled>功能即将开放</button></section>
+        </aside>
+      </div>
+    </main>
     {message && <div className="profile-toast">{message}</div>}
-    <div className="profile-sections">
-      {allSections.map((section) => {
-        const isEditing = editing === section.title;
-        const sectionRecords = isEditing ? draftRecords[section.title] || [] : records[section.title] || [];
-        return <section className="profile-section" key={section.title}>
-          <header><div><span className="profile-kicker">{section.eyebrow}</span><h3>{section.title}</h3><p className="profile-section-description">{section.description}</p></div><div className="profile-actions">{isEditing && <button className="profile-button profile-button--quiet" onClick={cancelEdit}>取消</button>}<button className="profile-button" onClick={() => isEditing ? save(section) : beginEdit(section)}>{isEditing ? '保存' : '编辑'}</button></div></header>
-          {section.kind === 'single' ? (isEditing ? <div className="profile-form">{section.fields.map((field) => <FormField key={field.key} field={field} value={draftValues[field.key] || ''} onChange={(value) => setDraftValues((current) => ({ ...current, [field.key]: value }))} />)}</div> : <div className="profile-read-grid">{section.fields.map((field) => <div className={`profile-read-item profile-read-item--${field.span || 'half'}`} key={field.key}><span>{field.label}</span><strong>{values[field.key] || '未填写'}</strong></div>)}</div>) : <>
-            {isEditing && <div className="profile-form profile-form--repeat">{sectionRecords.map((item) => <div className="profile-record" key={item.id}><div className="profile-record-heading"><span>经历条目</span><button className="profile-remove" onClick={() => removeRecord(section.title, item.id)}>移除</button></div><div className="profile-form">{section.fields.map((field) => <FormField key={field.key} field={field} value={item[field.key] || ''} onChange={(value) => setDraftRecords((current) => ({ ...current, [section.title]: (current[section.title] || []).map((entry) => entry.id === item.id ? { ...entry, [field.key]: value } : entry) }))} />)}</div></div>)}</div>}
-            {!isEditing && sectionRecords.map((item) => <RecordPreview key={item.id} item={item} fields={section.fields} />)}
-            {!sectionRecords.length && !isEditing && <div className="profile-empty-state">还没有添加{section.title}，从一条经历开始。</div>}
-            {isEditing && removed.filter((entry) => entry.section === section.title).map((entry) => <div className="profile-undo" key={entry.item.id}>已移除一条记录<button onClick={() => undoRecord(removed.findIndex((item) => item.item.id === entry.item.id))}>撤销</button></div>)}
-            <button className="add-profile" onClick={() => addRecord(section)}>＋ 添加{section.title}</button>
-          </>}
-        </section>;
-      })}
-      <section className="profile-section resume-placeholder"><header><div><span className="profile-kicker">简历解析</span><h3>AI 简历解析</h3><p className="profile-section-description">上传简历后自动提取候选资料，确认后再写入个人资料。</p></div><span className="coming-soon">即将开放</span></header><div className="resume-dropzone"><span>PDF / DOCX / MD</span><strong>点击或拖动上传简历</strong><small>解析功能正在准备中，本版本不会上传或解析文件。</small></div></section>
-    </div>
   </div>;
 }

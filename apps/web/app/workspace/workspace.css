@@ -184,3 +184,87 @@
 .profile-record-heading > button {
   white-space: nowrap;
 }
+
+/* LinkedIn-inspired personal profile */
+.linkedin-profile-page { padding-top: 26px; }
+.profile-public { width: 100%; max-width: 1160px; margin: 0 auto; overflow-x: hidden; }
+.profile-hero { position: relative; overflow: hidden; border: 1px solid #dce5f1; border-radius: 24px; background: #fff; box-shadow: 0 18px 50px rgba(30, 67, 120, .07); }
+.profile-cover { position: relative; height: 174px; overflow: hidden; background-image: linear-gradient(105deg, rgba(4, 70, 170, .92), rgba(29, 112, 220, .72)), url('https://picsum.photos/seed/lingke-profile-cover/1920/460'); background-size: cover; background-position: center; }
+.profile-cover-orb { position: absolute; top: -120px; right: 15%; width: 370px; height: 370px; border: 1px solid rgba(255, 255, 255, .22); border-radius: 50%; box-shadow: 0 0 0 28px rgba(255, 255, 255, .05), 0 0 0 56px rgba(255, 255, 255, .035); }
+.profile-cover-lines { position: absolute; inset: 0; opacity: .34; background-image: linear-gradient(115deg, transparent 0 48%, rgba(255, 255, 255, .2) 48.2% 48.5%, transparent 48.7%), linear-gradient(65deg, transparent 0 72%, rgba(255, 255, 255, .16) 72.2% 72.5%, transparent 72.7%); background-size: 360px 260px, 420px 300px; }
+.profile-identity-card { position: relative; display: grid; grid-template-columns: 108px minmax(0, 1fr) 180px; gap: 24px; align-items: center; padding: 0 34px 32px; }
+.profile-avatar { display: grid; place-items: center; width: 108px; height: 108px; margin-top: -54px; border: 5px solid #fff; border-radius: 50%; background: linear-gradient(145deg, #dceaff, #75a7eb); box-shadow: 0 10px 24px rgba(19, 64, 130, .16); color: #0755c7; font-size: 42px; font-weight: 650; letter-spacing: -.12em; }
+.profile-identity-main { min-width: 0; padding-top: 26px; }
+.profile-overline { display: block; color: #7e8da4; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+.profile-identity-main h1 { max-width: 48rem; margin: 5px 0 7px; color: #162947; font-size: clamp(2.2rem, 4vw, 4.5rem); line-height: .98; letter-spacing: -.075em; font-weight: 620; }
+.profile-identity-main p { margin: 0; color: #3e5575; font-size: 14px; line-height: 1.6; }
+.profile-identity-main p span { padding: 0 5px; color: #9db3d0; }
+.profile-location { margin-top: 9px; color: #8192a9; font-size: 12px; }
+.profile-hero-actions { display: flex; gap: 9px; margin-top: 20px; }
+.profile-primary-action, .profile-secondary-action { min-height: 36px; padding: 0 15px; border-radius: 7px; font: inherit; font-size: 12px; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, background .18s ease; }
+.profile-primary-action { border: 1px solid #0755c7; background: #0755c7; color: #fff; box-shadow: 0 8px 18px rgba(7, 85, 199, .18); }
+.profile-primary-action:hover { transform: translateY(-2px); box-shadow: 0 11px 22px rgba(7, 85, 199, .25); }
+.profile-secondary-action { border: 1px solid #c4d6ef; background: #fff; color: #0755c7; }
+.profile-secondary-action:hover { transform: translateY(-2px); background: #f3f7ff; }
+.profile-primary-action--wide, .profile-secondary-action--wide { width: 100%; }
+.profile-primary-action:disabled { cursor: default; opacity: .72; }
+.profile-hero-progress { align-self: end; padding: 17px; border-left: 1px solid #e4ebf5; }
+.profile-hero-progress span { display: block; color: #7e8da4; font-size: 11px; }
+.profile-hero-progress strong { display: block; margin: 5px 0 10px; color: #0755c7; font-size: 30px; letter-spacing: -.06em; }
+.profile-hero-progress i { display: block; width: 100%; height: 5px; overflow: hidden; border-radius: 99px; background: #e4edf9; }
+.profile-hero-progress i b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #0755c7, #4f9af6); }
+.profile-hero-progress small { display: block; margin-top: 10px; color: #8b9aaf; font-size: 10px; line-height: 1.5; }
+.profile-intro-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-flow: dense; gap: 16px; margin: 18px 0; }
+.profile-about-card, .profile-snapshot-card, .profile-side-card { border: 1px solid #dce5f1; border-radius: 16px; background: #fff; box-shadow: 0 10px 32px rgba(30, 67, 120, .045); }
+.profile-about-card { grid-column: span 7; padding: 25px 28px; }
+.profile-snapshot-card { grid-column: span 5; padding: 25px 26px; }
+.profile-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.profile-card-heading h2 { margin: 5px 0 0; color: #1c3150; font-size: 20px; letter-spacing: -.045em; font-weight: 600; }
+.profile-about-card > p { max-width: 680px; margin: 20px 0 0; color: #62748e; font-size: 13px; line-height: 1.9; }
+.profile-text-action { border: 0; background: transparent; color: #0755c7; font: inherit; font-size: 11px; cursor: pointer; }
+.profile-verified { color: #18835a; font-size: 10px; }
+.profile-snapshot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 28px; }
+.profile-snapshot-grid strong { display: block; color: #1e3657; font-size: 26px; letter-spacing: -.06em; }
+.profile-snapshot-grid span { display: block; margin-top: 4px; color: #8090a5; font-size: 10px; }
+.profile-public-layout { display: grid; grid-template-columns: minmax(0, 7fr) minmax(270px, 5fr); grid-auto-flow: dense; gap: 16px; align-items: start; }
+.profile-public-primary, .profile-public-secondary { display: grid; gap: 16px; min-width: 0; }
+.profile-public-section { box-shadow: 0 10px 32px rgba(30, 67, 120, .045); }
+.profile-public-section .profile-kicker { color: #7792b7; }
+.profile-public-section .profile-section-description { max-width: 540px; }
+.profile-public-secondary { position: sticky; top: 24px; }
+.profile-side-card { padding: 23px 24px; }
+.profile-interest-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.profile-interest-list span { padding: 8px 11px; border: 1px solid #d5e3f8; border-radius: 7px; background: #f4f8ff; color: #2765ad; font-size: 11px; }
+.profile-side-empty { margin: 20px 0 0; color: #8796aa; font-size: 12px; line-height: 1.7; }
+.profile-completion-line { display: flex; align-items: center; gap: 12px; margin-top: 24px; }
+.profile-completion-line > span { flex: 1; height: 6px; overflow: hidden; border-radius: 99px; background: #e2ebf7; }
+.profile-completion-line > span i { display: block; height: 100%; border-radius: inherit; background: #2e79d5; }
+.profile-completion-line strong { color: #0755c7; font-size: 15px; }
+.profile-side-card > p { margin: 15px 0 20px; color: #7a8ba2; font-size: 12px; line-height: 1.8; }
+.profile-resume-card { background: linear-gradient(140deg, #f5f9ff, #fff); }
+.profile-resume-card .coming-soon { color: #7190bb; font-size: 10px; }
+@media (max-width: 980px) {
+  .profile-identity-card { grid-template-columns: 92px minmax(0, 1fr); }
+  .profile-avatar { width: 92px; height: 92px; font-size: 36px; }
+  .profile-hero-progress { grid-column: 2; padding: 0; border-left: 0; }
+  .profile-hero-progress small { display: none; }
+  .profile-about-card { grid-column: span 12; }
+  .profile-snapshot-card { grid-column: span 12; }
+  .profile-public-layout { grid-template-columns: 1fr; }
+  .profile-public-secondary { position: static; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .profile-resume-card { grid-column: 1 / -1; }
+}
+@media (max-width: 640px) {
+  .linkedin-profile-page { padding-top: 14px; }
+  .profile-cover { height: 128px; }
+  .profile-identity-card { grid-template-columns: 72px minmax(0, 1fr); gap: 15px; padding: 0 18px 22px; }
+  .profile-avatar { width: 72px; height: 72px; margin-top: -36px; border-width: 4px; font-size: 28px; }
+  .profile-identity-main { padding-top: 18px; }
+  .profile-identity-main h1 { font-size: 34px; }
+  .profile-identity-main p { font-size: 12px; }
+  .profile-hero-actions { flex-wrap: wrap; margin-top: 14px; }
+  .profile-hero-progress { grid-column: 1 / -1; }
+  .profile-about-card, .profile-snapshot-card, .profile-side-card, .profile-section { padding: 20px; }
+  .profile-snapshot-grid strong { font-size: 22px; }
+  .profile-public-secondary { grid-template-columns: 1fr; }
+}
