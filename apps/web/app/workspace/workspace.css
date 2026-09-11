@@ -268,3 +268,24 @@
   .profile-snapshot-grid strong { font-size: 22px; }
   .profile-public-secondary { grid-template-columns: 1fr; }
 }
+
+/* Static overview row placed directly beneath the identity header. */
+.profile-top-overview { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); grid-auto-flow: dense; gap: 16px; margin: 18px 0; }
+.profile-completion-card, .profile-snapshot-card { min-width: 0; padding: 25px 26px; border: 1px solid #dce5f1; border-radius: 16px; background: #fff; box-shadow: 0 10px 32px rgba(30, 67, 120, .045); }
+.profile-completion-card h2 { margin: 5px 0 0; color: #1c3150; font-size: 20px; letter-spacing: -.045em; font-weight: 600; }
+.profile-completion-value { color: #0755c7; font-size: 30px; letter-spacing: -.06em; }
+.profile-completion-card .profile-completion-line { margin-top: 24px; }
+.profile-completion-card > p { margin: 14px 0 18px; color: #7a8ba2; font-size: 12px; line-height: 1.8; }
+.profile-top-overview .profile-secondary-action { min-width: 116px; }
+.linkedin-profile-page .profile-primary-action,
+.linkedin-profile-page .profile-secondary-action,
+.linkedin-profile-page .profile-button,
+.linkedin-profile-page .profile-field input,
+.linkedin-profile-page .profile-field select,
+.linkedin-profile-page .profile-field textarea { transition: none; }
+.linkedin-profile-page .profile-primary-action:hover,
+.linkedin-profile-page .profile-secondary-action:hover { transform: none; }
+.linkedin-profile-page .profile-cover-orb { transform: none; }
+@media (max-width: 980px) {
+  .profile-top-overview { grid-template-columns: 1fr; }
+}

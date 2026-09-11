@@ -1,8 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useMemo, useState } from 'react';
 import { WorkspaceHeader } from '../../../components/workspace/WorkspaceHeader';
 import { validateProfile } from '../../../features/profile/profile-validation';
 
@@ -188,18 +186,6 @@ export default function ProfilePage() {
   const [draftRecords, setDraftRecords] = useState<Record<string, ProfileRecord[]>>({});
   const [removed, setRemoved] = useState<RemovedItem[]>([]);
   const [message, setMessage] = useState('');
-  const profileRef = useRef<HTMLElement>(null);
-
-  useLayoutEffect(() => {
-    gsap.registerPlugin(ScrollTrigger);
-    const context = gsap.context(() => {
-      gsap.fromTo('.profile-hero-portrait', { scale: 0.8, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.8, ease: 'power3.out' });
-      gsap.fromTo('.profile-intro-grid .profile-stack-card', { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, stagger: 0.08, ease: 'power2.out', scrollTrigger: { trigger: '.profile-intro-grid', start: 'top 84%', toggleActions: 'play none none reverse' } });
-      gsap.fromTo('.profile-public-layout .profile-stack-card', { y: 28, scale: 0.96, opacity: 0 }, { y: 0, scale: 1, opacity: 1, duration: 0.65, stagger: 0.06, ease: 'power2.out', scrollTrigger: { trigger: '.profile-public-layout', start: 'top 80%', toggleActions: 'play none none reverse' } });
-      gsap.to('.profile-cover-orb', { yPercent: 18, ease: 'none', scrollTrigger: { trigger: '.profile-hero', start: 'top top', end: 'bottom top', scrub: true } });
-    }, profileRef);
-    return () => context.revert();
-  }, []);
 
   const progress = useMemo(() => {
     const total = allSections.reduce((sum, section) => sum + section.fields.length, 0);
@@ -232,14 +218,12 @@ export default function ProfilePage() {
   const displayName = values.name || '林同学';
   const headline = values.targetTitles || '把经历整理成下一次机会';
   const location = values.homeCity || '中国 · 开放求职中';
-  const about = values.selfIntroduction || '还没有写下自我介绍。用一段简洁的话，让招聘方快速了解你的方向、能力和正在寻找的机会。';
-  const interestTags = (values.targetTitles || '').split(/[，,、]/).map((item) => item.trim()).filter(Boolean).slice(0, 5);
   const savedExperienceCount = Object.values(records).flat().length;
 
   return <div className="workspace-content profile-page linkedin-profile-page">
     <WorkspaceHeader title="个人资料" />
-    <main className="profile-public" ref={profileRef}>
-      <section className="profile-hero profile-stack-card">
+    <main className="profile-public">
+      <section className="profile-hero">
         <div className="profile-cover"><div className="profile-cover-orb" /><div className="profile-cover-lines" /></div>
         <div className="profile-identity-card">
           <div className="profile-avatar profile-hero-portrait">{displayName.slice(0, 1)}</div>
@@ -248,15 +232,14 @@ export default function ProfilePage() {
             <h1>{displayName}</h1>
             <p>{headline} <span>·</span> 领客求职者</p>
             <div className="profile-location">{location}</div>
-            <div className="profile-hero-actions"><button className="profile-primary-action" onClick={() => beginEdit(singleSections[0])}>编辑资料</button><button className="profile-secondary-action" onClick={() => document.getElementById('resume-parser')?.scrollIntoView({ behavior: 'smooth' })}>简历解析</button></div>
+            <div className="profile-hero-actions"><button className="profile-primary-action" onClick={() => beginEdit(singleSections[0])}>编辑资料</button><button className="profile-secondary-action" onClick={() => document.getElementById('resume-parser')?.scrollIntoView()}>简历解析</button></div>
           </div>
-          <div className="profile-hero-progress"><span>资料完成度</span><strong>{progress}%</strong><i><b style={{ width: `${progress}%` }} /></i><small>持续完善，让每次投递都更准确</small></div>
         </div>
       </section>
 
-      <section className="profile-intro-grid">
-        <article className="profile-about-card profile-stack-card"><div className="profile-card-heading"><div><span className="profile-overline">关于我</span><h2>让经历有清晰的方向</h2></div><button className="profile-text-action" onClick={() => beginEdit(allSections.find((section) => section.title === '自我介绍') || singleSections[0])}>编辑</button></div><p>{about}</p></article>
-        <article className="profile-snapshot-card profile-stack-card"><div className="profile-card-heading"><span className="profile-overline">资料概览</span><span className="profile-verified">已同步</span></div><div className="profile-snapshot-grid"><div><strong>{Object.values(values).filter(Boolean).length}</strong><span>已填写字段</span></div><div><strong>{savedExperienceCount}</strong><span>经历条目</span></div><div><strong>{interestTags.length || 0}</strong><span>求职方向</span></div></div></article>
+      <section className="profile-top-overview">
+        <article className="profile-completion-card"><div className="profile-card-heading"><div><span className="profile-overline">资料完成度</span><h2>继续完善你的求职资料</h2></div><strong className="profile-completion-value">{progress}%</strong></div><div className="profile-completion-line"><span><i style={{ width: `${progress}%` }} /></span></div><p>补齐教育、经历和作品链接，方便后续自动填写网申。</p><button className="profile-secondary-action" onClick={() => beginEdit(singleSections[0])}>继续完善资料</button></article>
+        <article className="profile-snapshot-card"><div className="profile-card-heading"><span className="profile-overline">资料概览</span><span className="profile-verified">已同步</span></div><div className="profile-snapshot-grid"><div><strong>{Object.values(values).filter(Boolean).length}</strong><span>已填写字段</span></div><div><strong>{savedExperienceCount}</strong><span>经历条目</span></div><div><strong>{allSections.length}</strong><span>资料分区</span></div></div></article>
       </section>
 
       <div className="profile-public-layout">
@@ -264,7 +247,7 @@ export default function ProfilePage() {
           {allSections.map((section) => {
             const isEditing = editing === section.title;
             const sectionRecords = isEditing ? draftRecords[section.title] || [] : records[section.title] || [];
-            return <section className={`profile-section profile-public-section profile-stack-card profile-section--${section.kind}`} key={section.title}>
+            return <section className={`profile-section profile-public-section profile-section--${section.kind}`} key={section.title}>
               <header><div><span className="profile-kicker">{section.eyebrow}</span><h3>{section.title}</h3><p className="profile-section-description">{section.description}</p></div><div className="profile-actions">{isEditing && <button className="profile-button profile-button--quiet" onClick={cancelEdit}>取消</button>}<button className="profile-button" onClick={() => isEditing ? save(section) : beginEdit(section)}>{isEditing ? '保存' : '编辑'}</button></div></header>
               {section.kind === 'single' ? (isEditing ? <div className="profile-form">{section.fields.map((field) => <FormField key={field.key} field={field} value={draftValues[field.key] || ''} onChange={(value) => setDraftValues((current) => ({ ...current, [field.key]: value }))} />)}</div> : <div className="profile-read-grid">{section.fields.map((field) => <div className={`profile-read-item profile-read-item--${field.span || 'half'}`} key={field.key}><span>{field.label}</span><strong>{values[field.key] || '未填写'}</strong></div>)}</div>) : <>
                 {isEditing && <div className="profile-form profile-form--repeat">{sectionRecords.map((item) => <div className="profile-record" key={item.id}><div className="profile-record-heading"><span>经历条目</span><button className="profile-remove" onClick={() => removeRecord(section.title, item.id)}>移除</button></div><div className="profile-form">{section.fields.map((field) => <FormField key={field.key} field={field} value={item[field.key] || ''} onChange={(value) => setDraftRecords((current) => ({ ...current, [section.title]: (current[section.title] || []).map((entry) => entry.id === item.id ? { ...entry, [field.key]: value } : entry) }))} />)}</div></div>)}</div>}
@@ -277,9 +260,7 @@ export default function ProfilePage() {
           })}
         </div>
         <aside className="profile-public-secondary">
-          <section className="profile-side-card profile-stack-card"><div className="profile-card-heading"><div><span className="profile-overline">方向</span><h2>正在寻找</h2></div><button className="profile-text-action" onClick={() => beginEdit(singleSections[1])}>编辑</button></div>{interestTags.length ? <div className="profile-interest-list">{interestTags.map((tag) => <span key={tag}>{tag}</span>)}</div> : <p className="profile-side-empty">添加期望职位后，这里会显示你的求职方向。</p>}</section>
-          <section className="profile-side-card profile-stack-card"><div className="profile-card-heading"><div><span className="profile-overline">资料状态</span><h2>让主页更完整</h2></div></div><div className="profile-completion-line"><span><i style={{ width: `${progress}%` }} /></span><strong>{progress}%</strong></div><p>补齐教育、经历和作品链接，方便后续自动填写网申。</p><button className="profile-secondary-action profile-secondary-action--wide" onClick={() => beginEdit(singleSections[0])}>继续完善资料</button></section>
-          <section className="profile-side-card profile-stack-card profile-resume-card" id="resume-parser"><div className="profile-card-heading"><div><span className="profile-overline">简历管理</span><h2>AI 简历解析</h2></div><span className="coming-soon">即将开放</span></div><p>上传 PDF、Word 或 Markdown 简历，生成待确认的资料草稿。</p><button className="profile-primary-action profile-primary-action--wide" disabled>功能即将开放</button></section>
+          <section className="profile-side-card profile-resume-card" id="resume-parser"><div className="profile-card-heading"><div><span className="profile-overline">简历管理</span><h2>AI 简历解析</h2></div><span className="coming-soon">即将开放</span></div><p>上传 PDF、Word 或 Markdown 简历，生成待确认的资料草稿。</p><button className="profile-primary-action profile-primary-action--wide" disabled>功能即将开放</button></section>
         </aside>
       </div>
     </main>
