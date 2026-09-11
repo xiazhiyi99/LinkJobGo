@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { WorkspaceHeader } from '../../../components/workspace/WorkspaceHeader';
+import { ProfileSidebar } from '../../../components/profile/ProfileSidebar';
 import { validateProfile } from '../../../features/profile/profile-validation';
 
 type FieldKind = 'text' | 'email' | 'tel' | 'url' | 'date' | 'number' | 'select' | 'textarea';
@@ -186,19 +187,6 @@ export default function ProfilePage() {
   const [draftRecords, setDraftRecords] = useState<Record<string, ProfileRecord[]>>({});
   const [removed, setRemoved] = useState<RemovedItem[]>([]);
   const [message, setMessage] = useState('');
-  const [activeSection, setActiveSection] = useState(0);
-
-  useEffect(() => {
-    const targets = allSections.map((_, index) => document.getElementById(`profile-section-${index}`)).filter(Boolean) as HTMLElement[];
-    if (!targets.length) return;
-    const observer = new IntersectionObserver((entries) => {
-      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-      if (visible[0]) setActiveSection(Number(visible[0].target.getAttribute('data-profile-index') || 0));
-    }, { rootMargin: '-18% 0px -64% 0px', threshold: [0, 0.1] });
-    targets.forEach((target) => observer.observe(target));
-    return () => observer.disconnect();
-  }, []);
-
   const progress = useMemo(() => {
     const total = allSections.reduce((sum, section) => sum + section.fields.length, 0);
     const filledSingles = Object.values(values).filter(Boolean).length;
@@ -261,7 +249,7 @@ export default function ProfilePage() {
           {allSections.map((section, sectionIndex) => {
             const isEditing = editing === section.title;
             const sectionRecords = isEditing ? draftRecords[section.title] || [] : records[section.title] || [];
-            return <section id={`profile-section-${sectionIndex}`} data-profile-index={sectionIndex} className={`profile-section profile-public-section profile-section--${section.kind}`} key={section.title}>
+            return <section id={`profile-section-${sectionIndex}`} className={`profile-section profile-public-section profile-section--${section.kind}`} key={section.title}>
               <header><div><span className="profile-kicker">{section.eyebrow}</span><h3>{section.title}</h3><p className="profile-section-description">{section.description}</p></div><div className="profile-actions">{isEditing && <button className="profile-button profile-button--quiet" onClick={cancelEdit}>取消</button>}<button className="profile-button" onClick={() => isEditing ? save(section) : beginEdit(section)}>{isEditing ? '保存' : '编辑'}</button></div></header>
               {section.kind === 'single' ? (isEditing ? <div className="profile-form">{section.fields.map((field) => <FormField key={field.key} field={field} value={draftValues[field.key] || ''} onChange={(value) => setDraftValues((current) => ({ ...current, [field.key]: value }))} />)}</div> : <div className="profile-read-grid">{section.fields.map((field) => <div className={`profile-read-item profile-read-item--${field.span || 'half'}`} key={field.key}><span>{field.label}</span><strong>{values[field.key] || '未填写'}</strong></div>)}</div>) : <>
                 {isEditing && <div className="profile-form profile-form--repeat">{sectionRecords.map((item) => <div className="profile-record" key={item.id}><div className="profile-record-heading"><span>经历条目</span><button className="profile-remove" onClick={() => removeRecord(section.title, item.id)}>移除</button></div><div className="profile-form">{section.fields.map((field) => <FormField key={field.key} field={field} value={item[field.key] || ''} onChange={(value) => setDraftRecords((current) => ({ ...current, [section.title]: (current[section.title] || []).map((entry) => entry.id === item.id ? { ...entry, [field.key]: value } : entry) }))} />)}</div></div>)}</div>}
@@ -273,10 +261,7 @@ export default function ProfilePage() {
             </section>;
           })}
         </div>
-        <aside className="profile-public-secondary">
-          <section className="profile-side-card profile-resume-card" id="resume-parser"><div className="profile-card-heading"><div><span className="profile-overline">简历管理</span><h2>AI 简历解析</h2></div><span className="coming-soon">即将开放</span></div><p>上传 PDF、Word 或 Markdown 简历，生成待确认的资料草稿。</p><button className="profile-primary-action profile-primary-action--wide" disabled>功能即将开放</button></section>
-          <section className="profile-section-map"><div className="profile-outline-heading"><span>资料目录</span><span>{allSections.length} 个分区</span></div><div className="profile-map-list">{allSections.map((section, sectionIndex) => <button className={`profile-map-item ${activeSection === sectionIndex ? 'is-active' : ''}`} key={section.title} onClick={() => document.getElementById(`profile-section-${sectionIndex}`)?.scrollIntoView()}><span className="profile-map-node"><span>{String(sectionIndex + 1).padStart(2, '0')}</span></span><span className="profile-map-copy"><strong>{section.title}</strong><small>{section.eyebrow}</small></span></button>)}</div></section>
-        </aside>
+        <ProfileSidebar sections={allSections.map((section, sectionIndex) => ({ id: `profile-section-${sectionIndex}`, title: section.title, description: section.eyebrow }))} />
       </div>
     </main>
     {message && <div className="profile-toast">{message}</div>}

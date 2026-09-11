@@ -373,3 +373,16 @@
 .profile-map-arrow { display: none; }
 .profile-map-item.is-active .profile-map-node { border-color: #0755c7; background: #0755c7; color: #fff; }
 .profile-map-item.is-active .profile-map-copy strong { color: #0755c7; }
+/* The current item is marked with aria-current so keyboard and screen-reader
+   navigation share the same source of truth as the visual state. */
+.profile-map-item[aria-current="location"] .profile-map-node { border-color: #0755c7; background: #0755c7; color: #fff; }
+.profile-map-item[aria-current="location"] .profile-map-copy strong { color: #0755c7; }
+
+/* The rail is sized to the remaining viewport; the directory fills the rest. */
+.linkedin-profile-page .profile-public-secondary { display: grid; grid-template-rows: max-content minmax(0, 1fr); height: var(--profile-rail-height, max-content); min-height: 0; overflow: visible; }
+.linkedin-profile-page .profile-section-map { display: flex; min-height: 0; flex-direction: column; }
+.linkedin-profile-page .profile-map-list { grid-auto-flow: column; min-height: 0; align-content: start; overflow-y: auto; scrollbar-width: thin; }
+@media (max-width: 980px) {
+  .linkedin-profile-page .profile-public-secondary { display: grid; height: auto; grid-template-rows: none; }
+  .linkedin-profile-page .profile-section-map { min-height: 0; }
+}
