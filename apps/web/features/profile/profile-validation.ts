@@ -1,0 +1,1 @@
+export function validateProfile(data:Record<string,string>){const errors:Record<string,string>={};if(!data.name?.trim())errors.name='请输入姓名';if(data.phone&&!/^1\d{10}$/.test(data.phone))errors.phone='手机号格式不正确';return errors;}
