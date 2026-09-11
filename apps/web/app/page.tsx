@@ -5,11 +5,10 @@ import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 const features = [
-  { title: "职位雷达", body: "把散落在不同招聘官网的机会，收进一个清晰的求职视野。", className: "feature-a" },
-  { title: "资料中枢", body: "经历、项目和简历版本各就各位，随时准备出发。", className: "feature-b" },
-  { title: "智能填写", body: "识别页面字段，匹配你的资料，确认之后一键完成填写。", className: "feature-c" },
-  { title: "投递航迹", body: "从待投递到 Offer，每一次进展都留下可回看的路径。", className: "feature-d" },
-  { title: "准备清单", body: "面试、测评和截止时间，集中在下一步行动里。", className: "feature-e" },
+  { title: "资料中枢", body: "经历、项目和简历版本各就各位，随时准备出发。", className: "feature-a" },
+  { title: "智能填写", body: "识别页面字段，匹配你的资料，确认之后一键完成填写。", className: "feature-b" },
+  { title: "投递航迹", body: "从待投递到 Offer，每一次进展都留下可回看的路径；面试、测评和截止时间，也集中在下一步行动里。", className: "feature-c" },
+  { title: "职位雷达", body: "把散落在不同招聘官网的机会，收进一个清晰的求职视野。", className: "feature-d", status: "测试中" },
 ];
 
 export default function HomePage() {
@@ -57,14 +56,11 @@ export default function HomePage() {
 
       <section id="features" className="features section-space">
         <div className="section-intro"><p className="eyebrow">你需要的，不止一份简历</p><h2>把复杂留给领客，<br /><span>把专注留给你。</span></h2></div>
-        <div className="bento-grid grid-flow-dense">{features.map((feature) => <article key={feature.title} className={`feature-card ${feature.className} group`}><div><span className="feature-index">0{features.indexOf(feature) + 1}</span><h3>{feature.title}</h3><p>{feature.body}</p></div><span className="arrow">↗</span></article>)}</div>
+        <div className="bento-grid grid-flow-dense">{features.map((feature) => <article key={feature.title} className={`feature-card ${feature.className} group`}><div><span className="feature-index">0{features.indexOf(feature) + 1}</span><h3>{feature.title}{feature.status && <small className="feature-status">（{feature.status}）</small>}</h3><p>{feature.body}</p></div><span className="arrow">↗</span></article>)}</div>
       </section>
-
-      <section className="manifesto section-space"><p className="manifesto-text">好机会不会只出现在一次浏览里。<span className="scrub-word">它</span> <span className="scrub-word">出现在</span> <span className="scrub-word">你</span> <span className="scrub-word">准备</span> <span className="scrub-word">好的</span> <span className="scrub-word">那一刻。</span></p></section>
 
       <section id="workflow" className="journey section-space"><div className="pin-title"><p className="eyebrow">从打开岗位，到准备出发</p><h2>让每个<br /><i>下一步</i><br />更确定。</h2></div><div className="journey-stack"><article className="journey-card"><span>01</span><h3>发现机会</h3><p>浏览你熟悉的招聘网站，领客帮你把值得关注的职位保存下来。</p></article><article className="journey-card"><span>02</span><h3>匹配资料</h3><p>岗位要求与个人经历自动建立联系，每次申请都有恰到好处的准备。</p></article><article className="journey-card"><span>03</span><h3>确认填写</h3><p>看见、核对、填写。最终决定始终在你手里。</p></article></div></section>
 
-      <section id="start" className="final-cta section-space"><div><p className="eyebrow">你的下一份 Offer，从这里开始</p><h2>准备好，<br /><span>领客出发。</span></h2></div><a className="button button-light" href="#top">免费开始使用 <span>↗</span></a></section>
       <footer><a className="wordmark" href="#top">领客<span>.</span></a><span>为每一次认真准备，留一条更好的路径。</span><span>© 2026 领客</span></footer>
     </main>
   );
