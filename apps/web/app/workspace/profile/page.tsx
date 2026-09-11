@@ -218,6 +218,7 @@ export default function ProfilePage() {
   const displayName = values.name || '林同学';
   const headline = values.targetTitles || '把经历整理成下一次机会';
   const location = values.homeCity || '中国 · 开放求职中';
+  const savedExperienceCount = Object.values(records).flat().length;
 
   return <div className="workspace-content profile-page linkedin-profile-page">
     <WorkspaceHeader title="个人资料" />
@@ -235,6 +236,7 @@ export default function ProfilePage() {
           <aside className="profile-identity-side">
             <div className="profile-identity-side-heading"><span>资料完成度</span><strong>{progress}%</strong></div>
             <div className="profile-identity-side-progress"><i style={{ width: `${progress}%` }} /></div>
+            <div className="profile-identity-stats"><div><strong>{Object.values(values).filter(Boolean).length}</strong><span>已填写字段</span></div><div><strong>{savedExperienceCount}</strong><span>经历条目</span></div><div><strong>{allSections.length}</strong><span>资料分区</span></div></div>
           </aside>
         </div>
       </section>
