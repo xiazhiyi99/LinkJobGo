@@ -6,6 +6,7 @@ const { AiError } = require('./ai/errors');
 const { createAiGateway } = require('./ai/gateway');
 const { createResumeParseService } = require('./ai/tasks/resume-parse');
 const { createAutofillService } = require('./ai/tasks/autofill');
+const { createVisionExtractService } = require('./ai/tasks/vision-extract');
 
 // Load local .env without requiring another runtime dependency.
 for (const filename of ['.env', path.resolve(__dirname, '../../../.env')]) {
@@ -31,6 +32,7 @@ const origin = process.env.WEB_ORIGIN || 'http://localhost:3000';
 const aiGateway = createAiGateway();
 const resumeParseService = createResumeParseService(aiGateway);
 const autofillService = createAutofillService(aiGateway);
+const visionExtractService = createVisionExtractService(aiGateway);
 const json = (res, status, data, headers = {}) => {
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
@@ -44,9 +46,9 @@ const json = (res, status, data, headers = {}) => {
 };
 const body = (req) => new Promise((resolve, reject) => {
   let raw = '';
-  // Leave room for JSON metadata while enforcing the 1 MB resume content limit
-  // in the resume endpoint below.
-  req.on('data', (chunk) => { raw += chunk; if (raw.length > 1_200_000) req.destroy(); });
+  // Leave room for base64 image payloads. Individual task services enforce
+  // their own stricter limits for resume and vision inputs.
+  req.on('data', (chunk) => { raw += chunk; if (raw.length > 12_000_000) req.destroy(); });
   req.on('end', () => { try { resolve(raw ? JSON.parse(raw) : {}); } catch { reject(new Error('请求数据格式错误')); } });
   req.on('error', reject);
 });
@@ -200,6 +202,12 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/ai/autofill/suggestions') {
       try {
         const result = await autofillService.suggest({ fields: data.fields, profile: data.profile || {}, jobContext: data.jobContext || {}, userId: user.id, requestId: data.requestId });
+        return json(res, 200, result);
+      } catch (error) { return aiErrorResponse(res, error); }
+    }
+    if (req.method === 'POST' && url.pathname === '/ai/vision/extract') {
+      try {
+        const result = await visionExtractService.extract({ images: data.images, instruction: data.instruction, userId: user.id, requestId: data.requestId });
         return json(res, 200, result);
       } catch (error) { return aiErrorResponse(res, error); }
     }

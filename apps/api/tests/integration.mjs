@@ -42,6 +42,9 @@ try {
   const aiAutofill = await request('/ai/autofill/suggestions', { method: 'POST', body: JSON.stringify({ fields: ['姓名'], profile: { name: '集成测试用户' }, requestId: 'integration-autofill' }) }, cookie);
   assert.equal(aiAutofill.response.status, 200);
   assert.equal(Array.isArray(aiAutofill.payload.data.suggestions), true);
+  const aiVision = await request('/ai/vision/extract', { method: 'POST', body: JSON.stringify({ images: [{ data: 'aGVsbG8=', mimeType: 'image/png' }], requestId: 'integration-vision' }) }, cookie);
+  assert.equal(aiVision.response.status, 200);
+  assert.equal(aiVision.payload.attempts[0].capability, 'vision');
 
   const profile = await request('/profiles/me', { method: 'PATCH', body: JSON.stringify({ profile: { name: '集成测试用户' } }) }, cookie);
   assert.equal(profile.response.status, 200);

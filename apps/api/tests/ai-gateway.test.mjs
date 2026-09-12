@@ -6,6 +6,7 @@ const require = createRequire(import.meta.url);
 const { AiError } = require('../src/ai/errors.js');
 const { createAiGateway } = require('../src/ai/gateway.js');
 const { validateResumeResult } = require('../src/ai/tasks/resume-parse.js');
+const { createVisionExtractService } = require('../src/ai/tasks/vision-extract.js');
 
 const provider = (tier, behavior) => ({
   name: `${tier}-test`, tier, model: `${tier}-model`,
@@ -50,4 +51,20 @@ test('invalid structured output can fall back to official model', async () => {
   const result = await gateway.run({ task: 'resume.parse', input: {}, validate: validateResumeResult });
   assert.deepEqual(tiers, ['cheap', 'cheap', 'official']);
   assert.equal(result.data.records && typeof result.data.records, 'object');
+});
+
+test('vision task uses the vision capability and structured image content', async () => {
+  let received;
+  const gateway = createAiGateway({
+    providerFactory: (tier, capability) => ({
+      name: `${tier}-${capability}`, model: `${tier}-vision`,
+      async completeStructured(args) { received = { tier, capability, args }; return { fields: { name: '测试用户' }, records: {} }; },
+    }),
+  });
+  const service = createVisionExtractService(gateway);
+  const result = await service.extract({ images: [{ data: 'aGVsbG8=', mimeType: 'image/png' }], userId: 'user-1' });
+  assert.equal(result.data.fields.name, '测试用户');
+  assert.equal(received.capability, 'vision');
+  assert.equal(received.args.messages[1].content[1].type, 'image_url');
+  assert.match(received.args.messages[1].content[1].image_url.url, /^data:image\/png;base64,/);
 });

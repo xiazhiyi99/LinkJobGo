@@ -1,9 +1,10 @@
 const { createHttpProvider } = require('./http-provider');
 const { createFakeProvider } = require('./fake-provider');
 
-const createProvider = (tier) => {
+const createProvider = (tier, capability = 'text') => {
   if (process.env.AI_PROVIDER_MODE === 'fake') return createFakeProvider({ tier });
-  const prefix = tier === 'official' ? 'AI_OFFICIAL' : 'AI_CHEAP';
+  const tierPrefix = tier === 'official' ? 'OFFICIAL' : 'CHEAP';
+  const prefix = capability === 'vision' ? `AI_VLM_${tierPrefix}` : `AI_${tierPrefix}`;
   return createHttpProvider({
     tier,
     provider: process.env[`${prefix}_PROVIDER`] || 'openai-compatible',

@@ -7,9 +7,10 @@
 ```text
 POST /ai/resume/parse
 POST /ai/autofill/suggestions
+POST /ai/vision/extract
 ```
 
-两个接口都要求登录。前端和浏览器插件不直接接触模型 API Key。
+以下接口均要求登录。前端和浏览器插件不直接接触模型 API Key。
 
 简历解析请求示例：
 
@@ -67,6 +68,30 @@ AI_OFFICIAL_MODEL=official-model
 
 当前 HTTP Provider 使用兼容 OpenAI Chat Completions 的接口。如果供应商协议不同，在 `apps/api/src/ai/providers/` 新增适配器，并在 `index.js` 的 Provider 工厂中选择它。
 
+视觉模型使用另一组配置，避免把文本模型和 VLM 的模型名、额度混在一起：
+
+```env
+AI_VLM_CHEAP_PROVIDER=openai-compatible
+AI_VLM_CHEAP_BASE_URL=https://cheap-vlm.example/v1
+AI_VLM_CHEAP_API_KEY=
+AI_VLM_CHEAP_MODEL=cheap-vision-model
+AI_VLM_OFFICIAL_PROVIDER=openai-compatible
+AI_VLM_OFFICIAL_BASE_URL=https://official-vlm.example/v1
+AI_VLM_OFFICIAL_API_KEY=
+AI_VLM_OFFICIAL_MODEL=official-vision-model
+```
+
+视觉接口接收 1 到 8 张图片，每张图片可以是 HTTPS `url` 或 base64 `data`，单张不超过 5MB、总大小不超过 8MB：
+
+```json
+{
+  "images": [{"data": "...", "mimeType": "image/jpeg"}],
+  "instruction": "提取表单中的字段名和值"
+}
+```
+
+视觉请求会自动从 `AI_VLM_CHEAP_*` 读取 cheap 档位，从 `AI_VLM_OFFICIAL_*` 读取 official 档位，重试顺序与文本模型相同。
+
 本地测试可以使用：
 
 ```env
@@ -82,5 +107,6 @@ AI_FAKE_FAILURES=2
 - 智能填写提示词和结果校验：`apps/api/src/ai/tasks/autofill.js`
 - 重试、超时、降级：`apps/api/src/ai/gateway.js`、`apps/api/src/ai/policy.js`
 - 供应商请求格式：`apps/api/src/ai/providers/http-provider.js`
+- 视觉任务与多模态消息：`apps/api/src/ai/tasks/vision-extract.js`
 
 当前接口是同步调用，适合先完成联调。简历较大或模型耗时稳定后，再将任务放入现有 `apps/worker` 和 Redis 队列；届时 Gateway 的重试策略可以原样复用，队列重试应单独处理 Worker 崩溃，避免重复放大模型费用。
