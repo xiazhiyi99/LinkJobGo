@@ -6,7 +6,7 @@
     "dev": "node src/index.js",
     "build": "prisma generate --schema src/prisma/schema.prisma && node --check src/index.js",
     "lint": "node --check src/index.js",
-    "test": "node --check src/index.js",
+    "test": "node --check src/index.js && node --test tests/*.test.mjs",
     "test:integration": "node tests/integration.mjs",
     "prisma:generate": "prisma generate --schema src/prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev --schema src/prisma/schema.prisma"

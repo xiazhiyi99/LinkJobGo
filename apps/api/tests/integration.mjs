@@ -7,7 +7,7 @@ const port = 3201;
 const base = `http://127.0.0.1:${port}`;
 const api = spawn(process.execPath, ['src/index.js'], {
   cwd: new URL('..', import.meta.url),
-  env: { ...process.env, API_PORT: String(port), DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/job_assistant_dev' },
+  env: { ...process.env, API_PORT: String(port), DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/job_assistant_dev', AI_PROVIDER_MODE: 'fake', AI_FAKE_FAILURES: '2' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 const waitForApi = async () => {
@@ -34,6 +34,14 @@ try {
   assert.equal(login.response.status, 200);
   const cookie = sessionCookie(login.response);
   assert.ok(cookie);
+
+  const aiResume = await request('/ai/resume/parse', { method: 'POST', body: JSON.stringify({ filename: 'resume.txt', content: '# 测试简历', requestId: 'integration-resume' }) }, cookie);
+  assert.equal(aiResume.response.status, 200);
+  assert.equal(aiResume.payload.attempts.length, 3);
+  assert.equal(aiResume.payload.attempts.at(-1).tier, 'official');
+  const aiAutofill = await request('/ai/autofill/suggestions', { method: 'POST', body: JSON.stringify({ fields: ['姓名'], profile: { name: '集成测试用户' }, requestId: 'integration-autofill' }) }, cookie);
+  assert.equal(aiAutofill.response.status, 200);
+  assert.equal(Array.isArray(aiAutofill.payload.data.suggestions), true);
 
   const profile = await request('/profiles/me', { method: 'PATCH', body: JSON.stringify({ profile: { name: '集成测试用户' } }) }, cookie);
   assert.equal(profile.response.status, 200);

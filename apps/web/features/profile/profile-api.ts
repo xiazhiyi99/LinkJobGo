@@ -32,6 +32,17 @@ export const uploadResume = (body: { filename: string; contentType: string; cont
   body: JSON.stringify(body),
 });
 
+export type AiResumeParseResponse = {
+  data: { profile: Record<string, unknown>; preferences: Record<string, unknown>; records: Record<string, Array<Record<string, string>>> };
+  requestId: string;
+  attempts: Array<{ attempt: number; tier: string; status: string; model?: string }>;
+};
+
+export const parseResumeWithAi = (body: { filename: string; content: string; requestId?: string }) => apiRequest<AiResumeParseResponse>('/ai/resume/parse', {
+  method: 'POST',
+  body: JSON.stringify(body),
+});
+
 const createRecordEndpoint = (resource: string) => ({
   create: (body: unknown) => apiRequest<ProfileRecord>(`/profiles/me/${resource}`, {
     method: 'POST',

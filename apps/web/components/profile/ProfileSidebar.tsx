@@ -10,6 +10,7 @@ import {
   type ProfileSectionLink,
 } from '../../features/profile/profile-navigation';
 import { parseResumeText, type ResumeDraft } from '../../features/profile/resume-parser';
+import { parseResumeWithAi } from '../../features/profile/profile-api';
 
 const RAIL_TOP = 24;
 const RAIL_BOTTOM = 24;
@@ -118,9 +119,23 @@ export function ProfileSidebar({ sections, onApplyResumeDraft }: {
       return;
     }
     try {
-      const draft = parseResumeText(await file.text(), file.name);
-      setResumeDraft(draft);
-      setResumeStatus(`已读取 ${file.name}，请确认后保存。`);
+      const sourceText = await file.text();
+      const localDraft = parseResumeText(sourceText, file.name);
+      try {
+        const response = await parseResumeWithAi({ filename: file.name, content: sourceText });
+        const aiValues = Object.fromEntries(Object.entries({ ...response.data.profile, ...response.data.preferences }).filter(([, value]) => value != null && String(value).trim()));
+        if (aiValues.city && !aiValues.homeCity) aiValues.homeCity = aiValues.city;
+        const draft: ResumeDraft = {
+          ...localDraft,
+          values: { ...Object.fromEntries(Object.entries(aiValues).map(([key, value]) => [key, String(value)])), ...localDraft.values },
+          records: { ...localDraft.records, ...(response.data.records || {}) },
+        };
+        setResumeDraft(draft);
+        setResumeStatus(`AI 已读取 ${file.name}，请确认后保存。`);
+      } catch {
+        setResumeDraft(localDraft);
+        setResumeStatus(`AI 服务暂不可用，已使用本地解析读取 ${file.name}，请确认后保存。`);
+      }
     } catch {
       setResumeDraft(null);
       setResumeStatus('文件读取失败，请重新选择。');

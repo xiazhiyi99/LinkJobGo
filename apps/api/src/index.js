@@ -2,6 +2,10 @@ const http = require('node:http');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
+const { AiError } = require('./ai/errors');
+const { createAiGateway } = require('./ai/gateway');
+const { createResumeParseService } = require('./ai/tasks/resume-parse');
+const { createAutofillService } = require('./ai/tasks/autofill');
 
 // Load local .env without requiring another runtime dependency.
 for (const filename of ['.env', path.resolve(__dirname, '../../../.env')]) {
@@ -24,6 +28,9 @@ try {
 
 const port = Number(process.env.API_PORT || 3001);
 const origin = process.env.WEB_ORIGIN || 'http://localhost:3000';
+const aiGateway = createAiGateway();
+const resumeParseService = createResumeParseService(aiGateway);
+const autofillService = createAutofillService(aiGateway);
 const json = (res, status, data, headers = {}) => {
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
@@ -77,6 +84,10 @@ const requireUser = async (req, res) => {
   const user = await currentUser(req);
   if (!user) { json(res, 401, { error: '未登录' }); return null; }
   return user;
+};
+const aiErrorResponse = (res, error) => {
+  const aiError = error instanceof AiError ? error : new AiError('AI 服务暂时不可用', 'AI_FAILED', { status: 502 });
+  return json(res, aiError.status, { error: aiError.message, code: aiError.code, requestId: aiError.cause?.requestId });
 };
 
 const profileFields = ['name', 'avatarUrl', 'phone', 'city', 'personalWebsite', 'githubUrl', 'portfolioUrl', 'gender', 'birthday', 'homeCity', 'homeDistrict', 'schoolCity', 'address', 'politicalStatus', 'nationality', 'workExperience', 'interests', 'selfIntroduction'];
@@ -180,6 +191,18 @@ const server = http.createServer(async (req, res) => {
     }
 
     const user = await requireUser(req, res); if (!user) return;
+    if (req.method === 'POST' && url.pathname === '/ai/resume/parse') {
+      try {
+        const result = await resumeParseService.parse({ content: data.content, filename: data.filename, userId: user.id, requestId: data.requestId });
+        return json(res, 200, result);
+      } catch (error) { return aiErrorResponse(res, error); }
+    }
+    if (req.method === 'POST' && url.pathname === '/ai/autofill/suggestions') {
+      try {
+        const result = await autofillService.suggest({ fields: data.fields, profile: data.profile || {}, jobContext: data.jobContext || {}, userId: user.id, requestId: data.requestId });
+        return json(res, 200, result);
+      } catch (error) { return aiErrorResponse(res, error); }
+    }
     if (req.method === 'POST' && url.pathname === '/profiles/me/resume') {
       const content = typeof data.content === 'string' ? data.content : '';
       const filename = String(data.filename || 'resume.txt').slice(0, 200);
