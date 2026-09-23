@@ -63,6 +63,25 @@ NODE_ENV=production
 
 生产环境还需要填入 `.env.example` 中的 AI、百度 OCR 和邮件变量。邮箱验证和找回密码必须使用 `MAIL_PROVIDER=resend`、`MAIL_FROM` 和 `MAIL_API_KEY`；不要把 `MAIL_PROVIDER=console` 当作正式邮件服务。
 
+如果还要启用投递航迹的邮箱自动同步，再配置：
+
+```env
+MAIL_OAUTH_CALLBACK_BASE_URL=https://linkaigo.com/api
+MAIL_GMAIL_CLIENT_ID=...
+MAIL_GMAIL_CLIENT_SECRET=...
+MAIL_OUTLOOK_CLIENT_ID=...
+MAIL_OUTLOOK_CLIENT_SECRET=...
+```
+
+Gmail 和 Outlook 的 OAuth 应用都把下面两个回调地址加入 Web redirect URI：
+
+```text
+https://linkaigo.com/api/mail-accounts/oauth/callback?provider=gmail
+https://linkaigo.com/api/mail-accounts/oauth/callback?provider=outlook
+```
+
+QQ、163、126、iCloud 和其他 IMAP 邮箱不需要 OAuth Client ID；用户在工作台里输入邮箱地址和授权码/应用专用密码。`MAIL_CREDENTIAL_KEY` 用于服务端加密这些凭据，生成后不要随意更换，并应单独备份。
+
 本次首次部署为了先完成端到端测试，服务器使用了 `NODE_ENV=development`、HTTPS Cookie 仍强制开启，注册用户会自动验证邮箱。配置真实邮件服务后，将 `NODE_ENV` 改为 `production` 并重新创建 API 容器：
 
 ```bash
@@ -123,4 +142,3 @@ docker compose -f docker-compose.prod.yml up -d api web caddy
 - PostgreSQL、Redis 没有公网端口映射。
 - 已完成数据库备份和恢复演练。
 - 已测试用户数据隔离、资料导入、投递记录和退出登录。
-
