@@ -1,0 +1,9 @@
+ALTER TABLE "Profile" ADD COLUMN "citizenship" TEXT;
+ALTER TABLE "Profile" ADD COLUMN "wechat" TEXT;
+ALTER TABLE "Profile" ADD COLUMN "nativePlace" TEXT;
+ALTER TABLE "Profile" ADD COLUMN "highestEducation" TEXT;
+ALTER TABLE "Profile" ADD COLUMN "firstWorkYear" TEXT;
+ALTER TABLE "Profile" ADD COLUMN "fullTimeStudent" TEXT;
+ALTER TABLE "Profile" ADD COLUMN "hasRelativesInCompany" TEXT;
+ALTER TABLE "Profile" ADD COLUMN "recommendationMethod" TEXT;
+ALTER TABLE "Profile" ADD COLUMN "workVisaRequired" TEXT;

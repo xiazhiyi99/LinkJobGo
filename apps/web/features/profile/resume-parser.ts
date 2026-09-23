@@ -3,6 +3,10 @@ export type ResumeDraft = {
   records: Record<string, Array<Record<string, string>>>;
   sourceName: string;
   sourceText: string;
+  /** Binary imports are parsed and retained by the API; no local text is available. */
+  sourceContentType?: string;
+  sourceStored?: boolean;
+  sourceFingerprint?: string;
 };
 
 const valueAfterLabel = (text: string, labels: string[]) => {

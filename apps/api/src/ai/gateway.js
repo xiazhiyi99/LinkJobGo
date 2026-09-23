@@ -8,7 +8,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const createAiGateway = ({ providerFactory = createProvider, sleepFn = sleep, now = () => Date.now() } = {}) => ({
   async run({ task, input, userId, requestId = crypto.randomUUID(), validate, messages, schema, capability = 'text', policy: policyOverride }) {
     if (!task || typeof input !== 'object') throw new AiError('AI 任务参数不完整', 'AI_INVALID_INPUT', { status: 400 });
-    const policy = getAiPolicy(task, policyOverride);
+    const policy = getAiPolicy(task, policyOverride, capability);
     const attempts = [];
     let lastError;
     for (let index = 0; index < policy.maxAttempts; index += 1) {

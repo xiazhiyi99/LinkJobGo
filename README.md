@@ -11,21 +11,40 @@
 - [系统架构设计](docs/architecture.md)
 - [自动填写 MVP 计划](docs/autofill-mvp-plan.md)
 - [插件源码复用方案](docs/autofill-oss-reuse-plan.md)
+- [投递航迹接入交接文档](docs/integration/applications-integration.md)
+- [填写助手接入交接文档](docs/integration/autofill-integration.md)
+- [AWS 部署说明](docs/deployment-aws.md)
+- [阶段进度汇报](docs/progress-report.md)
+
+两个接入文档分别描述 Demo 到主仓的合并边界、数据流、现有/待新增 API、认证方式、幂等规则和验收顺序。投递航迹与填写助手通过事件和 DTO 连接，不互相导入页面或数据库实现。
 
 ## 仓库结构
 
 ```text
 apps/web/         Next.js 用户端与官网
-apps/api/         NestJS API 占位
+apps/api/         Node.js API、认证、Prisma 与 AI 网关
 apps/worker/      异步任务占位
 apps/extension/   浏览器插件占位
 packages/shared/  跨应用共享代码
 docs/             架构与开发环境说明
 ```
 
-## 规划技术栈
+## 技术栈
 
-Next.js + TypeScript、NestJS、PostgreSQL、Prisma、Redis/BullMQ、Chrome Manifest V3，以及对象存储和 LLM API。
+Next.js + TypeScript、Node.js、PostgreSQL、Prisma、Redis/BullMQ、Chrome Manifest V3，以及对象存储和 LLM API。
+
+## 本地启动
+
+```bash
+docker compose up -d
+cp .env.example .env
+pnpm install
+pnpm --filter @job-assistant/api prisma:generate
+pnpm --filter @job-assistant/api prisma:migrate
+pnpm dev
+```
+
+PDF 解析依赖 Poppler 的 `pdftoppm` 和 `pdfinfo`；macOS 可通过 Homebrew 安装，API 容器使用 `apps/api/Dockerfile` 时会自动安装。生产环境请配置 `AI_*`、`AI_VLM_*`、`MAIL_PROVIDER` 等密钥，不能提交 `.env`。
 
 ## 开发原则
 

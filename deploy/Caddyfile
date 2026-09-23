@@ -1,0 +1,9 @@
+linkaigo.com, www.linkaigo.com {
+    encode gzip
+
+    handle_path /api/* {
+        reverse_proxy api:3001
+    }
+
+    reverse_proxy web:3000
+}

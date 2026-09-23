@@ -14,6 +14,12 @@ const createFakeProvider = ({ tier }) => ({
     if (task === 'resume.parse') {
       return { profile: { name: input.filename || '测试用户' }, preferences: {}, records: {} };
     }
+    if (task === 'resume.normalize') {
+      return { profile: {}, preferences: {}, records: { educations: [], experiences: [], projects: [], awards: [], publications: [], campusExperiences: [], skills: [], languages: [], certificates: [] }, unmapped: [] };
+    }
+    if (task === 'mail.classify') {
+      return { isJobRelated: false, company: null, title: null, status: 'saved', appliedOn: null, eventStart: null, eventEnd: null, assessmentUrl: null, interviewUrl: null, evidence: [] };
+    }
     if (capability === 'vision') return { fields: {}, records: {}, source: 'fake-vlm' };
     return { suggestions: (input.fields || []).map((field) => ({ field, value: '', confidence: 0, needsConfirmation: true })) };
   },

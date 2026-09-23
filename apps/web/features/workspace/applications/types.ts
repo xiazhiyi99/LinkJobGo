@@ -1,0 +1,12 @@
+export type ApplicationStatus = 'saved' | 'applied' | 'screening' | 'interview' | 'offer' | 'closed';
+export const statusLabels: Record<ApplicationStatus, string> = { saved: '待投递', applied: '已投递', screening: '筛选中', interview: '笔试/面试中', offer: '已获 Offer', closed: '已结束' };
+export type Task = { id: string; title: string; dueAt?: string; status: string; url?: string; applicationId?: string };
+export type MailMessage = { id: string; mailAccountId: string; subject: string; fromName?: string; fromEmail?: string; snippet?: string; bodyText?: string; receivedAt: string; isJobRelated?: boolean; classificationSource?: string; classificationReason?: string; applicationId?: string; aiResult?: Record<string, unknown>; mailAccount?: { email: string; provider: string }; account?: { email: string; provider: string } };
+export type Application = { id: string; company: string; title: string; status: ApplicationStatus; version: number; source?: string; appliedOn?: string; eventStart?: string; eventEnd?: string; jobUrl?: string; assessmentUrl?: string; interviewUrl?: string; nextFollowUpAt?: string; nextAction?: string; nextActionUrl?: string; notes?: string; createdAt?: string; updatedAt?: string; tasks?: Task[]; events?: {id: string; type: string; occurredAt: string; source?: string}[]; mailMessages?: {id: string; subject: string; receivedAt: string}[] };
+export type MailAccount = { id: string; provider: string; email: string; displayName?: string; lastSyncedAt?: string; status?: string };
+export type MailProvider = { id: string; name: string; authModes: string[]; available?: boolean };
+export type Page<T> = { items: T[]; nextCursor?: string | null };
+export function dateText(value?: string, withTime = true) { if (!value) return '—'; const date = new Date(value); return Number.isNaN(date.valueOf()) ? '—' : date.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', ...(withTime ? {hour: '2-digit', minute: '2-digit'} : {}) }); }
+export function dateInput(value?: string, time = false) { if (!value) return ''; const date = new Date(value); if (Number.isNaN(date.valueOf())) return ''; return new Date(date.valueOf() - date.getTimezoneOffset() * 60000).toISOString().slice(0, time ? 16 : 10); }
+export function safeUrl(value?: string) { try { const url = new URL(value || ''); return ['https:', 'http:'].includes(url.protocol) ? url.href : ''; } catch { return ''; } }
+export function errorText(error: unknown) { return error instanceof Error ? error.message : '操作失败，请稍后重试。'; }

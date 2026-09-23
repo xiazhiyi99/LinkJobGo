@@ -1,205 +1,271 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import {
-  getActiveProfileSection,
-  getProfileNavigationLayout,
-  PROFILE_NAV_ROW_HEIGHT,
-  PROFILE_SECTION_OFFSET,
-  type ProfileNavigationClick,
-  type ProfileSectionLink,
-} from '../../features/profile/profile-navigation';
+import { useRef, useState } from 'react';
+import type { ProfileSectionLink } from '../../features/profile/profile-navigation';
 import { parseResumeText, type ResumeDraft } from '../../features/profile/resume-parser';
-import { parseResumeWithAi } from '../../features/profile/profile-api';
+import { parseResumeFileWithAi } from '../../features/profile/profile-api';
 
-const RAIL_TOP = 24;
-const RAIL_BOTTOM = 24;
+const contentTypeForExtension = (extension?: string) => extension === 'pdf'
+  ? 'application/pdf'
+  : extension === 'doc'
+    ? 'application/msword'
+    : extension === 'docx'
+      ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      : 'text/plain';
 
-export function ProfileSidebar({ sections, onApplyResumeDraft }: {
+const fileToBase64 = (file: File) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onerror = () => reject(reader.error || new Error('文件读取失败'));
+  reader.onload = () => {
+    const result = String(reader.result || '');
+    const comma = result.indexOf(',');
+    resolve(comma >= 0 ? result.slice(comma + 1) : result);
+  };
+  reader.readAsDataURL(file);
+});
+
+const asString = (value: unknown) => Array.isArray(value) ? value.join('、') : value == null ? '' : String(value);
+const asRecord = (value: unknown) => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+
+type ResumePhase = 'idle' | 'reading' | 'parsing' | 'parsed' | 'applying' | 'completed' | 'conflict' | 'error';
+
+/** Converts the canonical API response into the section names used by the profile editor. */
+const aiResponseToDraft = (response: Record<string, unknown>, sourceName: string, sourceText: string, fallback: ResumeDraft): ResumeDraft => {
+  // Use the canonical normalized sections for the editor. The database-ready
+  // preview intentionally flattens campus/award/publication records into the
+  // existing Prisma tables, so using it here would display campus entries as
+  // work experience. Keep it only as a compatibility fallback.
+  const envelope = asRecord(response.normalized || (asRecord(response.data).data || response.data) || response.databaseReady || response);
+  const profile = asRecord(envelope.profile);
+  const preferences = asRecord(envelope.preferences);
+  const records = asRecord(envelope.records);
+  const values: Record<string, string> = {};
+  const aliases: Record<string, string> = {
+    city: 'homeCity', personalWebsite: 'website', githubUrl: 'github', location: 'homeCity',
+    targetTitle: 'targetTitles', targetCity: 'targetCities', industry: 'targetIndustries',
+  };
+  for (const [key, value] of Object.entries({ ...profile, ...preferences })) {
+    if (value == null || (typeof value === 'string' && !value.trim())) continue;
+    values[aliases[key] || key] = asString(value);
+  }
+  const map = (key: string) => Array.isArray(records[key]) ? records[key].map((item) => {
+    const record = asRecord(item);
+    return Object.fromEntries(Object.entries(record).map(([field, value]) => [field, asString(value)]));
+  }) : [];
+  const skillItems = map('skills').flatMap((item) => {
+    const grouped = item.items ? String(item.items).split('、').map((name) => { const { items: _items, ...rest } = item; return { ...rest, name }; }) : [item];
+    return grouped;
+  });
+  const languageItems = map('languages').map((item) => ({ ...item, language: item.language || item.name || '' }));
+  const resultRecords: ResumeDraft['records'] = {
+    教育经历: map('educations'),
+    '工作/实习经历': map('experiences'),
+    项目经历: map('projects'),
+    获奖经历: map('awards'),
+    '论文与专利': [...map('publications'), ...map('patents')],
+    在校经历: map('campusExperiences'),
+    语言能力: [...languageItems, ...skillItems.filter((item) => item.kind === 'language')],
+    证书信息: [...map('certificates'), ...skillItems.filter((item) => item.kind === 'certificate')],
+    技能: skillItems.filter((item) => !item.kind || item.kind === 'skill'),
+  };
+  const hasData = Object.keys(values).length > 0 || Object.values(resultRecords).some((items) => items.length > 0);
+  return {
+    sourceName,
+    sourceText,
+    sourceContentType: sourceName.toLowerCase().endsWith('.txt') || /\.md(own)?$/i.test(sourceName) ? 'text/plain' : undefined,
+    sourceStored: false,
+    values: hasData ? values : fallback.values,
+    records: hasData ? resultRecords : fallback.records,
+  };
+};
+
+export function ProfileSidebar({ sections, activeId, onApplyResumeDraft, existingValues = {}, onSelectSection, completion, filledFieldCount, experienceCount }: {
   sections: ProfileSectionLink[];
-  onApplyResumeDraft?: (draft: ResumeDraft) => Promise<void> | void;
+  activeId: string;
+  onApplyResumeDraft?: (draft: ResumeDraft, options?: { replaceFields?: string[]; keepFields?: string[] }) => Promise<void> | void;
+  existingValues?: Record<string, string>;
+  onSelectSection: (id: string) => void;
+  completion?: number;
+  filledFieldCount?: number;
+  experienceCount?: number;
 }) {
-  const railRef = useRef<HTMLElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
-  const clickedRef = useRef<ProfileNavigationClick | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [activeId, setActiveId] = useState(sections[0]?.id ?? null);
-  const [layout, setLayout] = useState({ columns: 1, rows: Math.max(1, sections.length) });
+  const tabsRef = useRef<HTMLDivElement>(null);
   const [resumeDraft, setResumeDraft] = useState<ResumeDraft | null>(null);
+  const [resumePhase, setResumePhase] = useState<ResumePhase>('idle');
   const [resumeStatus, setResumeStatus] = useState('');
   const [isApplyingResume, setIsApplyingResume] = useState(false);
+  const [conflicts, setConflicts] = useState<Array<{ key: string; label: string; current: string; incoming: string }>>([]);
+  const [replaceFields, setReplaceFields] = useState<string[]>([]);
+  const [showConflictDialog, setShowConflictDialog] = useState(false);
 
-  useEffect(() => {
-    const rail = railRef.current;
-    const list = listRef.current;
-    if (!rail || !list) return;
-    const targets = sections.map(({ id }) => document.getElementById(id))
-      .filter((target): target is HTMLElement => Boolean(target));
-    const desktop = window.matchMedia('(min-width: 981px)');
-    let frame = 0;
-
-    const update = () => {
-      frame = 0;
-      const viewport = {
-        scrollY: window.scrollY,
-        scrollHeight: document.documentElement.scrollHeight,
-        viewportHeight: window.innerHeight,
-      };
-      const clicked = clickedRef.current;
-      if (clicked && (Math.abs(clicked.scrollY - viewport.scrollY) > 2
-        || Math.abs(clicked.scrollHeight - viewport.scrollHeight) > 2)) {
-        clickedRef.current = null;
-      }
-      setActiveId(getActiveProfileSection(
-        targets.map((target) => ({ id: target.id, top: target.getBoundingClientRect().top })),
-        viewport,
-        clickedRef.current,
-      ));
-
-      if (desktop.matches) {
-        const top = Math.max(RAIL_TOP, rail.getBoundingClientRect().top);
-        const height = `${Math.max(0, Math.floor(viewport.viewportHeight - top - RAIL_BOTTOM))}px`;
-        if (rail.style.getPropertyValue('--profile-rail-height') !== height) {
-          rail.style.setProperty('--profile-rail-height', height);
-        }
-      } else {
-        rail.style.removeProperty('--profile-rail-height');
-      }
-
-      const nextLayout = desktop.matches
-        ? getProfileNavigationLayout(sections.length, list.clientHeight)
-        : { columns: 1, rows: Math.max(1, sections.length) };
-      setLayout((current) => current.columns === nextLayout.columns && current.rows === nextLayout.rows
-        ? current : nextLayout);
-    };
-
-    const scheduleUpdate = () => {
-      if (!frame) frame = window.requestAnimationFrame(update);
-    };
-    const onResize = () => {
-      clickedRef.current = null;
-      scheduleUpdate();
-    };
-    const observer = new ResizeObserver(scheduleUpdate);
-    observer.observe(list);
-    observer.observe(rail);
-    targets.forEach((target) => observer.observe(target));
-    const content = targets[0]?.parentElement;
-    if (content) observer.observe(content);
-    window.addEventListener('scroll', scheduleUpdate, { passive: true });
-    window.addEventListener('resize', onResize);
-    desktop.addEventListener('change', onResize);
-    scheduleUpdate();
-
-    return () => {
-      window.cancelAnimationFrame(frame);
-      observer.disconnect();
-      window.removeEventListener('scroll', scheduleUpdate);
-      window.removeEventListener('resize', onResize);
-      desktop.removeEventListener('change', onResize);
-    };
-  }, [sections]);
-
-  const jumpToSection = (id: string) => {
-    const target = document.getElementById(id);
-    if (!target) return;
-    const top = window.scrollY + target.getBoundingClientRect().top - PROFILE_SECTION_OFFSET;
-    // Explicitly bypass the marketing page's global smooth-scroll rule.
-    window.scrollTo({ top: Math.max(0, top), behavior: 'instant' as ScrollBehavior });
-    clickedRef.current = { id, scrollY: window.scrollY, scrollHeight: document.documentElement.scrollHeight };
-    setActiveId(id);
+  const updateResumeStatus = (phase: ResumePhase, message: string) => {
+    setResumePhase(phase);
+    setResumeStatus(message);
   };
 
-  const handleResumeFile = async (file?: File) => {
-    if (!file) return;
-    const extension = file.name.toLowerCase().split('.').pop();
-    if (!['txt', 'md', 'markdown'].includes(extension || '')) {
-      setResumeDraft(null);
-      setResumeStatus('已选择文件；PDF 和 Word 解析将在 API 接入后开放。');
-      return;
-    }
-    try {
-      const sourceText = await file.text();
-      const localDraft = parseResumeText(sourceText, file.name);
-      try {
-        const response = await parseResumeWithAi({ filename: file.name, content: sourceText });
-        const aiValues = Object.fromEntries(Object.entries({ ...response.data.profile, ...response.data.preferences }).filter(([, value]) => value != null && String(value).trim()));
-        if (aiValues.city && !aiValues.homeCity) aiValues.homeCity = aiValues.city;
-        const draft: ResumeDraft = {
-          ...localDraft,
-          values: { ...Object.fromEntries(Object.entries(aiValues).map(([key, value]) => [key, String(value)])), ...localDraft.values },
-          records: { ...localDraft.records, ...(response.data.records || {}) },
-        };
-        setResumeDraft(draft);
-        setResumeStatus(`AI 已读取 ${file.name}，请确认后保存。`);
-      } catch {
-        setResumeDraft(localDraft);
-        setResumeStatus(`AI 服务暂不可用，已使用本地解析读取 ${file.name}，请确认后保存。`);
-      }
-    } catch {
-      setResumeDraft(null);
-      setResumeStatus('文件读取失败，请重新选择。');
-    }
+  const fieldLabels: Record<string, string> = {
+    name: '姓名', phone: '手机号', gender: '性别', birthday: '出生日期', email: '邮箱',
+    homeCity: '所在城市', city: '所在城市', nativePlace: '籍贯', highestEducation: '最高学历',
+    targetTitles: '期望职位', targetCities: '期望城市', targetIndustries: '期望行业', employmentType: '工作类型',
+    availableFrom: '到岗时间', salaryExpectation: '期望薪资', selfIntroduction: '自我介绍', website: '个人主页', personalWebsite: '个人主页', github: 'GitHub / 作品集', githubUrl: 'GitHub / 作品集',
   };
 
-  const applyResumeDraft = async () => {
-    if (!resumeDraft || !onApplyResumeDraft) return;
+  const applyDraftImmediately = async (draft: ResumeDraft, fields: string[] = [], keep: string[] = []) => {
+    if (!onApplyResumeDraft) return;
     setIsApplyingResume(true);
+    updateResumeStatus('applying', '解析完成，正在写入资料…');
     try {
-      await onApplyResumeDraft(resumeDraft);
-      setResumeStatus('简历内容已保存到资料草稿。');
-    } catch {
-      setResumeStatus('资料保存失败，请确认 API 已启动后重试。');
+      await onApplyResumeDraft(draft, { replaceFields: fields, keepFields: keep });
+      updateResumeStatus('completed', `解析完成，已导入 ${draft.sourceName}，经历条目已追加到资料。`);
+      setShowConflictDialog(false);
+    } catch (error) {
+      const detail = error as { status?: number; payload?: { conflicts?: Array<{ path?: string; field?: string; existing?: unknown; incoming?: unknown }> } };
+      if (detail.status === 409 && detail.payload?.conflicts?.length) {
+        const serverConflicts = detail.payload.conflicts.map((item) => ({ key: item.field || item.path || '', label: fieldLabels[item.field || ''] || item.field || item.path || '资料字段', current: String(item.existing ?? ''), incoming: String(item.incoming ?? '') }));
+        setConflicts(serverConflicts);
+        setReplaceFields([]);
+        setShowConflictDialog(true);
+        updateResumeStatus('conflict', '解析完成，检测到已有资料与简历内容冲突，请选择需要覆盖的字段。');
+        return;
+      }
+      throw error;
     } finally {
       setIsApplyingResume(false);
     }
   };
 
-  return (
-    <aside className="profile-public-secondary" ref={railRef}>
-      <section className="profile-side-card profile-resume-card" id="resume-parser">
-        <div className="profile-card-heading">
-          <div><h2>AI 简历解析</h2></div>
-        </div>
-        <p>上传 PDF、Word 或 Markdown 简历，生成待确认的资料草稿。</p>
-        <input
-          ref={fileInputRef}
-          className="profile-resume-input"
-          type="file"
-          accept=".txt,.md,.markdown,.pdf,.doc,.docx"
-          onChange={(event) => { void handleResumeFile(event.target.files?.[0]); event.currentTarget.value = ''; }}
-        />
-        <button className="profile-secondary-action profile-secondary-action--wide" onClick={() => fileInputRef.current?.click()}>
-          选择简历文件
-        </button>
-        {resumeStatus && <p className="profile-resume-status" role="status">{resumeStatus}</p>}
-        {resumeDraft && <div className="profile-resume-draft">
-          <strong>{resumeDraft.values.name || '未识别姓名'}</strong>
-          <span>{[resumeDraft.values.targetTitles, resumeDraft.values.email].filter(Boolean).join(' · ') || '已生成待确认资料'}</span>
-          <button className="profile-primary-action profile-primary-action--wide" onClick={() => void applyResumeDraft()} disabled={isApplyingResume}>
-            {isApplyingResume ? '保存中…' : '保存到个人资料'}
-          </button>
-        </div>}
-      </section>
+  const inspectAndApply = (draft: ResumeDraft) => {
+    setResumeDraft(draft);
+    const valueAliases: Record<string, string> = { city: 'homeCity', homeCity: 'city', personalWebsite: 'website', website: 'personalWebsite', githubUrl: 'github', github: 'githubUrl' };
+    const nextConflicts = Object.entries(draft.values)
+      .map(([key, value]) => [key, value, existingValues[key] || existingValues[valueAliases[key]]] as const)
+      .filter(([key, value, current]) => key !== 'email' && String(value || '').trim() && String(current || '').trim() && String(current).trim() !== String(value).trim())
+      .map(([key, value, current]) => ({ key, label: fieldLabels[key] || key, current: String(current), incoming: String(value) }));
+    if (nextConflicts.length) {
+      setConflicts(nextConflicts);
+      setReplaceFields([]);
+      setShowConflictDialog(true);
+      updateResumeStatus('conflict', '解析完成，检测到已有资料与简历内容冲突，请选择需要覆盖的字段。');
+      return;
+    }
+    void applyDraftImmediately(draft).catch(() => updateResumeStatus('error', '资料保存失败，请确认 API 已启动后重试。'));
+  };
 
+  const handleResumeFile = async (file?: File) => {
+    if (!file) return;
+    if (file.size > 12 * 1024 * 1024) {
+      setResumeDraft(null);
+      updateResumeStatus('error', '文件不能超过 12MB，请压缩后重试。');
+      return;
+    }
+    const extension = file.name.toLowerCase().split('.').pop();
+    const textFile = ['txt', 'md', 'markdown'].includes(extension || '');
+    const binaryFile = ['pdf', 'docx'].includes(extension || '');
+    if (!textFile && !binaryFile) {
+      setResumeDraft(null);
+      updateResumeStatus('error', '请选择 TXT、Markdown、PDF 或 DOCX 简历。');
+      return;
+    }
+    try {
+      // A new upload starts a fresh state machine; do not leave the previous
+      // draft visible while the new file is being read or parsed.
+      setResumeDraft(null);
+      setShowConflictDialog(false);
+      setConflicts([]);
+      setReplaceFields([]);
+      updateResumeStatus('reading', `正在读取 ${file.name}…`);
+      if (textFile) {
+        const sourceText = await file.text();
+        const localDraft = parseResumeText(sourceText, file.name);
+        // Keep text uploads on the same server pipeline as PDF/DOCX uploads.
+        // `/ai/resume/parse` is the raw extraction endpoint; `/ai/resume/parse-file`
+        // also runs the canonical normalizer and returns the database-ready shape
+        // consumed by this editor.
+        const contentBase64 = await fileToBase64(file);
+        updateResumeStatus('parsing', '正在解析简历，请稍候…');
+        try {
+          const response = await parseResumeFileWithAi({ filename: file.name, contentType: file.type || contentTypeForExtension(extension), contentBase64 });
+          updateResumeStatus('parsed', '解析完成，正在整理资料…');
+          inspectAndApply(aiResponseToDraft(response as unknown as Record<string, unknown>, file.name, sourceText, localDraft));
+        } catch {
+          updateResumeStatus('parsed', '解析完成，正在整理资料…');
+          inspectAndApply(localDraft);
+        }
+        return;
+      }
+
+      const contentBase64 = await fileToBase64(file);
+      updateResumeStatus('parsing', '正在解析简历，请稍候…');
+      const response = await parseResumeFileWithAi({ filename: file.name, contentType: file.type || contentTypeForExtension(extension), contentBase64 });
+      updateResumeStatus('parsed', '解析完成，正在整理资料…');
+      const draft = aiResponseToDraft(response as unknown as Record<string, unknown>, file.name, '', { values: {}, records: {}, sourceName: file.name, sourceText: '' });
+      draft.sourceFingerprint = response.requestId || `${file.name}:${file.size}:${file.lastModified}`;
+      inspectAndApply(draft);
+    } catch {
+      setResumeDraft(null);
+      updateResumeStatus('error', '简历解析失败，请检查文件后重试。');
+    }
+  };
+
+  const confirmConflictImport = async () => {
+    if (!resumeDraft) return;
+    try {
+      await applyDraftImmediately(resumeDraft, replaceFields, conflicts.filter((item) => !replaceFields.includes(item.key)).map((item) => item.key));
+    } catch {
+      updateResumeStatus('error', '资料保存失败，请确认 API 已启动后重试。');
+    }
+  };
+
+  return (
+    <section className="profile-tools" aria-label="资料工具">
+      <div className="profile-tools-summary" aria-label="资料概览">
+        <div className="profile-tools-progress">
+          <div className="profile-tools-progress-heading"><span>资料完成度</span><strong>{completion ?? 0}%</strong></div>
+          <div className="profile-tools-progress-bar" role="progressbar" aria-label="资料完成度" aria-valuenow={completion ?? 0} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${completion ?? 0}%` }} /></div>
+        </div>
+        <div className="profile-tools-stats">
+          <div><strong>{filledFieldCount ?? 0}</strong><span>已填写字段</span></div>
+          <div><strong>{experienceCount ?? 0}</strong><span>经历条目</span></div>
+          <div><strong>3</strong><span>核心功能</span></div>
+        </div>
+        <div className="profile-parser-control" id="resume-parser">
+          <input
+            ref={fileInputRef}
+            className="profile-resume-input"
+            type="file"
+            accept=".txt,.md,.markdown,.pdf,.docx"
+            onChange={(event) => { void handleResumeFile(event.target.files?.[0]); event.currentTarget.value = ''; }}
+          />
+          <button className="profile-parser-button" onClick={() => fileInputRef.current?.click()} disabled={isApplyingResume || resumePhase === 'reading' || resumePhase === 'parsing'}>
+            <span aria-hidden="true">✦</span> AI 简历解析
+          </button>
+        </div>
+      </div>
       <nav className="profile-section-map" aria-label="资料目录">
-        <div className="profile-outline-heading"><span>资料目录</span><span>{sections.length} 个分区</span></div>
-        <div
-          ref={listRef}
-          className="profile-map-list"
-          style={{
-            gridTemplateColumns: `repeat(${layout.columns}, minmax(0, 1fr))`,
-            gridTemplateRows: `repeat(${layout.rows}, ${PROFILE_NAV_ROW_HEIGHT}px)`,
-          }}
-        >
+        <div ref={tabsRef} className="profile-map-list" role="tablist" aria-label="资料模块">
           {sections.map((section, index) => (
             <button
+              type="button"
+              role="tab"
+              id={`tab-${section.id}`}
               className="profile-map-item"
               key={section.id}
-              aria-current={activeId === section.id ? 'location' : undefined}
+              aria-selected={activeId === section.id}
+              tabIndex={activeId === section.id ? 0 : -1}
               aria-controls={section.id}
-              data-column-start={index % layout.rows === 0 ? 'true' : undefined}
-              onClick={() => jumpToSection(section.id)}
+              onClick={() => onSelectSection(section.id)}
+              onKeyDown={(event) => {
+                let nextIndex: number;
+                if (event.key === 'ArrowRight') nextIndex = (index + 1) % sections.length;
+                else if (event.key === 'ArrowLeft') nextIndex = (index - 1 + sections.length) % sections.length;
+                else if (event.key === 'Home') nextIndex = 0;
+                else if (event.key === 'End') nextIndex = sections.length - 1;
+                else return;
+                event.preventDefault();
+                onSelectSection(sections[nextIndex].id);
+                tabsRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[nextIndex]?.focus();
+              }}
             >
               <span className="profile-map-node" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
               <span className="profile-map-copy"><strong>{section.title}</strong></span>
@@ -207,6 +273,19 @@ export function ProfileSidebar({ sections, onApplyResumeDraft }: {
           ))}
         </div>
       </nav>
-    </aside>
+      {resumeStatus && <span className="profile-parser-status" data-state={resumePhase} role="status" aria-live="polite"><span className="profile-resume-status-dot" aria-hidden="true" />{resumeStatus}</span>}
+      {showConflictDialog && resumeDraft && <div className="profile-conflict-backdrop" role="presentation">
+        <section className="profile-conflict-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-conflict-title">
+          <div className="profile-card-heading"><div><h2 id="profile-conflict-title">发现资料冲突</h2><p>经历和项目会直接追加；以下个人信息已有不同内容，请选择是否覆盖。</p></div></div>
+          <div className="profile-conflict-list">
+            {conflicts.map((item) => <label className="profile-conflict-item" key={item.key}>
+              <input type="checkbox" checked={replaceFields.includes(item.key)} onChange={(event) => setReplaceFields((current) => event.target.checked ? [...current, item.key] : current.filter((key) => key !== item.key))} />
+              <span><strong>{item.label}</strong><em>现有：{item.current}</em><em>简历：{item.incoming}</em></span>
+            </label>)}
+          </div>
+          <div className="profile-conflict-actions"><button className="profile-button profile-button--quiet" onClick={() => { setShowConflictDialog(false); updateResumeStatus('conflict', '已保留原有个人信息，经历仍会追加。'); void applyDraftImmediately(resumeDraft, [], conflicts.map((item) => item.key)); }}>保留原内容</button><button className="profile-primary-action" onClick={() => void confirmConflictImport()} disabled={isApplyingResume}>{isApplyingResume ? '保存中…' : '保存并覆盖已选'}</button></div>
+        </section>
+      </div>}
+    </section>
   );
 }

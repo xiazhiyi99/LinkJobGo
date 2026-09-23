@@ -8,13 +8,13 @@ datasource db {
 }
 
 model User {
-  id                       String                    @id @default(cuid())
-  email                    String                    @unique
+  id                       String                   @id @default(cuid())
+  email                    String                   @unique
   passwordHash             String
-  role                     String                    @default("user")
+  role                     String                   @default("user")
   emailVerifiedAt          DateTime?
-  createdAt                DateTime                  @default(now())
-  updatedAt                DateTime                  @updatedAt
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
   sessions                 Session[]
   passwordResetTokens      PasswordResetToken[]
   emailVerificationTokens  EmailVerificationToken[]
@@ -25,18 +25,29 @@ model User {
   projects                 Project[]
   skills                   Skill[]
   resumeDocuments          ResumeDocument[]
+  resumeImports            ResumeImport[]
+  createdAutofillRuleSets  AutofillRuleSet[]        @relation("AutofillRuleSetCreatedBy")
+  reviewedAutofillRuleSets AutofillRuleSet[]        @relation("AutofillRuleSetReviewedBy")
+  applications             Application[]
+  applicationEvents        ApplicationEvent[]
+  tasks                    Task[]
+  mailAccounts             MailAccount[]
+  mailMessages             MailMessage[]
+  syncRuns                 SyncRun[]
 }
 
 model Session {
-  id               String   @id @default(cuid())
+  id               String    @id @default(cuid())
   userId           String
   type             String
+  accessTokenHash  String?   @unique
   refreshTokenHash String?
   expiresAt        DateTime
   revokedAt        DateTime?
   userAgent        String?
-  createdAt        DateTime @default(now())
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime  @default(now())
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId, type])
 }
 
@@ -48,6 +59,7 @@ model PasswordResetToken {
   usedAt    DateTime?
   createdAt DateTime  @default(now())
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 
@@ -59,34 +71,44 @@ model EmailVerificationToken {
   usedAt    DateTime?
   createdAt DateTime  @default(now())
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 
 model Profile {
-  id               String   @id @default(cuid())
-  userId           String   @unique
-  name             String?
-  avatarUrl        String?
-  phone            String?
-  city             String?
-  personalWebsite   String?
-  githubUrl        String?
-  portfolioUrl     String?
-  gender           String?
-  birthday         String?
-  homeCity         String?
-  homeDistrict     String?
-  schoolCity       String?
-  address          String?
-  politicalStatus  String?
-  nationality      String?
-  workExperience   String?
-  interests        String?
-  selfIntroduction String?
-  extra            Json?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  name                  String?
+  avatarUrl             String?
+  phone                 String?
+  city                  String?
+  personalWebsite       String?
+  githubUrl             String?
+  portfolioUrl          String?
+  gender                String?
+  birthday              String?
+  homeCity              String?
+  homeDistrict          String?
+  schoolCity            String?
+  address               String?
+  politicalStatus       String?
+  nationality           String?
+  citizenship           String?
+  wechat                String?
+  nativePlace           String?
+  highestEducation      String?
+  firstWorkYear         String?
+  fullTimeStudent       String?
+  hasRelativesInCompany String?
+  recommendationMethod  String?
+  workVisaRequired      String?
+  workExperience        String?
+  interests             String?
+  selfIntroduction      String?
+  extra                 Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model JobPreference {
@@ -107,21 +129,22 @@ model JobPreference {
 }
 
 model Education {
-  id          String    @id @default(cuid())
-  userId      String
-  school      String?
-  degree      String?
-  major       String?
-  startDate   String?
-  endDate     String?
-  current     Boolean   @default(false)
-  gpa         String?
-  courses     String?
-  extra       Json?
-  deletedAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String    @id @default(cuid())
+  userId    String
+  school    String?
+  degree    String?
+  major     String?
+  startDate String?
+  endDate   String?
+  current   Boolean   @default(false)
+  gpa       String?
+  courses   String?
+  extra     Json?
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId, deletedAt])
 }
 
@@ -140,6 +163,7 @@ model Experience {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId, deletedAt])
 }
 
@@ -157,6 +181,7 @@ model Project {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId, deletedAt])
 }
 
@@ -173,6 +198,7 @@ model Skill {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId, deletedAt])
 }
 
@@ -184,5 +210,203 @@ model ResumeDocument {
   content     String
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId, createdAt])
+}
+
+model ResumeImport {
+  id             String    @id @default(cuid())
+  userId         String
+  idempotencyKey String
+  payload        Json
+  status         String    @default("pending")
+  result         Json?
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt])
+}
+
+// A versioned, declarative page adapter. The rules JSON contains field,
+// repeat-group, option and date mappings; it never contains a user's resume
+// values or executable page code.
+model AutofillRuleSet {
+  id                    String    @id @default(cuid())
+  scope                 String
+  platformKey           String?
+  sourceKey             String
+  origin                String?
+  pathPattern           String?
+  queryPolicy           String    @default("ignore")
+  parentRuleSetId       String?
+  supersedesId          String?
+  versionNo             Int
+  priority              Int       @default(0)
+  state                 String    @default("draft")
+  health                String    @default("healthy")
+  needsReview           Boolean   @default(false)
+  rules                 Json
+  fingerprintHash       String?
+  fingerprintSummary    Json?
+  fingerprintObservedAt DateTime?
+  createdByUserId       String?
+  reviewedByUserId      String?
+  publishedAt           DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  parentRuleSet AutofillRuleSet?  @relation("AutofillRuleSetParent", fields: [parentRuleSetId], references: [id], onDelete: SetNull)
+  childRuleSets AutofillRuleSet[] @relation("AutofillRuleSetParent")
+  supersedes    AutofillRuleSet?  @relation("AutofillRuleSetSupersedes", fields: [supersedesId], references: [id], onDelete: SetNull)
+  supersededBy  AutofillRuleSet[] @relation("AutofillRuleSetSupersedes")
+  createdBy     User?             @relation("AutofillRuleSetCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  reviewedBy    User?             @relation("AutofillRuleSetReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([sourceKey, versionNo])
+  @@index([sourceKey, state])
+  @@index([platformKey, scope, state])
+  @@index([parentRuleSetId])
+}
+
+model Application {
+  id             String             @id @default(cuid())
+  userId         String
+  company        String
+  title          String
+  jobUrl         String?
+  source         String             @default("manual")
+  idempotencyKey String?
+  status         String             @default("saved")
+  version        Int                @default(1)
+  isUserEdited   Boolean            @default(false)
+  appliedOn      DateTime?
+  eventStart     DateTime?
+  eventEnd       DateTime?
+  assessmentUrl  String?
+  interviewUrl   String?
+  nextFollowUpAt DateTime?
+  nextAction     String?
+  nextActionUrl  String?
+  notes          String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events         ApplicationEvent[]
+  tasks          Task[]
+  mailMessages   MailMessage[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, updatedAt])
+  @@index([userId, status])
+}
+
+model ApplicationEvent {
+  id            String      @id @default(cuid())
+  userId        String
+  applicationId String
+  type          String
+  clientEventId String
+  source        String?
+  occurredAt    DateTime    @default(now())
+  metadata      Json?
+  createdAt     DateTime    @default(now())
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clientEventId])
+  @@index([userId, applicationId, occurredAt])
+}
+
+model Task {
+  id             String       @id @default(cuid())
+  userId         String
+  applicationId  String?
+  title          String
+  kind           String       @default("follow_up")
+  status         String       @default("open")
+  dueAt          DateTime?
+  url            String?
+  source         String       @default("manual")
+  idempotencyKey String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  application    Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, status, dueAt])
+  @@index([userId, applicationId])
+}
+
+model MailAccount {
+  id                   String        @id @default(cuid())
+  userId               String
+  provider             String
+  email                String
+  displayName          String?
+  authType             String
+  credentialCiphertext String?
+  credentialIv         String?
+  credentialTag        String?
+  lastSyncedAt         DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages             MailMessage[]
+  syncRuns             SyncRun[]
+
+  @@unique([userId, provider, email])
+  @@index([userId, updatedAt])
+}
+
+model MailMessage {
+  id                    String       @id @default(cuid())
+  userId                String
+  mailAccountId         String
+  providerMessageId     String
+  threadId              String?
+  fromName              String?
+  fromEmail             String?
+  subject               String
+  snippet               String?
+  bodyText              String?
+  receivedAt            DateTime
+  isJobRelated          Boolean?
+  classificationSource  String?
+  classificationVersion String?
+  classificationReason  String?
+  aiResult              Json?
+  applicationId         String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  user                  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mailAccount           MailAccount  @relation(fields: [mailAccountId], references: [id], onDelete: Cascade)
+  application           Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+
+  @@unique([mailAccountId, providerMessageId])
+  @@index([userId, receivedAt])
+  @@index([userId, isJobRelated])
+  @@index([userId, applicationId])
+}
+
+model SyncRun {
+  id             String      @id @default(cuid())
+  userId         String
+  mailAccountId  String
+  status         String      @default("queued")
+  rangeDays      Int         @default(7)
+  idempotencyKey String
+  startedAt      DateTime?
+  completedAt    DateTime?
+  error          String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mailAccount    MailAccount @relation(fields: [mailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt])
+  @@index([mailAccountId, status])
 }

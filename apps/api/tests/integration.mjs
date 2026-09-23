@@ -2,12 +2,15 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
+import { PrismaClient } from '@prisma/client';
 
 const port = 3201;
 const base = `http://127.0.0.1:${port}`;
+const databaseUrl = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/job_assistant_dev';
+const prisma = new PrismaClient({ datasourceUrl: databaseUrl });
 const api = spawn(process.execPath, ['src/index.js'], {
   cwd: new URL('..', import.meta.url),
-  env: { ...process.env, API_PORT: String(port), DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/job_assistant_dev', AI_PROVIDER_MODE: 'fake', AI_FAKE_FAILURES: '2' },
+  env: { ...process.env, API_PORT: String(port), DATABASE_URL: databaseUrl, AI_PROVIDER_MODE: 'fake', AI_FAKE_FAILURES: '2' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 const waitForApi = async () => {
@@ -34,6 +37,76 @@ try {
   assert.equal(login.response.status, 200);
   const cookie = sessionCookie(login.response);
   assert.ok(cookie);
+
+  const genericRules = {
+    schemaVersion: 'page-rules.v1',
+    fields: {
+      'profile.name': {
+        sourcePath: 'profile.name',
+        controlKind: 'text',
+        strategy: 'text',
+        locator: { labelTokens: ['姓名', 'name'], role: 'textbox' },
+      },
+    },
+    repeatGroups: {},
+    options: {},
+    dates: {},
+  };
+  const forbiddenForUser = await request('/autofill/rules/drafts', json({
+    scope: 'generic',
+    sourceKey: 'generic:v1',
+    rules: genericRules,
+  }), cookie);
+  assert.equal(forbiddenForUser.response.status, 403);
+  assert.equal(forbiddenForUser.payload.code, 'RULE_OPERATOR_REQUIRED');
+  await prisma.user.update({ where: { email }, data: { role: 'operator' } });
+  const rejectedRule = await request('/autofill/rules/drafts', json({
+    scope: 'generic',
+    sourceKey: 'generic:v1',
+    rules: { ...genericRules, fields: { 'profile.name': { sourcePath: 'profile.name', cssSelector: '#name' } } },
+  }), cookie);
+  assert.equal(rejectedRule.response.status, 400);
+  const canonicalSourceDraft = await request('/autofill/rules/drafts', json({
+    scope: 'platform',
+    platformKey: 'fixture',
+    sourceKey: 'https://EXAMPLE.com/resume/?token=secret',
+    rules: genericRules,
+  }), cookie);
+  assert.equal(canonicalSourceDraft.response.status, 201);
+  assert.equal(canonicalSourceDraft.payload.ruleSet.sourceKey, 'https://example.com/resume');
+  assert.equal(canonicalSourceDraft.payload.ruleSet.pathPattern, '/resume');
+  const draftRule = await request('/autofill/rules/drafts', json({
+    scope: 'generic',
+    sourceKey: 'generic:v1',
+    fingerprintHash: 'layout-v1',
+    fingerprintSummary: { fieldCount: 1, groupCount: 0 },
+    rules: genericRules,
+  }), cookie);
+  assert.equal(draftRule.response.status, 201);
+  const ruleId = draftRule.payload.ruleSet.id;
+  const reviewedRule = await request(`/autofill/rules/${ruleId}/review`, json({}), cookie);
+  assert.equal(reviewedRule.response.status, 200);
+  assert.equal(reviewedRule.payload.ruleSet.state, 'review');
+  const publishedRule = await request(`/autofill/rules/${ruleId}/publish`, json({}), cookie);
+  assert.equal(publishedRule.response.status, 200);
+  assert.equal(publishedRule.payload.ruleSet.state, 'published');
+  await prisma.user.update({ where: { email }, data: { role: 'user' } });
+  const resolvedRule = await request('/autofill/rules/resolve?sourceKey=generic%3Av1&fingerprintHash=layout-v1', {}, cookie);
+  assert.equal(resolvedRule.response.status, 200);
+  assert.equal(resolvedRule.payload.matched, true);
+  assert.equal(resolvedRule.payload.fingerprintChanged, false);
+  assert.deepEqual(resolvedRule.payload.rules, genericRules);
+  const driftedRule = await request('/autofill/rules/resolve?sourceKey=generic%3Av1&fingerprintHash=layout-v2', {}, cookie);
+  assert.equal(driftedRule.response.status, 200);
+  assert.equal(driftedRule.payload.fingerprintChanged, true);
+  assert.deepEqual(driftedRule.payload.rules, genericRules);
+  const genericFallback = await request('/autofill/rules/resolve?url=https%3A%2F%2Funknown.example%2Fresume%2Fedit', {}, cookie);
+  assert.equal(genericFallback.response.status, 200);
+  assert.equal(genericFallback.payload.matched, false);
+  assert.equal(genericFallback.payload.ruleSet, null);
+
+  assert.equal((await request('/profiles/me/autofill-context')).response.status, 401);
+  assert.equal((await request('/profiles/me/export')).response.status, 401);
 
   const aiResume = await request('/ai/resume/parse', { method: 'POST', body: JSON.stringify({ filename: 'resume.txt', content: '# 测试简历', requestId: 'integration-resume' }) }, cookie);
   assert.equal(aiResume.response.status, 200);
@@ -62,7 +135,7 @@ try {
     },
   }) }, cookie);
   assert.equal(grouped.response.status, 200);
-  const education = await request('/profiles/me/educations', json({ school: '测试大学', degree: '硕士' }), cookie);
+  const education = await request('/profiles/me/educations', json({ school: '测试大学', degree: '硕士', extra: { note: 'fixture', nested: { userId: 'must-not-export' } } }), cookie);
   assert.equal(education.response.status, 201);
   const educationId = education.payload.item.id;
   const saved = await request('/profiles/me', {}, cookie);
@@ -73,7 +146,35 @@ try {
   assert.equal(saved.payload.projects.length, 1);
   assert.equal(saved.payload.awards.length, 1);
   assert.equal(saved.payload.publications.length, 1);
-  assert.equal(saved.payload.skills.length, 3);
+  assert.equal(saved.payload.skills.length, 1);
+  assert.equal(saved.payload.languages.length, 1);
+  assert.equal(saved.payload.certificates.length, 1);
+
+  const autofillContext = await request('/profiles/me/autofill-context', {}, cookie);
+  assert.equal(autofillContext.response.status, 200);
+  assert.equal(autofillContext.payload.schemaVersion, 'resume.autofill.v1');
+  assert.match(autofillContext.payload.profileVersion, /^[a-f0-9]{64}$/);
+  assert.match(autofillContext.payload.generatedAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(autofillContext.payload.profile.email, email);
+  assert.equal('userId' in autofillContext.payload.profile, false);
+  assert.equal(autofillContext.payload.records.some((record) => record.recordType === 'education' && record.fields.school === '测试大学'), true);
+  assert.equal(autofillContext.payload.records.some((record) => record.recordType === 'experience' && record.fields.company === '测试公司'), true);
+  assert.equal(autofillContext.payload.records.every((record) => record.id && record.recordType && Number.isInteger(record.index) && !('userId' in record.fields) && !('id' in record.fields)), true);
+
+  const exported = await request('/profiles/me/export', {}, cookie);
+  assert.equal(exported.response.status, 200);
+  assert.match(exported.response.headers.get('content-disposition') || '', /autofill-context\.json/);
+  assert.match(exported.response.headers.get('content-type') || '', /application\/json/);
+  assert.equal(exported.payload.schemaVersion, 'resume.autofill.v1');
+  assert.equal(exported.payload.profileVersion, autofillContext.payload.profileVersion);
+  const exportedEducation = exported.payload.records.find((record) => record.recordType === 'education');
+  assert.equal(exportedEducation.extra.nested.userId, undefined);
+
+  const extensionLogin = await request('/auth/extension/login', json({ email, password }));
+  assert.equal(extensionLogin.response.status, 200);
+  const extensionContext = await request('/profiles/me/autofill-context', { headers: { authorization: `Bearer ${extensionLogin.payload.accessToken}` } });
+  assert.equal(extensionContext.response.status, 200);
+  assert.equal(extensionContext.payload.profileVersion, autofillContext.payload.profileVersion);
 
   const fakeResumePath = process.env.FAKE_RESUME_PATH || '/Users/dp/Downloads/fake_resume.txt';
   const resumeContent = existsSync(fakeResumePath) ? readFileSync(fakeResumePath, 'utf8') : '# 测试简历\n姓名：集成测试用户';
@@ -89,6 +190,9 @@ try {
   const secondCookie = sessionCookie(secondLogin.response);
   const isolated = await request('/profiles/me', {}, secondCookie);
   assert.equal(isolated.payload.educations.length, 0);
+  const isolatedContext = await request('/profiles/me/autofill-context', {}, secondCookie);
+  assert.equal(isolatedContext.payload.records.length, 0);
+  assert.notEqual(isolatedContext.payload.profile.email, email);
   assert.equal((await request(`/profiles/me/educations/${educationId}`, { method: 'DELETE' }, secondCookie)).response.status, 404);
 
   assert.equal((await request(`/profiles/me/educations/${educationId}`, { method: 'DELETE' }, cookie)).response.status, 200);
@@ -97,5 +201,6 @@ try {
   assert.equal((await request('/profiles/me', {}, cookie)).payload.educations.length, 1);
   console.log('API integration checks passed');
 } finally {
+  await prisma.$disconnect();
   api.kill('SIGTERM');
 }

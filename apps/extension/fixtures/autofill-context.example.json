@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "resume.autofill.v1",
+  "profileVersion": "08673f66429da239a224ece3f74eee562bff2986615aa875a0034c82dc3e5d24",
+  "generatedAt": "2026-01-01T00:00:00.000Z",
+  "profile": {
+    "name": "测试候选人",
+    "email": "candidate@example.test",
+    "phone": "13800000000",
+    "city": "上海市",
+    "highestEducation": "硕士",
+    "selfIntroduction": "具备机器学习与后端工程实践经验。"
+  },
+  "preferences": {
+    "targetTitles": "算法工程师、机器学习工程师",
+    "targetCities": "上海市、北京市",
+    "employmentType": "全职"
+  },
+  "records": [
+    {
+      "id": "fixture-education-1",
+      "recordType": "education",
+      "index": 0,
+      "fields": {
+        "school": "示例大学",
+        "degree": "硕士",
+        "major": "计算机科学与技术",
+        "startDate": "2022-09",
+        "endDate": "2025-06",
+        "current": false
+      }
+    },
+    {
+      "id": "fixture-experience-1",
+      "recordType": "experience",
+      "index": 0,
+      "fields": {
+        "company": "示例科技有限公司",
+        "title": "机器学习实习生",
+        "city": "上海市",
+        "startDate": "2024-06",
+        "endDate": "2024-09",
+        "current": false,
+        "description": "参与推荐模型训练、评估和服务化部署。"
+      }
+    },
+    {
+      "id": "fixture-project-1",
+      "recordType": "project",
+      "index": 0,
+      "fields": {
+        "name": "职位匹配实验平台",
+        "role": "项目负责人",
+        "startDate": "2024-01",
+        "endDate": "2024-05",
+        "description": "构建职位文本检索和候选人资料匹配流程。"
+      }
+    },
+    {
+      "id": "fixture-skill-1",
+      "recordType": "skill",
+      "index": 0,
+      "fields": {
+        "name": "Python",
+        "level": "熟练"
+      }
+    },
+    {
+      "id": "fixture-language-1",
+      "recordType": "language",
+      "index": 0,
+      "fields": {
+        "name": "英语",
+        "level": "CET-6"
+      }
+    }
+  ]
+}

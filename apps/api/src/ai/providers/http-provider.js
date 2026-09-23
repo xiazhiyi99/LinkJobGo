@@ -9,7 +9,7 @@ const createHttpProvider = ({ tier, provider = 'openai-compatible', baseUrl, api
   name: provider,
   tier,
   model,
-  async completeStructured({ messages, schema, signal, requestId }) {
+  async completeStructured({ task, messages, schema, signal, requestId }) {
     if (!baseUrl || !apiKey || !model) throw new AiError(`未配置 ${tier} AI 服务`, 'AI_PROVIDER_NOT_CONFIGURED', { retryable: false, status: 503 });
     let response;
     try {
@@ -20,7 +20,10 @@ const createHttpProvider = ({ tier, provider = 'openai-compatible', baseUrl, api
         body: JSON.stringify({
           model,
           messages,
-          temperature: 0.1,
+          // Resume normalization is a schema extraction task. A zero
+          // temperature reduces semantic field drift between retries/runs;
+          // interactive autofill keeps the slightly more flexible default.
+          temperature: task === 'resume.normalize' ? 0 : 0.1,
           response_format: { type: 'json_object' },
           metadata: { request_id: requestId },
         }),

@@ -1,0 +1,845 @@
+{
+  "id": "meituan-resume-detail-v1",
+  "scope": "tenant",
+  "platformKey": "meituan",
+  "sourceKey": "https://zhaopin.meituan.com/web/personal-center/resume-detail",
+  "origin": "https://zhaopin.meituan.com",
+  "pathPattern": "/web/personal-center/resume-detail",
+  "queryPolicy": "ignore",
+  "versionNo": 2,
+  "priority": 100,
+  "state": "published",
+  "health": "review",
+  "needsReview": true,
+  "fingerprintSummary": {
+    "page": "meituan-resume-detail",
+    "source": "operator-observed",
+    "fieldCount": 56,
+    "repeatGroups": 9,
+    "recordCount": 8,
+    "unresolvedGroups": [],
+    "note": "Observed via generic scan and reversible add probes; option aliases remain conservative."
+  },
+  "rules": {
+    "schemaVersion": "page-rules.v1",
+    "fields": {
+      "profile.name": {
+        "sourcePath": "profile.name",
+        "locator": {
+          "labelTokens": [
+            "姓名",
+            "name"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "profile.gender": {
+        "sourcePath": "profile.gender",
+        "locator": {
+          "labelTokens": [
+            "性别",
+            "gender"
+          ],
+          "controlKind": "select",
+          "role": "combobox"
+        }
+      },
+      "profile.phone": {
+        "sourcePath": "profile.phone",
+        "locator": {
+          "labelTokens": [
+            "手机号码",
+            "手机号",
+            "电话"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "profile.email": {
+        "sourcePath": "profile.email",
+        "locator": {
+          "labelTokens": [
+            "邮箱",
+            "email"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "profile.birthDate": {
+        "sourcePath": "profile.birthDate",
+        "locator": {
+          "labelTokens": [
+            "出生年月",
+            "出生日期"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "profile.idType": {
+        "sourcePath": "profile.idType",
+        "locator": {
+          "labelTokens": [
+            "证件类型"
+          ],
+          "controlKind": "select",
+          "role": "combobox"
+        }
+      },
+      "profile.idNumber": {
+        "sourcePath": "profile.idNumber",
+        "locator": {
+          "labelTokens": [
+            "证件号码",
+            "身份证号"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "profile.city": {
+        "sourcePath": "profile.city",
+        "locator": {
+          "labelTokens": [
+            "所在城市",
+            "城市",
+            "期望城市"
+          ],
+          "controlKind": "select",
+          "role": "combobox"
+        }
+      },
+      "profile.workYears": {
+        "sourcePath": "profile.workYears",
+        "locator": {
+          "labelTokens": [
+            "工作年份",
+            "工作年限"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "profile.highestEducation": {
+        "sourcePath": "profile.highestEducation",
+        "locator": {
+          "labelTokens": [
+            "最高学历"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "profile.address": {
+        "sourcePath": "profile.address",
+        "locator": {
+          "labelTokens": [
+            "通讯地址",
+            "地址"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "profile.selfIntroduction": {
+        "sourcePath": "profile.selfIntroduction",
+        "locator": {
+          "labelTokens": [
+            "自我描述",
+            "自我评价",
+            "个人简介"
+          ],
+          "controlKind": "textarea"
+        }
+      },
+      "record.education.school": {
+        "sourcePath": "record.education.school",
+        "recordType": "education",
+        "groupKey": "education",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "学校名称",
+            "学校"
+          ],
+          "controlKind": "select",
+          "role": "combobox"
+        }
+      },
+      "record.education.college": {
+        "sourcePath": "record.education.college",
+        "recordType": "education",
+        "groupKey": "education",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "学院名称",
+            "院系",
+            "学院"
+          ],
+          "controlKind": "select",
+          "role": "combobox"
+        }
+      },
+      "record.education.major": {
+        "sourcePath": "record.education.major",
+        "recordType": "education",
+        "groupKey": "education",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "专业名称",
+            "专业"
+          ],
+          "controlKind": "select",
+          "role": "combobox"
+        }
+      },
+      "record.education.degree": {
+        "sourcePath": "record.education.degree",
+        "recordType": "education",
+        "groupKey": "education",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "学历"
+          ],
+          "controlKind": "select",
+          "role": "combobox"
+        }
+      },
+      "record.education.startDate": {
+        "sourcePath": "record.education.startDate",
+        "recordType": "education",
+        "groupKey": "education",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "在校时间",
+            "入学时间"
+          ],
+          "controlKind": "text",
+          "relativeOrder": 4
+        }
+      },
+      "record.education.endDate": {
+        "sourcePath": "record.education.endDate",
+        "recordType": "education",
+        "groupKey": "education",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "毕业时间",
+            "结束时间"
+          ],
+          "controlKind": "text",
+          "relativeOrder": 5
+        }
+      },
+      "record.education.rank": {
+        "sourcePath": "record.education.rank",
+        "recordType": "education",
+        "groupKey": "education",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "成绩排名",
+            "排名"
+          ],
+          "controlKind": "select",
+          "role": "combobox"
+        }
+      },
+      "record.education.lab": {
+        "sourcePath": "record.education.lab",
+        "recordType": "education",
+        "groupKey": "education",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "实验室"
+          ],
+          "controlKind": "select",
+          "role": "combobox"
+        }
+      },
+      "record.education.advisor": {
+        "sourcePath": "record.education.advisor",
+        "recordType": "education",
+        "groupKey": "education",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "导师"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "record.education.researchDirection": {
+        "sourcePath": "record.education.researchDirection",
+        "recordType": "education",
+        "groupKey": "education",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "研究方向"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "record.experience.company": {
+        "sourcePath": "record.experience.company",
+        "recordType": "experience",
+        "groupKey": "experience|work|internship",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "公司名称",
+            "公司"
+          ],
+          "controlKind": "select",
+          "role": "combobox"
+        }
+      },
+      "record.experience.department": {
+        "sourcePath": "record.experience.department",
+        "recordType": "experience",
+        "groupKey": "experience|work|internship",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "部门名称",
+            "部门"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "record.experience.title": {
+        "sourcePath": "record.experience.title",
+        "recordType": "experience",
+        "groupKey": "experience|work|internship",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "职位名称",
+            "职位"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "record.experience.workType": {
+        "sourcePath": "record.experience.workType",
+        "recordType": "experience",
+        "groupKey": "experience|work|internship",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "工作类型",
+            "用工类型"
+          ],
+          "controlKind": "select",
+          "role": "combobox"
+        },
+        "optionAliases": {
+          "全职": "正式",
+          "full-time": "正式",
+          "实习": "实习",
+          "兼职": "兼职"
+        },
+        "optionReview": {
+          "全职": "confirmed_equivalent"
+        }
+      },
+      "record.experience.city": {
+        "sourcePath": "record.experience.city",
+        "recordType": "experience",
+        "groupKey": "experience|work|internship",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "工作城市",
+            "所在城市"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "record.experience.startDate": {
+        "sourcePath": "record.experience.startDate",
+        "recordType": "experience",
+        "groupKey": "experience|work|internship",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "在职时间",
+            "入职时间"
+          ],
+          "controlKind": "text",
+          "relativeOrder": 4
+        }
+      },
+      "record.experience.endDate": {
+        "sourcePath": "record.experience.endDate",
+        "recordType": "experience",
+        "groupKey": "experience|work|internship",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "结束时间",
+            "离职时间"
+          ],
+          "controlKind": "text",
+          "relativeOrder": 5
+        }
+      },
+      "record.experience.description": {
+        "sourcePath": "record.experience.description",
+        "recordType": "experience",
+        "groupKey": "experience|work|internship",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "工作描述",
+            "工作内容"
+          ],
+          "controlKind": "textarea"
+        }
+      },
+      "record.project.name": {
+        "sourcePath": "record.project.name",
+        "recordType": "project",
+        "groupKey": "project",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "项目名称"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "record.project.role": {
+        "sourcePath": "record.project.role",
+        "recordType": "project",
+        "groupKey": "project",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "项目角色"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "record.project.startDate": {
+        "sourcePath": "record.project.startDate",
+        "recordType": "project",
+        "groupKey": "project",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "项目时间",
+            "开始时间"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "record.project.endDate": {
+        "sourcePath": "record.project.endDate",
+        "recordType": "project",
+        "groupKey": "project",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "结束时间"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "record.project.url": {
+        "sourcePath": "record.project.url",
+        "recordType": "project",
+        "groupKey": "project",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "项目链接",
+            "项目网址"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "record.project.description": {
+        "sourcePath": "record.project.description",
+        "recordType": "project",
+        "groupKey": "project",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "项目描述",
+            "项目介绍"
+          ],
+          "controlKind": "textarea"
+        }
+      },
+      "record.language.language": {
+        "sourcePath": "record.language.language",
+        "recordType": "language",
+        "groupKey": "language",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "语言类型",
+            "语言"
+          ],
+          "controlKind": "select",
+          "role": "combobox"
+        }
+      },
+      "record.language.level": {
+        "sourcePath": "record.language.level",
+        "recordType": "language",
+        "groupKey": "language",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "语言水平",
+            "水平"
+          ],
+          "controlKind": "select",
+          "role": "combobox"
+        }
+      },
+      "record.language.exam": {
+        "sourcePath": "record.language.exam",
+        "recordType": "language",
+        "groupKey": "language",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "语言考试",
+            "考试"
+          ],
+          "controlKind": "select",
+          "role": "combobox"
+        }
+      },
+      "record.language.score": {
+        "sourcePath": "record.language.score",
+        "recordType": "language",
+        "groupKey": "language",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "考试分数",
+            "分数"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "record.publication.title": {
+        "sourcePath": "record.publication.title",
+        "recordType": "publication",
+        "groupKey": "publication",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "论文名称",
+            "论文题目"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "record.publication.journal": {
+        "sourcePath": "record.publication.journal",
+        "recordType": "publication",
+        "groupKey": "publication",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "发表渠道",
+            "期刊"
+          ],
+          "controlKind": "select",
+          "role": "combobox"
+        }
+      },
+      "record.publication.date": {
+        "sourcePath": "record.publication.date",
+        "recordType": "publication",
+        "groupKey": "publication",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "发表日期",
+            "发表时间"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "record.publication.url": {
+        "sourcePath": "record.publication.url",
+        "recordType": "publication",
+        "groupKey": "publication",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "论文链接",
+            "论文网址"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "record.publication.extra.authorRole": {
+        "sourcePath": "record.publication.extra.authorRole",
+        "recordType": "publication",
+        "groupKey": "publication",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "作者顺序",
+            "作者类型"
+          ],
+          "controlKind": "select",
+          "role": "combobox"
+        },
+        "optionAliases": {
+          "第一作者": "一作"
+        },
+        "optionReview": {
+          "共一": "ambiguous"
+        }
+      },
+      "record.education.fullTime": {
+        "sourcePath": "record.education.fullTime",
+        "recordType": "education",
+        "groupKey": "education",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "是否全日制"
+          ],
+          "controlKind": "select",
+          "role": "combobox"
+        },
+        "optionAliases": {
+          "是": "是",
+          "否": "否"
+        }
+      },
+      "record.campus.organization": {
+        "sourcePath": "record.campus.organization",
+        "recordType": "campus",
+        "groupKey": "campus",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "校园经历名称",
+            "经历名称"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "record.campus.role": {
+        "sourcePath": "record.campus.role",
+        "recordType": "campus",
+        "groupKey": "campus",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "角色",
+            "担任角色"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "record.campus.startDate": {
+        "sourcePath": "record.campus.startDate",
+        "recordType": "campus",
+        "groupKey": "campus",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "校园经历时间",
+            "开始时间"
+          ],
+          "controlKind": "text",
+          "relativeOrder": 2
+        }
+      },
+      "record.campus.endDate": {
+        "sourcePath": "record.campus.endDate",
+        "recordType": "campus",
+        "groupKey": "campus",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "校园经历时间",
+            "结束时间"
+          ],
+          "controlKind": "text",
+          "relativeOrder": 3
+        }
+      },
+      "record.campus.description": {
+        "sourcePath": "record.campus.description",
+        "recordType": "campus",
+        "groupKey": "campus",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "校园经历描述",
+            "经历描述"
+          ],
+          "controlKind": "textarea"
+        }
+      },
+      "record.award.name": {
+        "sourcePath": "record.award.name",
+        "recordType": "award",
+        "groupKey": "award",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "荣誉名称",
+            "奖项名称"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "record.award.description": {
+        "sourcePath": "record.award.description",
+        "recordType": "award",
+        "groupKey": "award",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "荣誉描述",
+            "奖项描述"
+          ],
+          "controlKind": "textarea"
+        }
+      },
+      "record.certificate.name": {
+        "sourcePath": "record.certificate.name",
+        "recordType": "certificate",
+        "groupKey": "certificate",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "证书名称",
+            "证书"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "record.publication.extra.impactFactor": {
+        "sourcePath": "record.publication.extra.impactFactor",
+        "recordType": "publication",
+        "groupKey": "publication",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "影响因子"
+          ],
+          "controlKind": "text"
+        }
+      },
+      "record.competition.competition": {
+        "sourcePath": "record.competition.competition",
+        "recordType": "competition",
+        "groupKey": "competition",
+        "repeat": true,
+        "locator": {
+          "labelTokens": [
+            "获奖大赛",
+            "竞赛名称"
+          ],
+          "controlKind": "select",
+          "role": "combobox"
+        }
+      }
+    },
+    "repeatGroups": {
+      "education": {
+        "groupKey": "education",
+        "recordType": "education",
+        "mode": "inline",
+        "countPolicy": "allAvailable",
+        "allowZero": true
+      },
+      "experience": {
+        "groupKey": "experience|work|internship",
+        "recordType": "experience",
+        "mode": "inline",
+        "countPolicy": "allAvailable",
+        "allowZero": true
+      },
+      "project": {
+        "groupKey": "project",
+        "recordType": "project",
+        "mode": "inline",
+        "countPolicy": "allAvailable",
+        "allowZero": true
+      },
+      "language": {
+        "groupKey": "language",
+        "recordType": "language",
+        "mode": "inline",
+        "countPolicy": "allAvailable",
+        "allowZero": true
+      },
+      "publication": {
+        "groupKey": "publication",
+        "recordType": "publication",
+        "mode": "inline",
+        "countPolicy": "allAvailable",
+        "allowZero": true
+      },
+      "campus": {
+        "groupKey": "campus",
+        "recordType": "campus",
+        "mode": "inline",
+        "countPolicy": "allAvailable",
+        "allowZero": true
+      },
+      "award": {
+        "groupKey": "award",
+        "recordType": "award",
+        "mode": "inline",
+        "countPolicy": "allAvailable",
+        "allowZero": true
+      },
+      "certificate": {
+        "groupKey": "certificate",
+        "recordType": "certificate",
+        "mode": "inline",
+        "countPolicy": "allAvailable",
+        "allowZero": true
+      },
+      "competition": {
+        "groupKey": "competition",
+        "recordType": "competition",
+        "mode": "inline",
+        "countPolicy": "allAvailable",
+        "allowZero": true
+      }
+    },
+    "review": {
+      "unmappedControls": [
+        "unknown-label",
+        "unsupported-page-option"
+      ],
+      "optionAliases": {
+        "experience.workType": {
+          "全职": {
+            "pageText": "正式",
+            "matchMode": "confirmed_equivalent"
+          }
+        },
+        "publication.authorRole": {
+          "第一作者": {
+            "pageText": "一作",
+            "matchMode": "alias"
+          },
+          "共一": {
+            "pageText": null,
+            "matchMode": "ambiguous"
+          }
+        }
+      }
+    }
+  }
+}

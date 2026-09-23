@@ -1,0 +1,11 @@
+.git
+.env
+.env.*
+!.env.example
+node_modules
+.pnpm-store
+.next
+archive
+fake_resume.txt
+*.pem
+*.log
