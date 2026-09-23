@@ -61,7 +61,26 @@ SESSION_COOKIE_SECURE=true
 NODE_ENV=production
 ```
 
-生产环境还需要填入 `.env.example` 中的 AI、百度 OCR 和邮件变量。邮箱验证和找回密码必须使用 `MAIL_PROVIDER=resend`、`MAIL_FROM` 和 `MAIL_API_KEY`；不要把 `MAIL_PROVIDER=console` 当作正式邮件服务。
+生产环境还需要填入 `.env.example` 中的 AI、百度 OCR 和邮件变量。账号验证和找回密码邮件可以使用阿里云 SMTP：
+
+```env
+MAIL_PROVIDER=smtp
+MAIL_FROM=领客 <no-reply@notify.linkaigo.com>
+SMTP_HOST=smtpdm-ap-southeast-1.aliyuncs.com
+SMTP_PORT=465
+SMTP_USER=no-reply@notify.linkaigo.com
+SMTP_PASSWORD=<阿里云发信地址设置的 SMTP 密码>
+```
+
+阿里云邮件推送的 SMTP 用户名是完整发信地址，`MAIL_FROM` 中的邮箱地址必须与 `SMTP_USER` 完全一致。新加坡区域使用 `smtpdm-ap-southeast-1.aliyuncs.com`；如果使用阿里云企业邮箱，把主机改为 `smtp.qiye.aliyun.com`，用户名改为企业邮箱完整地址。465 端口使用 SSL，EC2 不需要申请 25 端口。
+
+发信域名和发信地址需要先在阿里云控制台验证，并在 DNS 中配置控制台给出的 SPF、DKIM 等记录。不要把 SMTP 密码提交 Git。配置后重建 API：
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --force-recreate api
+```
+
+本地开发仍可使用 `MAIL_PROVIDER=console`；不要在正式环境保留 `console`，否则邮件只会写 API 日志。
 
 如果还要启用投递航迹的邮箱自动同步，再配置：
 
