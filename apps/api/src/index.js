@@ -79,6 +79,22 @@ const verifyPassword = (password, encoded) => {
   } catch { return false; }
 };
 const userResponse = (user) => ({ id: user.id, email: user.email, role: user.role, emailVerified: Boolean(user.emailVerifiedAt) });
+const createVerificationToken = async (userId) => {
+  const token = crypto.randomBytes(32).toString('hex');
+  await prisma.$transaction([
+    prisma.emailVerificationToken.updateMany({ where: { userId, usedAt: null }, data: { usedAt: new Date() } }),
+    prisma.emailVerificationToken.create({ data: { userId, tokenHash: hash(token), expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) } }),
+  ]);
+  return token;
+};
+const sendVerificationEmail = async (user) => {
+  const token = await createVerificationToken(user.id);
+  await sendMail({
+    to: user.email,
+    subject: '验证你的领客邮箱',
+    text: `请打开 ${process.env.APP_URL || origin}/verify-email?token=${token} 完成邮箱验证。链接 24 小时内有效。`,
+  });
+};
 const cookieValue = (req, name) => (req.headers.cookie || '').match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`))?.[1];
 const requireDatabase = (res) => { if (prisma) return true; json(res, 503, { error: '数据库暂不可用，请先启动 PostgreSQL 并执行 Prisma 迁移。' }); return false; };
 const sessionUser = async (req) => {
@@ -444,9 +460,7 @@ const server = http.createServer(async (req, res) => {
       if (await prisma.user.findUnique({ where: { email } })) return json(res, 409, { error: '邮箱或密码不正确' });
       const user = await prisma.user.create({ data: { email, passwordHash: passwordHash(password), emailVerifiedAt: process.env.NODE_ENV === 'production' ? null : new Date() } });
       if (process.env.NODE_ENV === 'production') {
-        const token = crypto.randomBytes(32).toString('hex');
-        await prisma.emailVerificationToken.create({ data: { userId: user.id, tokenHash: hash(token), expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) } });
-        void sendMail({ to: email, subject: '验证你的领客邮箱', text: `请打开 ${process.env.APP_URL || origin}/verify-email?token=${token} 完成邮箱验证。链接 24 小时内有效。` }).catch((error) => console.error('[mail] verification failed:', error.message));
+        void sendVerificationEmail(user).catch((error) => console.error('[mail] verification failed:', error.message));
       }
       return json(res, 201, { user: userResponse(user) });
     }
@@ -508,9 +522,7 @@ const server = http.createServer(async (req, res) => {
       if (!requireDatabase(res)) return;
       const target = await prisma.user.findUnique({ where: { email: String(data.email || '').trim().toLowerCase() } });
       if (target && !target.emailVerifiedAt) {
-        const token = crypto.randomBytes(32).toString('hex');
-        await prisma.emailVerificationToken.create({ data: { userId: target.id, tokenHash: hash(token), expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) } });
-        void sendMail({ to: target.email, subject: '验证你的领客邮箱', text: `请打开 ${process.env.APP_URL || origin}/verify-email?token=${token} 完成邮箱验证。链接 24 小时内有效。` }).catch((error) => console.error('[mail] verification failed:', error.message));
+        void sendVerificationEmail(target).catch((error) => console.error('[mail] verification failed:', error.message));
       }
       return json(res, 200, { message: '如果邮箱存在，验证链接将发送到邮箱。' });
     }
