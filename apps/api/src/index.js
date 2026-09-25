@@ -13,6 +13,8 @@ const { createBaiduOcrService } = require('./ai/providers/baidu-ocr');
 const { createResumeImportService } = require('./profile/resume-import');
 const { toDatabaseRows } = require('./profile/resume-import');
 const { sendMail } = require('./auth/mail');
+const { createEmailCodeService } = require('./auth/email-code');
+const { createCaptchaVerifier } = require('./auth/captcha');
 const { createApplicationService } = require('./modules/applications/service');
 const { createMailService } = require('./modules/mail/service');
 
@@ -38,6 +40,15 @@ try {
 const port = Number(process.env.API_PORT || 3001);
 const origin = process.env.WEB_ORIGIN || 'http://localhost:3000';
 const secureCookie = process.env.SESSION_COOKIE_SECURE === 'true' || (process.env.SESSION_COOKIE_SECURE !== 'false' && process.env.NODE_ENV === 'production') ? '; Secure' : '';
+const production = process.env.NODE_ENV === 'production';
+const captchaVerifier = createCaptchaVerifier();
+const emailCodeService = createEmailCodeService({
+  prisma,
+  sendMail,
+  verifyCaptcha: captchaVerifier,
+  secret: process.env.EMAIL_CODE_SECRET || (production ? '' : 'local-development-email-code-secret'),
+  production,
+});
 const aiGateway = createAiGateway();
 const resumeParseService = createResumeParseService(aiGateway);
 const autofillService = createAutofillService(aiGateway);
@@ -96,6 +107,10 @@ const sendVerificationEmail = async (user) => {
   });
 };
 const cookieValue = (req, name) => (req.headers.cookie || '').match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`))?.[1];
+const requestIp = (req) => {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return forwarded || req.socket.remoteAddress || 'unknown';
+};
 const requireDatabase = (res) => { if (prisma) return true; json(res, 503, { error: '数据库暂不可用，请先启动 PostgreSQL 并执行 Prisma 迁移。' }); return false; };
 const sessionUser = async (req) => {
   if (!prisma) return null;
@@ -456,13 +471,36 @@ const server = http.createServer(async (req, res) => {
       if (!requireDatabase(res)) return;
       const email = String(data.email || '').trim().toLowerCase();
       const password = String(data.password || '');
+      const passwordConfirmation = String(data.passwordConfirmation || '');
+      const emailCode = String(data.emailCode || '').trim();
       if (!/^\S+@\S+\.\S+$/.test(email) || password.length < 8) return json(res, 400, { error: '请输入有效邮箱和至少 8 位密码' });
+      if (password !== passwordConfirmation) return json(res, 400, { error: '两次输入的密码不一致' });
       if (await prisma.user.findUnique({ where: { email } })) return json(res, 409, { error: '邮箱或密码不正确' });
-      const user = await prisma.user.create({ data: { email, passwordHash: passwordHash(password), emailVerifiedAt: process.env.NODE_ENV === 'production' ? null : new Date() } });
-      if (process.env.NODE_ENV === 'production') {
-        void sendVerificationEmail(user).catch((error) => console.error('[mail] verification failed:', error.message));
+      if (production && !emailCode) return json(res, 400, { error: '请输入邮箱验证码', code: 'EMAIL_CODE_REQUIRED' });
+      if (emailCode) {
+        try {
+          await emailCodeService.consume({ email, code: emailCode });
+        } catch (error) {
+          return json(res, Number(error.status) || 400, { error: error.message || '邮箱验证码无效或已过期', ...(error.code ? { code: error.code } : {}) });
+        }
       }
-      return json(res, 201, { user: userResponse(user) });
+      let user;
+      try {
+        user = await prisma.user.create({ data: { email, passwordHash: passwordHash(password), emailVerifiedAt: new Date() } });
+      } catch (error) {
+        if (error?.code === 'P2002') return json(res, 409, { error: '邮箱或密码不正确' });
+        throw error;
+      }
+      const session = await prisma.session.create({ data: { userId: user.id, type: 'web', expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30), userAgent: req.headers['user-agent'] } });
+      return json(res, 201, { user: userResponse(user) }, { 'set-cookie': `lingke_session=${session.id}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000${secureCookie}` });
+    }
+    if (req.method === 'POST' && url.pathname === '/auth/email-code') {
+      if (!requireDatabase(res)) return;
+      try {
+        return json(res, 200, await emailCodeService.request({ email: data.email, captcha: data.captcha, ip: requestIp(req) }));
+      } catch (error) {
+        return json(res, Number(error.status) || 400, { error: error.message || '验证码发送失败', ...(error.code ? { code: error.code } : {}) });
+      }
     }
     if (req.method === 'POST' && url.pathname === '/auth/login') {
       if (!requireDatabase(res)) return;

@@ -12,6 +12,8 @@
     "prisma:migrate": "prisma migrate dev --schema src/prisma/schema.prisma"
   },
   "dependencies": {
+    "@alicloud/captcha20230305": "1.1.4",
+    "@alicloud/openapi-client": "^0.4.15",
     "@prisma/client": "^6.16.2",
     "nodemailer": "^7.0.13"
   },

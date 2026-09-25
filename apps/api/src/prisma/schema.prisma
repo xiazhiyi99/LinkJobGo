@@ -75,6 +75,21 @@ model EmailVerificationToken {
   @@index([userId])
 }
 
+model EmailCode {
+  id            String    @id
+  email         String
+  purpose       String
+  codeHash      String
+  expiresAt     DateTime
+  usedAt        DateTime?
+  attempts      Int       @default(0)
+  requestIpHash String
+  createdAt     DateTime  @default(now())
+
+  @@index([email, purpose, createdAt])
+  @@index([requestIpHash, createdAt])
+}
+
 model Profile {
   id                    String   @id @default(cuid())
   userId                String   @unique

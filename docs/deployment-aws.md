@@ -82,6 +82,37 @@ docker compose -f docker-compose.prod.yml up -d --force-recreate api
 
 本地开发仍可使用 `MAIL_PROVIDER=console`；不要在正式环境保留 `console`，否则邮件只会写 API 日志。
 
+### 注册验证码与 CAPTCHA
+
+注册页把确认密码、邮箱验证码和“发送验证码”放在同一页。点击发送按钮后先弹出 CAPTCHA，前端将验证服务返回的参数原样提交给 API；API 通过服务端验签后才会发送 6 位邮箱验证码。验证码只保存 HMAC，不保存明文，10 分钟过期，错误 5 次失效，邮箱 60 秒内不能重复发送。
+
+本项目默认适配阿里云验证码 2.0。它和当前阿里云邮件账号可以使用同一云账号，但建议单独创建 RAM 用户，只授予验证码验证权限，不要把主账号 AccessKey 放到服务器。新加坡实例使用：
+
+```env
+EMAIL_CODE_SECRET=<随机高熵字符串>
+CAPTCHA_PROVIDER=aliyun
+ALIYUN_CAPTCHA_REGION_ID=sgp
+ALIYUN_CAPTCHA_ENDPOINT=captcha.ap-southeast-1.aliyuncs.com
+ALIYUN_CAPTCHA_SCENE_ID=<验证码控制台的场景 ID>
+ALIYUN_CAPTCHA_ACCESS_KEY_ID=<RAM 用户 AccessKey ID>
+ALIYUN_CAPTCHA_ACCESS_KEY_SECRET=<RAM 用户 AccessKey Secret>
+
+# 这些值会在 web 镜像构建时写入浏览器端，只放公开配置，不放密钥。
+NEXT_PUBLIC_CAPTCHA_PROVIDER=aliyun
+NEXT_PUBLIC_ALIYUN_CAPTCHA_REGION=sgp
+NEXT_PUBLIC_ALIYUN_CAPTCHA_PREFIX=<验证码实例 prefix>
+NEXT_PUBLIC_ALIYUN_CAPTCHA_SCENE_ID=<验证码控制台的场景 ID>
+```
+
+阿里云验证码场景需要选择 Web/H5 接入方式。后端使用 `VerifyIntelligentCaptcha` 验签，前端脚本必须由阿里云官方地址动态加载，不能复制到项目中。修改 `NEXT_PUBLIC_*` 后必须重新构建 web 镜像：
+
+```bash
+docker compose -f docker-compose.prod.yml build web api
+docker compose -f docker-compose.prod.yml up -d --force-recreate web api
+```
+
+本地可以显式设置 `CAPTCHA_PROVIDER=disabled` 和 `NEXT_PUBLIC_CAPTCHA_PROVIDER=disabled`，按钮会使用开发占位令牌，邮件会通过 `MAIL_PROVIDER=console` 输出到 API 日志。生产环境如果没有配置 CAPTCHA 或 `EMAIL_CODE_SECRET`，API 会拒绝发送验证码。
+
 如果还要启用投递航迹的邮箱自动同步，再配置：
 
 ```env

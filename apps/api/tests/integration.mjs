@@ -10,7 +10,7 @@ const databaseUrl = process.env.DATABASE_URL || 'postgresql://postgres:postgres@
 const prisma = new PrismaClient({ datasourceUrl: databaseUrl });
 const api = spawn(process.execPath, ['src/index.js'], {
   cwd: new URL('..', import.meta.url),
-  env: { ...process.env, API_PORT: String(port), DATABASE_URL: databaseUrl, AI_PROVIDER_MODE: 'fake', AI_FAKE_FAILURES: '2' },
+  env: { ...process.env, NODE_ENV: 'development', API_PORT: String(port), DATABASE_URL: databaseUrl, AI_PROVIDER_MODE: 'fake', AI_FAKE_FAILURES: '2' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 const waitForApi = async () => {
@@ -32,7 +32,7 @@ const sessionCookie = (response) => response.headers.get('set-cookie')?.split(';
 
 try {
   await waitForApi();
-  assert.equal((await request('/auth/register', json({ email, password }))).response.status, 201);
+  assert.equal((await request('/auth/register', json({ email, password, passwordConfirmation: password }))).response.status, 201);
   const login = await request('/auth/login', json({ email, password }));
   assert.equal(login.response.status, 200);
   const cookie = sessionCookie(login.response);
@@ -185,7 +185,7 @@ try {
   assert.equal(resumeMeta.payload.resume.filename, 'fake_resume.txt');
   assert.equal('content' in resumeMeta.payload.resume, false);
 
-  await request('/auth/register', json({ email: secondEmail, password }));
+  await request('/auth/register', json({ email: secondEmail, password, passwordConfirmation: password }));
   const secondLogin = await request('/auth/login', json({ email: secondEmail, password }));
   const secondCookie = sessionCookie(secondLogin.response);
   const isolated = await request('/profiles/me', {}, secondCookie);
