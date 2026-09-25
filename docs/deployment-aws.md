@@ -104,6 +104,8 @@ NEXT_PUBLIC_ALIYUN_CAPTCHA_PREFIX=<验证码实例 prefix>
 NEXT_PUBLIC_ALIYUN_CAPTCHA_SCENE_ID=<验证码控制台的场景 ID>
 ```
 
+后端使用的 RAM 用户必须拥有验证码服务端校验权限。推荐给该 RAM 用户绑定系统策略 `AliyunYundunAFSFullAccess`；如果只需要服务端验签，可以使用自定义策略，仅允许 `yundun-afs:VerifyCaptcha`。没有该权限时，`VerifyIntelligentCaptcha` 会返回 403，注册页会提示“验证码服务权限未配置”。`ALIYUN_CAPTCHA_REGION_ID`、`ALIYUN_CAPTCHA_ENDPOINT` 和前端 `NEXT_PUBLIC_ALIYUN_CAPTCHA_REGION` 必须与验证码场景所在区域一致，不能根据 EC2 所在区域猜测。
+
 阿里云验证码场景需要选择 Web/H5 接入方式。后端使用 `VerifyIntelligentCaptcha` 验签，前端脚本必须由阿里云官方地址动态加载，不能复制到项目中。修改 `NEXT_PUBLIC_*` 后必须重新构建 web 镜像：
 
 ```bash

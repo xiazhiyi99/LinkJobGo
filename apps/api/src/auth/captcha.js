@@ -59,7 +59,7 @@ function createCaptchaVerifier({ env = process.env, logger = console } = {}) {
     const raw = typeof captcha === 'string'
       ? captcha
       : captcha?.captchaVerifyParam || captcha?.param || '';
-    if (!raw || raw.length > 20000) throw captchaError('请先完成安全验证');
+    if (typeof raw !== 'string' || !raw || raw.length > 20000) throw captchaError('请先完成安全验证');
 
     try {
       const response = await client.verifyIntelligentCaptcha(new Captcha.VerifyIntelligentCaptchaRequest({
@@ -67,13 +67,31 @@ function createCaptchaVerifier({ env = process.env, logger = console } = {}) {
         captchaVerifyParam: raw,
         sceneId,
       }));
-      const result = response?.body?.result;
-      if (!(response?.body?.success && result?.verifyResult)) {
+      const body = response?.body || response || {};
+      const result = body.result || body.Result || {};
+      if (!(body.success && result.verifyResult)) {
+        logger.warn?.('[captcha] rejected', {
+          code: body.code || body.Code,
+          message: body.message || body.Message,
+          requestId: body.requestId || body.RequestId,
+          verifyCode: result.verifyCode || result.VerifyCode,
+          verifyResult: result.verifyResult ?? result.VerifyResult,
+        });
         throw captchaError('安全验证未通过');
       }
     } catch (error) {
       if (error?.code === 'CAPTCHA_FAILED') throw error;
-      logger.warn?.('[captcha] verification failed:', error?.message || 'unknown error');
+      const details = {
+        code: error?.code || error?.data?.code || error?.data?.Code,
+        message: error?.message || error?.data?.message || error?.data?.Message || 'unknown error',
+        requestId: error?.requestId || error?.RequestId || error?.data?.requestId || error?.data?.RequestId,
+        statusCode: error?.statusCode || error?.status || error?.data?.statusCode,
+      };
+      logger.warn?.('[captcha] verification failed:', details);
+      const providerText = `${details.code || ''} ${details.message || ''}`;
+      if (/NoPermission|RAMUserAccessDenied|AccountAccessDenied/i.test(providerText)) {
+        throw captchaError('验证码服务权限未配置，请联系管理员', 503, 'CAPTCHA_NOT_CONFIGURED');
+      }
       throw captchaError('安全验证暂时失败，请重试', 400, 'CAPTCHA_FAILED');
     }
   };

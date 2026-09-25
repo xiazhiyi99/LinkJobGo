@@ -35,12 +35,33 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' | 'forgot' }) {
     return () => window.clearInterval(timer);
   }, [codeCooldown]);
 
+  const passwordMismatch = mode === 'register'
+    && passwordConfirmation.length > 0
+    && password !== passwordConfirmation;
+
   const requestEmailCode = async (captcha: CaptchaPayload) => {
     const normalizedEmail = email.trim();
     if (!normalizedEmail) {
       setMessageKind('error');
       setMessage('请先填写邮箱。');
       return;
+    }
+    if (mode === 'register') {
+      if (password.length < 8) {
+        setMessageKind('error');
+        setMessage('密码至少需要 8 位。');
+        return;
+      }
+      if (!passwordConfirmation) {
+        setMessageKind('error');
+        setMessage('请先重新输入密码。');
+        return;
+      }
+      if (passwordMismatch) {
+        setMessageKind('error');
+        setMessage('两次输入的密码不一致。');
+        return;
+      }
     }
     setMessage('');
     try {
@@ -121,12 +142,13 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' | 'forgot' }) {
           <label>
             重新输入密码
             <input type="password" value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} required minLength={8} placeholder="再次输入密码" autoComplete="new-password" />
+            {passwordMismatch && <span className="auth-field-error" role="alert">两次输入的密码不一致。</span>}
           </label>
           <label>
             邮箱验证码
             <div className="auth-code-row">
               <input className="auth-code-input" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={emailCode} onChange={(event) => setEmailCode(event.target.value.replace(/\D/g, ''))} required placeholder="6 位验证码" autoComplete="one-time-code" />
-              <CaptchaChallenge disabled={loading || codeCooldown > 0 || !email.trim()} onVerified={requestEmailCode} />
+              <CaptchaChallenge disabled={loading || codeCooldown > 0 || !email.trim() || password.length < 8 || !passwordConfirmation || passwordMismatch} onVerified={requestEmailCode} />
             </div>
             {codeCooldown > 0 && <span className="auth-code-hint">{codeCooldown} 秒后可重新发送</span>}
           </label>
