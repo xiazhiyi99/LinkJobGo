@@ -125,11 +125,10 @@ MAIL_OUTLOOK_CLIENT_ID=...
 MAIL_OUTLOOK_CLIENT_SECRET=...
 ```
 
-Gmail 和 Outlook 的 OAuth 应用都把下面两个回调地址加入 Web redirect URI：
+Gmail 和 Outlook 的 OAuth 应用都把下面这个回调地址加入 Web redirect URI（两个应用使用同一个地址，服务端通过 OAuth state 识别提供商）：
 
 ```text
-https://linkaigo.com/api/mail-accounts/oauth/callback?provider=gmail
-https://linkaigo.com/api/mail-accounts/oauth/callback?provider=outlook
+https://linkaigo.com/api/mail-accounts/oauth/callback
 ```
 
 QQ、163、126、iCloud 和其他 IMAP 邮箱不需要 OAuth Client ID；用户在工作台里输入邮箱地址和授权码/应用专用密码。`MAIL_CREDENTIAL_KEY` 用于服务端加密这些凭据，生成后不要随意更换，并应单独备份。
