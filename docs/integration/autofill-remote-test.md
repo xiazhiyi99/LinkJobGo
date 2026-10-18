@@ -139,3 +139,14 @@ $DC up -d api
 - <https://linkaigo.com/autofill-test/workspace/profile/home>：真实点击“编辑签名”，在主页内修改签名并保存；刷新后仍显示新值。再次请求资料接口，确认原有简历标准字段、求职意向、全部经历及其他 extra 内容未变化，仍有 18 条经历。
 - 下载 ZIP、测试健康接口、投递/日历/邮箱元信息接口均通过；没有连接邮箱或发起同步，也没有向真实招聘页投递。
 - 本轮不重测填写性能；前一节的美团 partial 结果仍有效。证据保存在忽略目录 `apps/extension/.test-dist/workspace-release-20261018/`：`http-results.json`、`homepage-results.json`、`application-dialog.png`、`homepage.png`，不包含于发布提交。
+
+## 主页头像发布（2026-10-18）
+
+- 功能提交 `da6fea2`，按钮恢复“编辑主页”。支持从编辑表单或点击头像进入，选择 JPG/PNG/WebP（最大 5 MB），浏览器居中裁剪到最大 512×512、压缩并预览；保存后生效，也可更换或移除。取消保持原头像。
+- 图片随主页卡片保存在 `profile.extra.homepage.avatarUrl`，复用登录后的资料保存接口，无对象存储服务或数据库迁移。原始文件不上传，仅保存压缩后的图片数据。
+- 资料服务从自动填写导出中排除 `homepage` 展示字段（包括原始 extra 和展开形式），因此头像与主页展示修改不进入 AI 请求，也不影响简历版本。标准简历 `avatarUrl` 和其他字段保留。
+- 99 项相关测试通过（契约 5、API 66、扩展 10、Web 18），类型检查及 linux/amd64 Web 生产镜像构建通过。本地真实浏览器验证上传、预览、保存刷新、取消移除及保存移除。
+- 远端测试 Web/API 镜像标签均为 `profile-avatar-20261018`。Web SHA-256 `0a0da473fceeaed92686d65a3e685bbfaad6d2951c1cf2576b7c2f580b6bcb0e`；API SHA-256 `ea1c0b4768f63346b4e4a5d0e2ef1046791117b68ed406d91ca6ac30f8a7f2b4`。API overlay 增加复制资料服务模块，填写引擎保持原版本。
+- 远端合成账号通过真实系统文件选择器上传测试图片，保存并刷新后显示正常；保存的 WebP 约 1,500 字节。HTTP 回读确认图片已持久化，简历版本和 18 条经历未变化，自动填写数据不含主页头像。
+- 配置回滚备份为 `.env.autofill-test.before-profile-avatar`；恢复后重建测试 API/Web 容器即可。没有修改代理或重启生产主站，磁盘剩余约 725 MB。
+- 本机证据位于忽略目录 `apps/extension/.test-dist/avatar-release-20261018/`：`before.json`、`results.json`、`homepage-avatar.png`。测试图片使用仓库已有公开图标，不上传私人照片或其他用户文件。
