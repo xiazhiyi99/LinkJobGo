@@ -9,7 +9,9 @@ services:
       POSTGRES_PASSWORD: ${AUTOFILL_TEST_DB_PASSWORD:?required}
       POSTGRES_DB: autofill_test
     volumes: [autofill-test-data:/var/lib/postgresql/data]
-    networks: [test-data]
+    networks:
+      test-data:
+        aliases: [autofill-test-postgres]
     healthcheck:
       test: [CMD-SHELL, pg_isready -U autofill_test -d autofill_test]
       interval: 5s
@@ -25,7 +27,7 @@ services:
     environment:
       NODE_ENV: production
       API_PORT: 3001
-      DATABASE_URL: postgresql://autofill_test:${AUTOFILL_TEST_DB_PASSWORD}@postgres:5432/autofill_test
+      DATABASE_URL: postgresql://autofill_test:${AUTOFILL_TEST_DB_PASSWORD}@autofill-test-postgres:5432/autofill_test
       EMAIL_CODE_SECRET: ${AUTOFILL_TEST_EMAIL_SECRET:?required}
       WEB_ORIGIN: https://linkaigo.com
       APP_URL: https://linkaigo.com/autofill-test
