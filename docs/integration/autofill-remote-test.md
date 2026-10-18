@@ -2,7 +2,7 @@
 
 ## API 前缀
 
-扩展构建使用 `EXTENSION_API_ORIGIN=https://linkaigo.com` 和 `EXTENSION_API_PATH_PREFIX=/autofill-test/api`；主站接口使用 `/api`，本地直接访问 3001 端口时前缀为空。所有登录、退出、readiness、analyze、plan 路由统一拼接一次前缀。Token 绑定 origin 与 prefix，切换后重新登录。
+扩展构建使用 `EXTENSION_API_ORIGIN=https://linkaigo.com` 和 `EXTENSION_API_PATH_PREFIX=/autofill-test/api`；主站接口使用 `/api`，本地直接访问 3001 端口时前缀为空。所有登录、退出、readiness、analyze、plan 路由统一拼接一次前缀。当前下载版本使用测试网站 Cookie，并绑定当前账号；早期 Bearer 版本的验证记录保留在下方历史结果中。
 
 页面引擎、控件、经历对齐和填写算法不属于此次改动。发布包含此前 P1–P4 已完成的平台迁移。
 
@@ -25,7 +25,7 @@ $DC run --rm api pnpm exec prisma migrate deploy --schema src/prisma/schema.pris
 $DC up -d api
 ```
 
-构建扩展后，重载原 `apps/extension/dist`，核对 buildId 和账号面板的完整服务地址。扩展登录测试账号，读取后端简历，再在美团填写；不投递、不保存招聘网站简历。记录真实耗时、已填写、跳过及待处理数，链路通过不代表页面字段覆盖率已达 100%。
+当前发布验收必须从测试教程页下载 ZIP、解压并安装，核对固定 ID 和 buildId；本机 `apps/extension/dist` 仅用于开发。通过扩展跳转网站登录测试账号，读取后端简历，再在美团填写；不投递、不保存招聘网站简历。记录真实耗时、已填写、跳过及待处理数，链路通过不代表页面字段覆盖率已达 100%。
 
 ## 发布检查与回滚
 
@@ -74,7 +74,7 @@ $DC up -d api
 
 远端剩余磁盘约 0.9 GB；继续积累测试镜像前需要扩容或安排明确的旧镜像清理。此次没有删除主站镜像、缓存或数据卷。
 
-## Cookie 登录与下载页面联合发布（2026-10-18，待验收）
+## Cookie 登录与下载页面联合发布（2026-10-18）
 
 本次将测试网页增加到 `/autofill-test`，API 仍为 `/autofill-test/api`。Next `basePath`、下载链接、静态素材、登录回跳与扩展登录地址统一使用测试前缀。主站路由及生产数据库保持原配置。
 
@@ -82,4 +82,36 @@ $DC up -d api
 
 新增网页镜像使用 Next standalone 运行目录。测试下载包固定扩展 ID：`jmfbkpdfefifliffkdkmljihmkeapjkb`，需加入测试 API 的来源白名单。下载 ZIP 的 manifest、background、build.json 必须核对测试前缀和网页登录地址，不能用本机开发包代替网站下载包验收。
 
-验收顺序：HTTPS 健康和主站回归 → 从测试网站下载 ZIP → 解压并加载固定 ID 扩展 → 扩展跳转测试网页登录 → Cookie 识别账号 → 从测试库读取完整资料 → 独立美团标签页通过真实按钮填写 → 核对结果及记录耗时。保持招聘页填写算法不变，不投递申请。实际结果在完成后补充。
+验收顺序：HTTPS 健康和主站回归 → 从测试网站下载 ZIP → 解压并加载固定 ID 扩展 → 扩展跳转测试网页登录 → Cookie 识别账号 → 从测试库读取完整资料 → 独立美团标签页通过真实按钮填写 → 核对结果及记录耗时。保持招聘页填写算法不变，不投递申请。
+
+### 部署与登录验收
+
+- 发布提交：`1580b3f`，已推送 `codex/autofill-remote-test`，测试服务器 checkout 同步该提交。
+- 教程与下载入口：<https://linkaigo.com/autofill-test/workspace/autofill>；未登录时跳转测试登录页，成功后回到教程页。
+- API 镜像 `lingke-autofill-test:cookie-guide-20261018`，SHA-256 `9926443972ba8b843d516705c74c52803a15f9ff489552830cd63eca4fd30743`。Web 镜像 `lingke-autofill-web:cookie-guide-20261018`，使用 Next standalone，约 94 MB。
+- 为节省测试机磁盘，API 在已部署镜像 `lingke-autofill-test:0ea7e77df296` 上覆盖同提交的 `apps/api/src/index.js`、`src/auth/roles.js`、`src/auth/session-cookie.js`、`src/modules/autofill/routes.js` 与 `scripts/set-account-role.mjs`，目标路径为 `/app/apps/api/` 下对应位置。无依赖、数据库迁移或页面填写引擎变更；完整重建仍用仓库 API Dockerfile。
+- 测试 API、Web 已启动；主站首页、主站 `/api/health`、测试 `/health`、登录页、下载地址均返回 200。主站容器未重启。测试配置和主站代理分别备份为 `.env.autofill-test.before-cookie-guide`、`/opt/lingke/deploy/Caddyfile.before-cookie-guide`。
+- 全部相关测试通过：契约 5、API 63、扩展 10，共 78 项；自定义 Cookie 名称/路径的 PostgreSQL 集成测试通过；linux/amd64 Web 生产镜像构建通过。
+- 真实点击教程页下载按钮，获得 `lingke-extension (1).zip`（1,052 KB）。ZIP 校验通过，SHA-256 为 `244c79f03138c915445d63ca7fd84786ac413bb78a586b471daab61eda50d10a`，buildId `7b6685252f4dbe1867c1`。加载实际下载并解压的目录，Chrome 确认 ID `jmfbkpdfefifliffkdkmljihmkeapjkb`、版本 0.3.0；旧开发扩展已停用。
+- 用普通权限合成账号完成真实网页登录。随后仅撤销该测试账号的 Web 会话，扩展出现“前往网页登录”；实际点击后跳转 `/autofill-test/login?next=/workspace/autofill`，再次登录并回到教程页，返回美团后扩展自动识别 Cookie。未保存浏览器密码，未在扩展输入密码或 Token。
+- 普通权限弹窗没有账号表单、规则采集、运行诊断或开发信息入口。HTTP 验证覆盖未登录拦截、扩展来源 CORS、主站 Cookie 不可冒用、账号绑定不符被拒绝、退出失效。
+- 后端导出的完整简历仍含 18 条经历，版本摘要 `06d288af2773020df3ce660e350e7559805cdc7c7b250c7efc77ae3154800564`；独立 readiness 请求约 508 ms。此处接口耗时不是页面填写总耗时。
+
+本机证据位于忽略目录 `apps/extension/.test-dist/cookie-remote-20261018/`。安装目录为其中 `downloaded/lingke-extension`，后续勿删除或移动正在加载的目录。部署后磁盘剩余约 814 MB；此次未清理主站镜像或数据。
+
+### Cookie 版本真实美团填写
+
+两轮均使用普通权限账号、网站下载的扩展、相同完整简历和新开的相同美团 URL；勾选覆盖与更换学校时清空旧学院，由真实“一键填写”按钮启动。没有调用内部 runner，也没有修改页面填写代码。
+
+| 操作条件 | 观察到结束 | 扩展已验证 | 待处理字段 | 页面提醒 |
+| --- | ---: | ---: | ---: | ---: |
+| 保持扩展弹窗打开 | 约 91 秒 | 39/82 | 43 | 5 |
+| 启动后立即收起弹窗，页面保持焦点 | 约 78 秒 | 54/82 | 28 | 5 |
+
+计时为原生 UI 点击至观察到终态，轮询约两秒一次：第一轮终态落在 88.868–90.939 秒之间，第二轮落在 75.644–77.997 秒之间。不是内部 runner 的毫秒精确计时。54/82 是扩展报告的验证计数，可能包括原本正确的字段，不作为独立视觉准确率或全简历召回率。
+
+第一轮性别、城市、学校、专业、学历、公司等下拉菜单集中超时；第二轮这些超时消失，仅语言考试仍显示超时。弹窗焦点是值得单独复现的交互问题，目前只是两轮对照证据，未改控件代码。第二轮其余待处理包括学院、排名、实验室/导师、部门、工作类型等；校园、荣誉、证书、论文、竞赛仍有未展开编辑区提醒。因此不能宣称完整简历全部填写成功。
+
+视觉截图确认第三段合成项目的名称、核心开发角色、2021/03–2021/12、项目链接和完整描述正确显示；页面读取也确认三段工作和三段项目对应内容已出现。仍保留了一些原有部门/工作类型内容，属于待处理字段。未做全字段独立视觉评分，没有投递或点击保存。
+
+结论：**下载 → 安装 → 网页登录 → Cookie 身份识别 → 读取远端资料 → 规则填写链路通过；填写完整度仍为 partial。** 普通用户测试期间未提升权限，调试入口保持隐藏。证据包括 `website.png`、`login-prompt.png`、`http-results.json`、两轮 `*-observations.json`、`second-result-popup.png`、`second-details.txt` 和 `filled-project.png`。
