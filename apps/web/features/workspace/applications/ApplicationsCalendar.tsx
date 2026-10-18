@@ -113,7 +113,7 @@ function segmentsForDay(items: ParsedItem[], date: Date): CalendarSegment[] {
     const continuesAfter = hasEnd && end > endOfDay;
     const timeLabel = item.type === 'task' ? `${clock(startMinute)} · 待办`
       : hasEnd ? `${continuesBefore ? '前日 ' : ''}${clock(startMinute)}–${clock(endMinute)}${continuesAfter ? ' 继续' : ''}`
-        : `${clock(startMinute)} · 结束时间待定`;
+        : clock(startMinute);
     return [{ item, startMinute, endMinute, visualStart, visualEnd: visualStart + visualDuration, timeLabel, continuesBefore, continuesAfter }];
   }).sort((left, right) => left.startMinute - right.startMinute || right.endMinute - left.endMinute || itemKey(left.item).localeCompare(itemKey(right.item)));
 }

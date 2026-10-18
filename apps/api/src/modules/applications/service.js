@@ -28,8 +28,8 @@ const encodeCursor = (row) => Buffer.from(JSON.stringify({ id: row.id, updatedAt
 
 function applicationPayload(input = {}, { source = 'manual' } = {}) {
   const company = text(input.company, 160);
-  const title = text(input.title || input.role, 160);
-  if (!company || !title) throw error('company 和 title 不能为空');
+  const title = text(input.title || input.role, 160) || '';
+  if (!company) throw error('公司不能为空');
   const status = text(input.status, 40) || 'saved';
   if (!STATUSES.has(status)) throw error('status 不合法');
   const normalizedSource = text(input.source, 40) || source;
@@ -113,6 +113,8 @@ function createApplicationService({ prisma }) {
     if (current.version !== version) throw error('记录已被更新，请刷新后重试', 'VERSION_CONFLICT', 409);
     const next = {};
     for (const key of ['company', 'title', 'jobUrl', 'assessmentUrl', 'interviewUrl', 'nextAction', 'nextActionUrl', 'notes']) if (input[key] !== undefined) next[key] = text(input[key], key === 'notes' ? 4000 : 1000);
+    if (input.company !== undefined && !next.company) throw error('公司不能为空');
+    if (input.title !== undefined) next.title = next.title || '';
     for (const key of ['appliedOn', 'eventStart', 'eventEnd', 'nextFollowUpAt']) if (input[key] !== undefined) next[key] = dateOrNull(input[key]);
     if (input.status !== undefined) {
       if (!STATUSES.has(String(input.status))) throw error('status 不合法');
@@ -190,7 +192,7 @@ function createApplicationService({ prisma }) {
       prisma.application.findMany({ where: { userId, eventStart: { gte: from, lte: to } }, orderBy: { eventStart: 'asc' } }),
       prisma.task.findMany({ where: { userId, dueAt: { gte: from, lte: to } }, orderBy: { dueAt: 'asc' } }),
     ]);
-    return { items: [...applications.map((item) => ({ type: 'application', id: item.id, title: `${item.company} · ${item.title}`, start: item.eventStart, end: item.eventEnd, status: item.status, applicationId: item.id })), ...tasks.map((item) => ({ type: 'task', id: item.id, title: item.title, start: item.dueAt, end: item.dueAt, status: item.status, applicationId: item.applicationId }))].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()) };
+    return { items: [...applications.map((item) => ({ type: 'application', id: item.id, title: [item.company, item.title].filter(Boolean).join(' · '), start: item.eventStart, end: item.eventEnd, status: item.status, applicationId: item.id })), ...tasks.map((item) => ({ type: 'task', id: item.id, title: item.title, start: item.dueAt, end: item.dueAt, status: item.status, applicationId: item.applicationId }))].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()) };
   }
 
   // Worker-facing bridge for a classified message. It is intentionally a

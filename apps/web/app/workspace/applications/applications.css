@@ -125,3 +125,98 @@
   }
   .appx-mail-modal-layout .appx-mail-layout { display: block; }
 }
+
+/* Record detail: fixed actions, one scrollable body, and quiet optional sections. */
+.appx-record-modal[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(680px, calc(100vw - 40px));
+  max-height: min(900px, calc(100dvh - 64px));
+  overflow: hidden;
+  border-color: #dbe3ef;
+  border-radius: 18px;
+  color: var(--ws-ink);
+  box-shadow: 0 24px 80px #17345b26;
+  animation: appx-record-enter 180ms ease-out both;
+}
+.appx-record-modal > header { gap: 24px; align-items: flex-start; padding: 24px 28px 22px; }
+.appx-record-modal > header > div { min-width: 0; }
+.appx-record-modal > header h2 { margin: 0; font-size: 23px; font-weight: 600; line-height: 1.4; letter-spacing: -.035em; overflow-wrap: anywhere; }
+.appx-record-eyebrow { margin: 0 0 8px; color: var(--ws-muted); font-size: 11px; line-height: 1.5; }
+.appx-record-description { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 9px; color: var(--ws-muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.appx-record-status { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 5px; background: #edf3fc; color: #42638e; font-size: 11px; white-space: nowrap; }
+.appx-record-status::before { width: 4px; height: 4px; border-radius: 50%; background: currentColor; content: ''; }
+.appx-record-status[data-status='closed'] { background: #f0f2f5; color: #758193; }
+.appx-record-modal .appx-icon-button { flex: none; width: 32px; height: 32px; margin: -4px -7px 0 0; border-radius: 8px; background: #f5f7fa; color: #67778e; transition: background 160ms; }
+.appx-record-modal .appx-icon-button:hover { background: #e9eef6; }
+.appx-record-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 28px; scrollbar-width: thin; }
+.appx-record-body > .appx-error { margin-top: 18px; font-size: 12px; line-height: 1.6; }
+.appx-record-section { padding: 22px 0; }
+.appx-record-section-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+.appx-record-section-heading h3 { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ws-ink); font-size: 13px; font-weight: 600; }
+.appx-record-section-heading > span { color: var(--ws-muted); font-size: 11px; }
+.appx-record-count { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 5px; background: #eff3f9; color: #647b9a; font-size: 10px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.appx-record-modal .appx-form { gap: 16px; }
+.appx-record-modal .appx-form label,
+.appx-record-modal .appx-task-form label { min-width: 0; gap: 7px; color: #63748b; font-size: 11px; line-height: 1.5; }
+.appx-record-modal .appx-form input,
+.appx-record-modal .appx-form select,
+.appx-record-modal .appx-form textarea,
+.appx-record-modal .appx-task-form input { box-sizing: border-box; min-width: 0; min-height: 41px; padding: 10px 11px; border-radius: 8px; background: #fff; color: var(--ws-ink); font-size: 13px; transition: border-color 150ms, box-shadow 150ms; }
+.appx-record-modal input::placeholder,
+.appx-record-modal textarea::placeholder { color: #98a4b4; }
+.appx-record-modal input[type='date'],
+.appx-record-modal input[type='datetime-local'] { font-variant-numeric: tabular-nums; }
+.appx-record-disclosure { border-top: 1px solid var(--ws-line); }
+.appx-record-disclosure > summary { display: flex; align-items: center; gap: 12px; padding: 17px 0; list-style: none; cursor: pointer; color: var(--ws-ink); font-size: 13px; font-weight: 500; }
+.appx-record-disclosure > summary::-webkit-details-marker { display: none; }
+.appx-record-disclosure > summary > span:first-child { flex: 1; min-width: 0; }
+.appx-record-disclosure > summary small { display: block; margin-top: 4px; color: var(--ws-muted); font-size: 11px; font-weight: 400; }
+.appx-record-disclosure > summary::after { flex: none; width: 6px; height: 6px; margin: -3px 3px 0 0; border-right: 1.5px solid #7c8da5; border-bottom: 1.5px solid #7c8da5; transform: rotate(45deg); content: ''; transition: transform 160ms; }
+.appx-record-disclosure[open] > summary::after { margin-top: 3px; transform: rotate(225deg); }
+.appx-record-disclosure > .appx-form { padding: 0 0 22px; }
+.appx-record-optional { color: #7c8ba0; font-size: 11px; font-weight: 400; }
+.appx-record-tasks { border-top: 1px solid var(--ws-line); }
+.appx-record-empty { margin: 0; color: #8090a4; font-size: 12px; line-height: 1.8; }
+.appx-record-modal .appx-task { padding: 12px 0; font-size: 12px; }
+.appx-record-modal .appx-task label { gap: 10px; line-height: 1.6; overflow-wrap: anywhere; cursor: pointer; }
+.appx-record-modal .appx-task input { flex: none; width: 16px; height: 16px; margin: 0; }
+.appx-record-modal .appx-task small { font-size: 11px; font-variant-numeric: tabular-nums; }
+.appx-record-modal .appx-task-form { grid-template-columns: minmax(0, 1fr) minmax(0, 190px) auto; align-items: end; gap: 10px; margin-top: 17px; }
+.appx-record-modal .appx-task-form label { display: flex; flex-wrap: wrap; column-gap: 5px; }
+.appx-record-modal .appx-task-form label > span { color: #8c9aad; }
+.appx-record-modal .appx-task-form button { min-height: 41px; border-radius: 8px; font-size: 12px; white-space: nowrap; }
+.appx-record-history { padding-bottom: 4px; }
+.appx-record-history > div { padding-bottom: 18px; }
+.appx-record-modal .appx-history { gap: 16px; align-items: baseline; padding: 12px 0; font-size: 12px; line-height: 1.6; }
+.appx-record-modal .appx-history > span { min-width: 0; overflow-wrap: anywhere; }
+.appx-record-modal .appx-history small { flex: none; font-size: 11px; }
+.appx-record-modal div.appx-history { cursor: default; }
+.appx-record-modal button.appx-history:hover { color: var(--ws-blue); }
+.appx-record-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 17px 28px; border-top: 1px solid var(--ws-line); background: #fafbfd; }
+.appx-record-footer > span { color: var(--ws-muted); font-size: 11px; line-height: 1.6; }
+.appx-record-footer > span.appx-record-saved { color: #34795d; }
+.appx-record-footer > div { display: flex; flex: none; gap: 9px; }
+.appx-record-footer button { min-height: 39px; padding: 0 17px; border-radius: 8px; font-size: 12px; transition: background 150ms, border-color 150ms; }
+.appx-record-footer .appx-primary:hover { background: #0648aa; border-color: #0648aa; }
+.appx-record-modal button:focus-visible,
+.appx-record-modal summary:focus-visible { outline: 2px solid #80a9e6; outline-offset: 3px; }
+.appx-record-loading { display: grid; gap: 15px; padding: 24px 0; color: var(--ws-muted); font-size: 12px; }
+.appx-record-loading i { display: block; height: 42px; border-radius: 8px; background: #f0f3f8; }
+@keyframes appx-record-enter { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (max-width: 620px) {
+  .appx-record-modal[open] { width: calc(100vw - 24px); max-height: calc(100dvh - 32px); border-radius: 14px; }
+  .appx-record-modal > header { padding: 20px; }
+  .appx-record-modal > header h2 { font-size: 21px; }
+  .appx-record-body { padding: 0 20px; }
+  .appx-record-modal .appx-form { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .appx-record-modal .appx-task-form { grid-template-columns: minmax(0, 1fr) auto; }
+  .appx-record-modal .appx-task-form label:first-child { grid-column: 1 / -1; }
+  .appx-record-footer { padding: 14px 20px; gap: 12px; }
+  .appx-record-footer > span { max-width: 100px; font-size: 10px; }
+  .appx-record-footer button { padding: 0 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .appx-record-modal[open] { animation: none; }
+  .appx-record-modal *, .appx-record-modal *::after { transition: none; }
+}

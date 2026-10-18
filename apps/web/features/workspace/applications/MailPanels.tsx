@@ -27,7 +27,7 @@ export function AccountsDialog({accounts, providers, onChange, onClose}: {accoun
   </ApplicationModal>;
 }
 
-const extractionFields = [['company','公司','text'],['role','职位','text'],['appliedOn','投递日期','date'],['eventStart','笔试 / 面试开始','datetime-local'],['eventEnd','笔试 / 面试结束','datetime-local'],['assessmentUrl','笔试 / 测评链接','url'],['interviewUrl','面试链接','url'],['contact','联系人','text'],['location','地点','text']] as const;
+const extractionFields = [['company','公司','text'],['role','职位','text'],['appliedOn','投递日期','date'],['eventStart','笔试 / 面试时间','datetime-local'],['assessmentUrl','笔试 / 测评链接','url'],['interviewUrl','面试链接','url'],['contact','联系人','text'],['location','地点','text']] as const;
 export function MailDetail({id, onClose, onUpdated, onOpenApplication}: {id: string; onClose: () => void; onUpdated: () => void; onOpenApplication: (id: string) => void}) {
   const [message, setMessage] = useState<MailMessage | null>(null); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [editing, setEditing] = useState(false); const [saved, setSaved] = useState(false);
   useEffect(() => { let cancelled = false; setLoading(true); setMessage(null); setError(''); setEditing(false); setSaved(false); apiRequest<{message:MailMessage}>(`/mail-messages/${encodeURIComponent(id)}`).then(result => { if (!cancelled) setMessage(result.message); }).catch(error => {if (!cancelled) setError(errorText(error));}).finally(() => {if (!cancelled) setLoading(false);}); return () => {cancelled = true;}; }, [id]);
@@ -35,7 +35,7 @@ export function MailDetail({id, onClose, onUpdated, onOpenApplication}: {id: str
   async function saveAnalysis(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();setBusy(true);setError('');setSaved(false);const data=Object.fromEntries(new FormData(event.currentTarget).entries());const result:Record<string,unknown>={...message?.aiResult,...data,isJobRelated:true};
     for(const [key,,type] of extractionFields) if(type==='date'||type==='datetime-local')result[key]=data[key]?new Date(String(data[key])).toISOString():null;
-    if(result.eventStart&&result.eventEnd&&new Date(String(result.eventEnd))<=new Date(String(result.eventStart))){setError('结束时间需要晚于开始时间。');setBusy(false);return;}
+    if(String(data.eventStart||'')!==dateInput(String(message?.aiResult?.eventStart||''),true))result.eventEnd=null;
     try {const response=await apiRequest<{message:MailMessage;application?:Application}>(`/mail-messages/${encodeURIComponent(id)}/analysis`,{method:'PATCH',body:JSON.stringify({result})});setMessage(current=>({...current,...response.message,aiResult:response.message?.aiResult||result}));setEditing(false);setSaved(true);onUpdated();}catch(error){setError(errorText(error));}finally{setBusy(false);}
   }
   const analysis=message?.aiResult||{};

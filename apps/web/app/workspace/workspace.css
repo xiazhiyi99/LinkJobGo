@@ -501,3 +501,27 @@
 @media (max-width: 640px) {
   .profile-home-page .profile-identity-card { grid-template-columns: 72px minmax(0, 1fr); }
 }
+
+/* Homepage card editing stays beside the information being changed. */
+.profile-home-page .profile-identity-main { min-width: 0; }
+.profile-home-page .profile-hero-portrait { align-self: start; }
+.profile-home-page .profile-identity-main > h1,
+.profile-home-page .profile-identity-main > p,
+.profile-home-page .profile-location { overflow-wrap: anywhere; }
+.profile-card-editor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; max-width: 720px; margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--ws-line); }
+.profile-card-editor-heading, .profile-card-editor-full, .profile-card-editor-actions { grid-column: 1 / -1; }
+.profile-card-editor-heading h2 { margin: 0; color: var(--ws-ink); font-size: 15px; font-weight: 600; }
+.profile-card-editor-heading p { margin: 6px 0 2px; color: var(--ws-muted); font-size: 12px; line-height: 1.7; }
+.profile-card-editor label { display: grid; min-width: 0; gap: 7px; color: var(--ws-muted); font-size: 12px; }
+.profile-card-editor input, .profile-card-editor textarea { box-sizing: border-box; width: 100%; min-width: 0; padding: 11px 12px; border: 1px solid #d7e1ef; border-radius: 8px; background: #fff; color: var(--ws-ink); font: inherit; font-size: 13px; line-height: 1.6; }
+.profile-card-editor textarea { resize: vertical; min-height: 110px; }
+.profile-card-editor input:focus, .profile-card-editor textarea:focus { outline: 2px solid #b7cef2; outline-offset: 1px; border-color: #7da4df; }
+.profile-card-editor-actions { display: flex; justify-content: flex-end; gap: 9px; }
+.profile-card-saved { color: #34795d; font-size: 12px; }
+.profile-home-page .profile-identity-main > p.profile-card-error { color: #b5484d; font-size: 12px; }
+.profile-home-page button.profile-text-action { border: 0; background: transparent; font: inherit; font-size: 12px; cursor: pointer; }
+.profile-home-page button:disabled { cursor: default; opacity: .6; }
+.profile-home-page .profile-about-card > p { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .profile-card-editor { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+}
