@@ -1,3 +1,4 @@
+import { adminOnly, publicPopupState } from './debug-access.js';
 import { createPageSession, createSitePageAdapter } from '../page/index.js';
 import { createControlDriver, dialogSaveAdapter, createMeituanControlAdapter } from '../controls/index.js';
 import { createVerifiedSelectControlAdapter } from '../controls/verified-selects.js';
@@ -30,10 +31,20 @@ export function bootstrapContent({ config = {} }: { config?: { document?: Docume
   doc.documentElement.append(root);
   const unmount = mountLauncher({ runner: coordinator, root, spriteUrl: extension.runtime.getURL('pet/squirrel-motion.webp') });
   const commandState = () => ({ ...coordinator.getState(), commandDocumentId: currentDocumentId(), supportsCollegeReset: launcherStartOptions(doc.location, true, true).allowCollegeReset === true });
+  const checkDebug = () => extension.runtime.sendMessage({ type: 'autofill-debug-permission' });
   let collecting = false;
   const listener = (message: any, sender: MessageSender, respond: (value: unknown) => void) => {
     if (sender.id !== extension.runtime.id || sender.url !== `chrome-extension://${extension.runtime.id}/popup.html`) return;
-    if (message?.type === 'autofill-state') { respond(commandState()); return; }
+    if (message?.type === 'autofill-state') { respond(publicPopupState(commandState())); return; }
+    if (message?.type === 'autofill-debug-state') {
+      const intendedDocument = currentDocumentId();
+      void adminOnly(checkDebug, async () => {
+        if (message.commandDocumentId !== intendedDocument) throw new Error('document-changed');
+        const state = commandState();
+        return { buildId: __AUTOFILL_BUILD_ID__, phase: state.phase, commandTiming: state.commandTiming, timing: state.timing, report: state.report };
+      }).then(data => respond(currentDocumentId() === intendedDocument ? { ok: true, data } : { ok: false }), () => respond({ ok: false, error: { code: 'admin-required' } }));
+      return true;
+    }
     if (message?.type === 'autofill-collect-page') {
       const current = commandState(), intendedDocument = current.commandDocumentId;
       const reject = (code: string) => respond({ ok: false, error: { code } });
@@ -44,25 +55,25 @@ export function bootstrapContent({ config = {} }: { config?: { document?: Docume
         try {
           const startedAt = performance.now();
           // Reuse the real scanner without entering readiness, planning or controls.
-          const result = await page.scanPage({ deadlineAt: Date.now() + 10_000 });
+          const result = await adminOnly(checkDebug, () => page.scanPage({ deadlineAt: Date.now() + 10_000 }));
           if (currentDocumentId() !== intendedDocument) { reject('document-changed'); return; }
           if (result.status !== 'ok') { reject('scan-failed'); return; }
           const data = { buildId: typeof __AUTOFILL_BUILD_ID__ === 'string' ? __AUTOFILL_BUILD_ID__ : 'development', collectedAt: new Date().toISOString(), scanDurationMs: Math.round(performance.now() - startedAt), snapshot: result.value, diagnostics: page.getDiagnostics() };
           if (new TextEncoder().encode(JSON.stringify(data)).length > 512 * 1024) { reject('snapshot-too-large'); return; }
           respond({ ok: true, commandDocumentId: intendedDocument, data });
-        } catch { reject('scan-failed'); }
+        } catch (error) { reject(error instanceof Error && error.message === 'admin-required' ? 'admin-required' : 'scan-failed'); }
         finally { collecting = false; }
       })();
       return true;
     }
     if (message?.type !== 'autofill-command') return;
     const current = commandState();
-    if (message.commandDocumentId !== current.commandDocumentId) { respond({ ...current, commandRejected: 'document-changed' }); return; }
-    if (collecting && (message.command === 'start' || message.command === 'resume')) { respond({ ...current, commandRejected: 'scan-in-progress' }); return; }
+    if (message.commandDocumentId !== current.commandDocumentId) { respond({ ...publicPopupState(current), commandRejected: 'document-changed' }); return; }
+    if (collecting && (message.command === 'start' || message.command === 'resume')) { respond({ ...publicPopupState(current), commandRejected: 'scan-in-progress' }); return; }
     if (message.command === 'pause') coordinator.pause();
     else if (message.command === 'cancel') coordinator.cancel();
     else if (message.command === 'start' || message.command === 'resume') void (message.command === 'start' ? coordinator.start(launcherStartOptions(doc.location, message.overwriteExisting === true, message.allowCollegeReset === true)) : coordinator.resume()).catch(() => {});
-    respond(commandState());
+    respond(publicPopupState(commandState()));
   };
   extension.runtime.onMessage.addListener(listener);
   const dispose = () => { coordinator.cancel(); coordinator.dispose(); runner.dispose(); controls.dispose(); page.dispose(); unmount(); extension.runtime.onMessage.removeListener(listener); doc.defaultView?.removeEventListener('pagehide', pageHide); instances.delete(doc); };

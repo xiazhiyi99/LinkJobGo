@@ -19,3 +19,6 @@ fake_resume.txt
 !**/.env.example
 **/*.tsbuildinfo
 **/*.log
+
+**/.download-dist
+apps/web/public/downloads

@@ -236,3 +236,12 @@ test('authentication policy and error envelopes stay separate from the filling c
     assert.equal(response.status, 504); assert.equal((await response.json()).error.code, 'deadline-exceeded');
   } finally { await stop(server); }
 });
+
+
+test('account binding cannot select another user or accept a switched Cookie principal', async () => {
+  await harness(async ({ post }) => {
+    assert.equal((await post('readiness', {}, { headers: { 'x-autofill-account-id': userA.id } })).status, 200);
+    assert.equal((await post('readiness', {}, { headers: { 'x-autofill-account-id': userB.id } })).status, 401);
+    assert.equal((await post('readiness', {}, { headers: { authorization: 'Bearer user-b', 'x-autofill-account-id': userA.id } })).status, 401);
+  });
+});

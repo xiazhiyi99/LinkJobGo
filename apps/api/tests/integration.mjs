@@ -36,11 +36,24 @@ const sessionCookie = (response) => response.headers.get('set-cookie')?.split(';
 
 try {
   await waitForApi();
-  assert.equal((await request('/auth/register', json({ email, password, passwordConfirmation: password }))).response.status, 201);
+  assert.equal((await request('/auth/register', json({ email, password, passwordConfirmation: password, role: 'admin' }))).response.status, 201);
   const login = await request('/auth/login', json({ email, password }));
+  const expectedCookieName = process.env.SESSION_COOKIE_NAME || 'lingke_session';
+  assert.ok(login.response.headers.get('set-cookie').startsWith(expectedCookieName + '='));
+  assert.ok(login.response.headers.get('set-cookie').includes('Path=' + (process.env.SESSION_COOKIE_PATH || '/') + ';'));
+  if (expectedCookieName !== 'lingke_session') {
+    const wrongCookie = sessionCookie(login.response).replace(expectedCookieName + '=', 'lingke_session=');
+    assert.equal((await request('/auth/me', {}, wrongCookie)).response.status, 401, 'test API must reject the main website cookie');
+  }
+
   assert.equal(login.response.status, 200);
   const cookie = sessionCookie(login.response);
   assert.ok(cookie);
+  const ordinary = await request('/auth/me', {}, cookie);
+  assert.equal(ordinary.payload.user.role, 'user');
+  assert.equal(ordinary.payload.user.capabilities.extensionDebug, false);
+  const crossed = await request('/autofill/v2/readiness', { ...json(fillMetadata()), headers: { 'x-autofill-account-id': 'other-account' } }, cookie);
+  assert.equal(crossed.response.status, 401);
 
   const genericRules = {
     schemaVersion: 'page-rules.v1',
@@ -63,7 +76,8 @@ try {
   }), cookie);
   assert.equal(forbiddenForUser.response.status, 403);
   assert.equal(forbiddenForUser.payload.code, 'RULE_OPERATOR_REQUIRED');
-  await prisma.user.update({ where: { email }, data: { role: 'operator' } });
+  await prisma.user.update({ where: { email }, data: { role: 'admin' } });
+  assert.equal((await request('/auth/me', {}, cookie)).payload.user.capabilities.extensionDebug, true);
   const rejectedRule = await request('/autofill/rules/drafts', json({
     scope: 'generic',
     sourceKey: 'generic:v1',

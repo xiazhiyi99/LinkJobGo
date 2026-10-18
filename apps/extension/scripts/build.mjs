@@ -16,7 +16,10 @@ export function buildConfiguration(env = process.env) {
   const rawPrefix = env.EXTENSION_API_PATH_PREFIX || '';
   const apiPathPrefix = rawPrefix.replace(/\/$/, '');
   if (apiPathPrefix && !/^\/[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*$/.test(apiPathPrefix)) throw new Error('Invalid configured platform API path prefix');
-  return { apiOrigin: url.origin, apiPathPrefix, development: mode === 'development' };
+  const loginUrl = new URL(env.EXTENSION_LOGIN_URL || (mode === 'development' ? 'http://127.0.0.1:3000/login' : '/login'), url.origin);
+  const localLogin = mode === 'development' && loginUrl.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(loginUrl.hostname);
+  if ((!localLogin && (loginUrl.protocol !== 'https:' || loginUrl.origin !== url.origin)) || loginUrl.username || loginUrl.password || loginUrl.hash) throw new Error('Invalid platform login URL');
+  return { apiOrigin: url.origin, apiPathPrefix, loginUrl: loginUrl.href, development: mode === 'development' };
 }
 async function files(dir) {
   const entries = (await readdir(dir, { withFileTypes: true })).filter(e => e.name !== '.DS_Store').sort((a, b) => a.name.localeCompare(b.name));
@@ -31,7 +34,7 @@ export async function buildExtension({ config = buildConfiguration(), outdir = r
   for (const file of sources.filter(f => !f.endsWith('.md'))) hash.update(relative(root, file)).update(await readFile(file));
   const buildId = hash.digest('hex').slice(0, 20);
   await rm(outdir, { force: true, recursive: true }); await mkdir(outdir, { recursive: true });
-  const define = { __AUTOFILL_BUILD_ID__: JSON.stringify(buildId), __PLATFORM_API_ORIGIN__: JSON.stringify(config.apiOrigin), __PLATFORM_API_PATH_PREFIX__: JSON.stringify(config.apiPathPrefix ?? ''), __PLATFORM_DEVELOPMENT__: JSON.stringify(config.development) };
+  const define = { __AUTOFILL_BUILD_ID__: JSON.stringify(buildId), __PLATFORM_API_ORIGIN__: JSON.stringify(config.apiOrigin), __PLATFORM_API_PATH_PREFIX__: JSON.stringify(config.apiPathPrefix ?? ''), __PLATFORM_LOGIN_URL__: JSON.stringify(config.loginUrl ?? new URL('/login', config.apiOrigin).href), __PLATFORM_DEVELOPMENT__: JSON.stringify(config.development) };
   for (const name of ['content', 'background', 'popup']) await build({ entryPoints: [resolve(root, `src/shell/${name}.ts`)], outfile: resolve(outdir, name + '.js'), bundle: true, format: name === 'content' ? 'iife' : 'esm', platform: 'browser', target: 'chrome120', define });
   for (const filename of ['popup.html', 'popup.css']) await cp(resolve(root, 'src/shell', filename), resolve(outdir, filename));
   await mkdir(resolve(outdir, 'pet')); await cp(resolve(root, 'src/shell/pet/squirrel-motion.webp'), resolve(outdir, 'pet/squirrel-motion.webp'));

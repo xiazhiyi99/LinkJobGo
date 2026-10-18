@@ -18,7 +18,7 @@ export function reasonLabel(reason?: string): string {
   if (reason === 'section-identity-unconfirmed' || reason.startsWith('section-quarantined:')) return '此区块的记录归属无法确认，已跳过整个区块；其他已确认归属的区块可继续填写';
   // Free-form parser explanations are not control error codes.
   if (!/^[a-z0-9][a-z0-9:-]*$/.test(reason)) return '请在页面检查此项后再继续';
-  if (/authentication-required|resume-access-denied/.test(reason)) return '请点击浏览器扩展图标，登录领客账号后重试';
+  if (/authentication-required|resume-access-denied/.test(reason)) return '请点击浏览器扩展图标，前往领客网页登录后重试';
   if (/access-denied|origin-denied/.test(reason)) return '服务拒绝访问，请检查后端授权与扩展来源配置';
   if (/backend-unavailable/.test(reason)) return '无法连接领客服务，请稍后重试';
   if (/resume-api-unavailable|resume-unavailable/.test(reason)) return '暂时无法读取简历，请检查简历服务后重试';
@@ -107,7 +107,7 @@ export function launcherBubble(state: ShellState): { kind: 'action' | 'status'; 
   if (state.starting || state.readiness.status === 'checking') return { kind: 'status', text: '正在检查连接与简历…', warning: false };
   if (state.readiness.status === 'failed' && state.phase === 'idle') {
     const authentication = /authentication-required|resume-access-denied/.test(state.readiness.reason ?? '');
-    return { kind: 'status', text: authentication ? '请点扩展图标更新登录' : '暂时无法开始，请点扩展图标', warning: true };
+    return { kind: 'status', text: authentication ? '请点扩展图标前往网页登录' : '暂时无法开始，请点扩展图标', warning: true };
   }
   const summary = state.report ? reportSummary(state.report) : null;
   switch (state.phase) {

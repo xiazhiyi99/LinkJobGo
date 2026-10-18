@@ -2,20 +2,18 @@ import { PROTOCOL_VERSION, type ApiResult } from '@job-assistant/autofill-contra
 import { extension, type ChromeApi, type MessageSender } from './chrome.js';
 import { platformConfig } from '../platform/config.js';
 import { createApiClient, PlatformError } from '../platform/api-client.js';
-import { createTokenStore } from '../platform/token-store.js';
 import { createAuthService } from '../platform/auth.js';
 
 const failure = (requestId: string, code: string): ApiResult<never> => ({ ok: false, requestId, error: { code, message: code, retryable: code === 'backend-unavailable' } });
-export function createBackground(api: ChromeApi, config: { apiOrigin: string; apiPathPrefix?: string }) {
+export function createBackground(api: ChromeApi, config: { apiOrigin: string; apiPathPrefix?: string; loginUrl?: string }) {
   const pending = new Map<string, AbortController>();
   const runAccounts = new Map<string, number>();
   let accountGeneration = 0;
-  const store = createTokenStore(api.storage.local);
-  const auth = createAuthService({ apiOrigin: config.apiOrigin, apiPathPrefix: config.apiPathPrefix, store, api: createApiClient(config), onAccountChange() {
+  const auth = createAuthService({ apiOrigin: config.apiOrigin, apiPathPrefix: config.apiPathPrefix, api: createApiClient(config), onAccountChange() {
     accountGeneration++;
     for (const controller of pending.values()) controller.abort();
   } });
-  void store.initialize().catch(() => {}); // Every later access also awaits this restriction.
+  void api.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' }).catch(() => {});
   return async function handleBackgroundRequest(message: unknown, sender: MessageSender): Promise<unknown> {
     if (!message || typeof message !== 'object' || sender.id !== api.runtime.id) return failure('', 'invalid-message-source');
     const data = message as Record<string, any>;
@@ -24,8 +22,14 @@ export function createBackground(api: ChromeApi, config: { apiOrigin: string; ap
     let requestId = '';
     try {
       if (data.type === 'autofill-auth-status' && popup) return await auth.status();
-      if (data.type === 'autofill-auth-login' && popup) return await auth.login(data.email, data.password);
-      if (data.type === 'autofill-auth-logout' && popup) return await auth.logout();
+      if (data.type === 'autofill-open-login' && popup) {
+        await api.tabs.create({ url: config.loginUrl ?? new URL('/login', config.apiOrigin).href });
+        return { ok: true };
+      }
+      if (data.type === 'autofill-debug-permission' && (popup || trustedContent)) {
+        const status = await auth.status();
+        return { allowed: status.authenticated && status.capabilities.extensionDebug === true };
+      }
       if (data.type === 'autofill-settings-load' && trustedContent) {
         const status = await auth.status();
         return { authenticated: status.authenticated, state: status.state };

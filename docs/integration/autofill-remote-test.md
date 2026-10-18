@@ -73,3 +73,13 @@ $DC up -d api
 本机证据（忽略、不推送）：`apps/extension/.test-dist/remote-test-20261018/` 中的 `http-results.json`、`browser-run.json`、`login.png`、`result-popup.png`、`filled-project.png`。合成测试账号凭据在同目录 `credentials.json`（600 权限），不写入仓库或报告。
 
 远端剩余磁盘约 0.9 GB；继续积累测试镜像前需要扩容或安排明确的旧镜像清理。此次没有删除主站镜像、缓存或数据卷。
+
+## Cookie 登录与下载页面联合发布（2026-10-18，待验收）
+
+本次将测试网页增加到 `/autofill-test`，API 仍为 `/autofill-test/api`。Next `basePath`、下载链接、静态素材、登录回跳与扩展登录地址统一使用测试前缀。主站路由及生产数据库保持原配置。
+
+测试 Cookie 为 `lingke_autofill_test`，Path 为 `/autofill-test`，HttpOnly、Secure、SameSite=Lax；主站继续使用 `lingke_session`。网站构建参数 `NEXT_PUBLIC_SESSION_COOKIE_NAME` 必须与 API 的 `SESSION_COOKIE_NAME` 一致。旧 Bearer 接口兼容保留，新下载扩展只使用 Cookie。
+
+新增网页镜像使用 Next standalone 运行目录。测试下载包固定扩展 ID：`jmfbkpdfefifliffkdkmljihmkeapjkb`，需加入测试 API 的来源白名单。下载 ZIP 的 manifest、background、build.json 必须核对测试前缀和网页登录地址，不能用本机开发包代替网站下载包验收。
+
+验收顺序：HTTPS 健康和主站回归 → 从测试网站下载 ZIP → 解压并加载固定 ID 扩展 → 扩展跳转测试网页登录 → Cookie 识别账号 → 从测试库读取完整资料 → 独立美团标签页通过真实按钮填写 → 核对结果及记录耗时。保持招聘页填写算法不变，不投递申请。实际结果在完成后补充。

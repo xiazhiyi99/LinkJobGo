@@ -1,6 +1,7 @@
 import { normalizeApiPathPrefix } from './api-prefix.js';
 declare const __PLATFORM_API_ORIGIN__: string;
 declare const __PLATFORM_API_PATH_PREFIX__: string;
+declare const __PLATFORM_LOGIN_URL__: string;
 declare const __PLATFORM_DEVELOPMENT__: boolean;
 
 export function normalizeApiOrigin(value: string, development: boolean): string {
@@ -12,5 +13,6 @@ export function normalizeApiOrigin(value: string, development: boolean): string 
 export const platformConfig = {
   apiOrigin: normalizeApiOrigin(__PLATFORM_API_ORIGIN__, __PLATFORM_DEVELOPMENT__),
   apiPathPrefix: normalizeApiPathPrefix(__PLATFORM_API_PATH_PREFIX__),
+  loginUrl: __PLATFORM_LOGIN_URL__,
   development: __PLATFORM_DEVELOPMENT__,
 };

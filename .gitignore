@@ -16,3 +16,6 @@ packages/autofill-contracts/dist/
 apps/api/src/modules/autofill/dist/
 apps/extension/dist/
 apps/extension/.test-dist/
+
+apps/extension/.download-dist/
+apps/web/public/downloads/

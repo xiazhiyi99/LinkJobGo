@@ -21,11 +21,11 @@ export async function withinBudget<T>(ctx: OperationContext, work: (signal: Abor
 
 export function createApiClient({ apiOrigin, apiPathPrefix = '', fetcher = fetch }: { apiOrigin: string; apiPathPrefix?: string; fetcher?: typeof fetch }) {
   const apiBaseUrl = apiOrigin + normalizeApiPathPrefix(apiPathPrefix);
-  const request = (path: string, input: unknown, token: string | undefined, ctx: OperationContext, maxResponseBytes: number) => withinBudget(ctx, async signal => {
+  const request = (path: string, input: unknown, accountId: string | undefined, ctx: OperationContext, maxResponseBytes: number, method = 'POST') => withinBudget(ctx, async signal => {
     try {
-      const body = JSON.stringify(input);
+      const body = method === 'GET' ? undefined : JSON.stringify(input);
       if (new TextEncoder().encode(body).length > 512 * 1024) throw new PlatformError('request-too-large');
-      const response = await fetcher(apiBaseUrl + path, { method: 'POST', redirect: 'error', credentials: 'omit', cache: 'no-store', signal, headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) }, body });
+      const response = await fetcher(apiBaseUrl + path, { method, redirect: 'error', credentials: 'include', cache: 'no-store', signal, headers: { 'content-type': 'application/json', ...(accountId ? { 'x-autofill-account-id': accountId } : {}) }, body });
       if (response.status === 401 || response.status === 403) {
         await response.body?.cancel();
         throw new PlatformError(response.status === 401 ? 'authentication-required' : 'access-denied', response.status);
@@ -52,18 +52,17 @@ export function createApiClient({ apiOrigin, apiPathPrefix = '', fetcher = fetch
     }
   });
   return {
-    async login(email: string, password: string, ctx: OperationContext) {
-      const { response, value } = await request('/auth/extension/login', { email, password }, undefined, ctx, 64 * 1024);
+    async account(ctx: OperationContext) {
+      const { response, value } = await request('/auth/me', undefined, undefined, ctx, 64 * 1024, 'GET');
       if (!response.ok) throw new PlatformError('backend-unavailable', response.status);
-      return value;
+      const user = value?.user;
+      if (!user || typeof user.id !== 'string' || !user.id || typeof user.email !== 'string' || typeof user.emailVerified !== 'boolean') throw new PlatformError('backend-invalid-response');
+      return { id: user.id, role: user.role === 'admin' ? 'admin' as const : 'user' as const,
+        extensionDebug: user.role === 'admin' && user.capabilities?.extensionDebug === true };
     },
-    async logout(accessToken: string, ctx: OperationContext) {
-      const { response, value } = await request('/auth/extension/logout', {}, accessToken, ctx, 64 * 1024);
-      if (!response.ok || value?.ok !== true) throw new PlatformError('backend-unavailable', response.status);
-    },
-    async fill(operation: FillOperation, input: ReadinessRequest | AnalyzeRequest | PlanRequest, token: string, ctx: OperationContext): Promise<ApiResult<unknown>> {
+    async fill(operation: FillOperation, input: ReadinessRequest | AnalyzeRequest | PlanRequest, accountId: string, ctx: OperationContext): Promise<ApiResult<unknown>> {
       if (!Object.hasOwn(routes, operation)) throw new PlatformError('invalid-message');
-      const { response, value } = await request(routes[operation], { ...input, deadlineAt: ctx.deadlineAt }, token, ctx, 1024 * 1024);
+      const { response, value } = await request(routes[operation], { ...input, deadlineAt: ctx.deadlineAt }, accountId, ctx, 1024 * 1024);
       if (!value || typeof value.ok !== 'boolean' || value.requestId !== input.requestId || (!response.ok && value.ok)) throw new PlatformError('backend-invalid-response');
       if (value.ok) {
         if (!Object.hasOwn(value, 'data')) throw new PlatformError('backend-invalid-response');

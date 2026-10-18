@@ -1,13 +1,14 @@
 {
   "name": "@job-assistant/extension",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "build": "pnpm --filter @job-assistant/autofill-contracts build && node scripts/build.mjs",
     "lint": "tsc --noEmit",
     "test": "pnpm run build && node --test tests/*.test.mjs",
-    "test:browser": "node tests/browser.mjs"
+    "test:browser": "node tests/browser.mjs",
+    "build:download": "pnpm --filter @job-assistant/autofill-contracts build && node scripts/download.mjs"
   },
   "dependencies": {
     "@job-assistant/autofill-contracts": "workspace:*"

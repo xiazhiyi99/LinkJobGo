@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { createRequire } from 'node:module';
-import { rm } from 'node:fs/promises';
+import { rm, mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { buildExtension, root } from '../scripts/build.mjs';
 import { withBrowserFixture, connectCDP } from './helpers/browser.mjs';
@@ -88,12 +88,13 @@ try {
     assert.ok(loaded.id, 'Actual unpacked extension required');
     api = spawn(process.execPath, ['src/index.js'], {
       cwd: resolve(root, '../api'), stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, NODE_ENV: 'development', API_PORT: new URL(apiOrigin).port, MAIL_PROVIDER: 'console', AI_PROVIDER_MODE: 'http', AI_TEXT_RETRY_STRATEGY: 'official_only', AI_OFFICIAL_BASE_URL: modelOrigin, AI_OFFICIAL_API_KEY: 'synthetic-model-key', AI_OFFICIAL_MODEL: 'controlled-test', AI_MAX_ATTEMPTS: '1', AUTOFILL_EXTENSION_ORIGINS: `chrome-extension://${loaded.id}` },
+      env: { ...process.env, NODE_ENV: 'development', API_PORT: new URL(apiOrigin).port, WEB_ORIGIN: origin, MAIL_PROVIDER: 'console', AI_PROVIDER_MODE: 'http', AI_TEXT_RETRY_STRATEGY: 'official_only', AI_OFFICIAL_BASE_URL: modelOrigin, AI_OFFICIAL_API_KEY: 'synthetic-model-key', AI_OFFICIAL_MODEL: 'controlled-test', AI_MAX_ATTEMPTS: '1', AUTOFILL_EXTENSION_ORIGINS: `chrome-extension://${loaded.id}` },
     });
     // Drain output without retaining emails, login responses or environment data.
     api.stdout.resume(); api.stderr.resume();
     await until(async () => { if (api.exitCode !== null) throw new Error('API process exited ' + api.exitCode); try { return (await fetch(apiOrigin + '/health')).ok; } catch { return false; } }, 'platform API startup');
     const a = await createAccount(fixtureA), b = await createAccount(fixtureB);
+    await prisma.user.update({where:{id:a.id},data:{role:'admin'}});
     const workerInfo = await until(async () => (await browserSocket.send('Target.getTargets')).targetInfos.find(t => t.type === 'service_worker' && t.url === `chrome-extension://${loaded.id}/background.js`), 'extension worker');
     const worker = await targetClient(httpOrigin, workerInfo.targetId);
     worker.cdp.ws.addEventListener('message', event => { const message = JSON.parse(event.data); if (message.method === 'Network.requestWillBeSent') requests.push(new URL(message.params.request.url).pathname); });
@@ -109,23 +110,26 @@ try {
       assert.ok(tab); await browserSocket.send('Extensions.triggerAction', { id: loaded.id, targetId: tab.targetId });
       const target = await until(async () => (await browserSocket.send('Target.getTargets')).targetInfos.find(t => t.url === `chrome-extension://${loaded.id}/popup.html`), 'popup open');
       popupId = target.targetId; popup = await targetClient(httpOrigin, popupId);
-      await until(() => popup.evaluate("!!document.querySelector('#settings-metadata') && !document.querySelector('[data-command=start]').disabled"), 'popup ready');
+      await until(() => popup.evaluate("!!document.querySelector('#login-status') && !document.querySelector('[data-command=start]').disabled"), 'popup ready');
     };
     const closePopup = async () => { popup?.close(); popup = undefined; if (popupId) await browserSocket.send('Target.closeTarget', { targetId: popupId }).catch(() => {}); popupId = undefined; };
     const navigate = async () => { await closePopup(); contentContext = undefined; await page.goto(formUrl); await page.waitForFunction(() => !!document.querySelector('#resume-next-launcher')?.shadowRoot); await openPopup(); };
     const loginPopup = async account => {
-      if (!(await popup.evaluate("document.querySelector('#connection-settings').open"))) await popup.click('#connection-settings summary');
-      await popup.fill('#account-email', account.email); await popup.fill('#account-password', password);
-      await popup.click('#settings button[type=submit]');
-      await until(async () => (await popup.evaluate("document.querySelector('#settings-status').textContent")) === '登录成功', 'popup account login');
-      assert.equal(await popup.evaluate("document.querySelector('#account-password').value"), '');
-      await popup.click('#connection-settings summary');
+      await closePopup();
+      await mkdir(resolve(root, '.test-dist'), {recursive:true});
+      await writeFile(resolve(root, '.test-dist/cookie-login.html'), `<!doctype html><form><input id="email"><input id="password" type="password"><button>网页登录</button></form><p id="result"></p><script>document.querySelector('form').addEventListener('submit',async e=>{e.preventDefault();const r=await fetch(${JSON.stringify(apiOrigin)}+'/auth/login',{method:'POST',credentials:'include',headers:{'content-type':'application/json'},body:JSON.stringify({email:document.querySelector('#email').value,password:document.querySelector('#password').value})});document.querySelector('#result').textContent=r.ok?'logged-in':'failed';});</script>`);
+      await page.goto(origin+'/.test-dist/cookie-login.html');
+      const helper = await targetClient(httpOrigin,(await browserSocket.send('Target.getTargets')).targetInfos.find(t=>t.url===origin+'/.test-dist/cookie-login.html').targetId);
+      await helper.fill('#email',account.email);await helper.fill('#password',password);await helper.click('button');helper.close();
+      await page.waitForFunction(()=>document.querySelector('#result')?.textContent==='logged-in');
+      await navigate();
+      await until(async()=>await popup.evaluate("document.querySelector('#web-login').hidden"),'website Cookie recognized');
     };
     const completeFill = async expected => {
       const start = performance.now();
       await popup.click('[data-command=start]');
       await page.waitForFunction(() => ['completed', 'partial', 'failed'].includes(document.querySelector('#resume-next-launcher').dataset.phase), undefined, 20000);
-      await until(async () => (await popup.evaluate("document.querySelector('#run-json').value")).length > 0, 'runner report');
+      await until(async () => await popup.evaluate("['completed','partial','failed'].includes(document.querySelector('#status').dataset.phase)"), 'runner report');
       const result = await page.evaluate(() => ({ phase: document.querySelector('#resume-next-launcher').dataset.phase, records: fixture.education.map(({ id, ...row }) => row), submitted: fixture.submitted }));
       assert.deepEqual(result.records, expected, JSON.stringify({ result, report: await popup.evaluate("document.querySelector('#run-json').value") }));
       assert.notEqual(result.phase, 'failed'); assert.equal(result.submitted, 0);
@@ -152,29 +156,28 @@ try {
       const rejectedAuth = await page.cdp.send('Runtime.evaluate', { contextId: contentContext, expression: "chrome.runtime.sendMessage({type:'autofill-auth-status'})", awaitPromise: true, returnByValue: true });
       assert.equal(rejectedAuth.result.value.ok, false);
       await closePopup(); await openPopup();
-      await until(async () => (await popup.evaluate("document.querySelector('#settings-metadata').textContent")).includes(a.email), 'saved login on popup reopen');
+      await until(async () => await popup.evaluate("document.querySelector('#web-login').hidden"), 'website Cookie on popup reopen');
       const elapsedA = await completeFill(fixtureA);
       assert.ok(modelCalls.length >= 1);
-      for (const route of ['/auth/extension/login', '/autofill/v2/readiness', '/autofill/v2/analyze', '/autofill/v2/plan']) assert.ok(requests.includes(route), route);
+      for (const route of ['/auth/me', '/autofill/v2/readiness', '/autofill/v2/analyze', '/autofill/v2/plan']) assert.ok(requests.includes(route), route);
       assert.ok(!requests.some(path => path.startsWith('/v1/')));
-      await popup.click('#connection-settings summary'); await popup.click('#disconnect-settings');
-      await until(async () => (await popup.evaluate("document.querySelector('#settings-metadata').textContent")) === '尚未登录领客账号', 'logout');
-      const activeA = await prisma.session.count({ where: { userId: a.id, type: 'extension', revokedAt: null } }); assert.equal(activeA, 0);
+      assert.equal(await popup.evaluate("document.querySelector('#rule-collection').hidden"),false);
+      await prisma.session.updateMany({where:{userId:a.id,type:'web'},data:{revokedAt:new Date()}});
       await navigate(); await loginPopup(b);
       const elapsedB = await completeFill(fixtureB);
-      await prisma.session.updateMany({ where: { userId: b.id, type: 'extension' }, data: { expiresAt: new Date(Date.now() - 1000) } });
+      assert.equal(await popup.evaluate("document.querySelector('#rule-collection').hidden"),true);
+      assert.equal(await popup.evaluate("document.querySelector('#run-json').value"),'');
+      await prisma.session.updateMany({ where: { userId: b.id, type: 'web' }, data: { expiresAt: new Date(Date.now() - 1000) } });
       await navigate(); await popup.click('[data-command=start]');
-      await until(async () => /登录领客/.test(await popup.evaluate("document.querySelector('#progress-note').textContent")), 'expired token failure');
+      await until(async () => /登录领客/.test(await popup.evaluate("document.querySelector('#progress-note').textContent")), 'expired website session failure');
       assert.equal(await page.evaluate(() => fixture.education[0].school), '');
-      const kept = await worker.evaluate("chrome.storage.local.get('platformAuth').then(v=>({hasToken:!!v.platformAuth?.session?.accessToken,needsLogin:v.platformAuth?.session?.needsLogin}))");
-      assert.deepEqual(kept, { hasToken: true, needsLogin: true });
       await loginPopup(b); hangModel = true;
       await popup.click('[data-command=start]'); await until(() => modelWaiting, 'model pending');
       await popup.click('[data-command=cancel]'); await until(() => modelClosed, 'model HTTP cancellation');
       await page.waitForFunction(() => document.querySelector('#resume-next-launcher').dataset.phase === 'cancelled');
       assert.equal(await page.evaluate(() => fixture.education[0].school), '');
       assert.equal(await page.evaluate(() => fixture.submitted), 0);
-      console.log(JSON.stringify({ buildId: built.buildId, checks: ['real extension load', 'popup login/logout', 'protected content storage', 'new routes', 'two account isolation', 'two records / eight fields each', 'rerender persistence', 'expired token retained', 'upstream cancellation', 'no submission'], elapsedMs: { accountA: elapsedA, accountB: elapsedB } }, null, 2));
+      console.log(JSON.stringify({ buildId: built.buildId, checks: ['real extension load', 'website Cookie login/expiry', 'protected content storage', 'new routes', 'two account isolation', 'two records / eight fields each', 'rerender persistence', 'ordinary/admin debug visibility', 'upstream cancellation', 'no submission'], elapsedMs: { accountA: elapsedA, accountB: elapsedB } }, null, 2));
     } finally { await closePopup(); worker.close(); }
   }, { extensionPath, chromeArgs: ['--enable-unsafe-extension-debugging'] });
 } finally {

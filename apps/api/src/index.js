@@ -1,3 +1,4 @@
+const { accountRole, accountCapabilities } = require('./auth/roles');
 const http = require('node:http');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -44,6 +45,7 @@ try {
 const port = Number(process.env.API_PORT || 3001);
 const origin = process.env.WEB_ORIGIN || 'http://localhost:3000';
 const secureCookie = process.env.SESSION_COOKIE_SECURE === 'true' || (process.env.SESSION_COOKIE_SECURE !== 'false' && process.env.NODE_ENV === 'production') ? '; Secure' : '';
+const sessionCookie = require('./auth/session-cookie').sessionCookieConfig();
 const production = process.env.NODE_ENV === 'production';
 const captchaVerifier = createCaptchaVerifier();
 const emailCodeService = createEmailCodeService({
@@ -94,7 +96,7 @@ const verifyPassword = (password, encoded) => {
     return crypto.timingSafeEqual(Buffer.from(actual, 'hex'), Buffer.from(expected, 'hex'));
   } catch { return false; }
 };
-const userResponse = (user) => ({ id: user.id, email: user.email, role: user.role, emailVerified: Boolean(user.emailVerifiedAt) });
+const userResponse = (user) => ({ id: user.id, email: user.email, role: accountRole(user), capabilities: accountCapabilities(user), emailVerified: Boolean(user.emailVerifiedAt) });
 const createVerificationToken = async (userId) => {
   const token = crypto.randomBytes(32).toString('hex');
   await prisma.$transaction([
@@ -119,7 +121,7 @@ const requestIp = (req) => {
 const requireDatabase = (res) => { if (prisma) return true; json(res, 503, { error: '数据库暂不可用，请先启动 PostgreSQL 并执行 Prisma 迁移。' }); return false; };
 const sessionUser = async (req) => {
   if (!prisma) return null;
-  const id = cookieValue(req, 'lingke_session');
+  const id = cookieValue(req, sessionCookie.name);
   if (!id) return null;
   const session = await prisma.session.findUnique({ where: { id }, include: { user: true } });
   if (!session || session.type !== 'web' || session.revokedAt || session.expiresAt <= new Date()) return null;
@@ -163,7 +165,7 @@ const autofillModule = createAutofillModule({
   },
 });
 const requireRuleOperator = (user, res) => {
-  if (user && ['admin', 'operator'].includes(user.role)) return true;
+  if (user && accountRole(user) === 'admin') return true;
   json(res, 403, { error: '需要运营权限', code: 'RULE_OPERATOR_REQUIRED' });
   return false;
 };
@@ -393,6 +395,18 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     // Dispatch before the legacy upload-sized body reader consumes the stream.
     if (url.pathname.startsWith('/autofill/v2/')) return await autofillModule.handle(req, res, url.pathname);
+    if (url.pathname === '/auth/me' && ['GET', 'OPTIONS'].includes(req.method)) {
+      const requestOrigin = req.headers.origin;
+      const allowed = [origin, ...(process.env.AUTOFILL_EXTENSION_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean)];
+      if (requestOrigin && !allowed.includes(requestOrigin)) return json(res, 403, { error: 'Origin denied' });
+      const headers = { 'cache-control': 'no-store', 'vary': 'Origin', ...(requestOrigin ? { 'access-control-allow-origin': requestOrigin } : {}) };
+      if (req.method === 'OPTIONS') return json(res, 204, {}, headers);
+      try { const user = await authenticateUser(req); return json(res, 200, { user: userResponse(user) }, headers); }
+      catch (error) {
+        if (!(error instanceof AuthenticationError)) throw error;
+        return json(res, error.status, { error: error.message, code: error.code }, headers);
+      }
+    }
     if (req.method === 'OPTIONS') return json(res, 204, {});
     if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true });
     const data = await body(req);
@@ -422,7 +436,7 @@ const server = http.createServer(async (req, res) => {
         throw error;
       }
       const session = await prisma.session.create({ data: { userId: user.id, type: 'web', expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30), userAgent: req.headers['user-agent'] } });
-      return json(res, 201, { user: userResponse(user) }, { 'set-cookie': `lingke_session=${session.id}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000${secureCookie}` });
+      return json(res, 201, { user: userResponse(user) }, { 'set-cookie': `${sessionCookie.name}=${session.id}; HttpOnly; SameSite=Lax; Path=${sessionCookie.path}; Max-Age=2592000${secureCookie}` });
     }
     if (req.method === 'POST' && url.pathname === '/auth/email-code') {
       if (!requireDatabase(res)) return;
@@ -438,14 +452,11 @@ const server = http.createServer(async (req, res) => {
       const user = await prisma.user.findUnique({ where: { email } });
       if (!user || !verifyPassword(String(data.password || ''), user.passwordHash)) return json(res, 401, { error: '邮箱或密码不正确' });
       const session = await prisma.session.create({ data: { userId: user.id, type: 'web', expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30), userAgent: req.headers['user-agent'] } });
-      return json(res, 200, { user: userResponse(user) }, { 'set-cookie': `lingke_session=${session.id}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000${secureCookie}` });
+      return json(res, 200, { user: userResponse(user) }, { 'set-cookie': `${sessionCookie.name}=${session.id}; HttpOnly; SameSite=Lax; Path=${sessionCookie.path}; Max-Age=2592000${secureCookie}` });
     }
     if (req.method === 'POST' && url.pathname === '/auth/logout') {
-      if (prisma) { const id = cookieValue(req, 'lingke_session'); if (id) await prisma.session.updateMany({ where: { id }, data: { revokedAt: new Date() } }); }
-      return json(res, 200, { ok: true }, { 'set-cookie': `lingke_session=; Max-Age=0; HttpOnly; SameSite=Lax; Path=/${secureCookie}` });
-    }
-    if (req.method === 'GET' && url.pathname === '/auth/me') {
-      const user = await requireUser(req, res); if (!user) return; return json(res, 200, { user: userResponse(user) });
+      if (prisma) { const id = cookieValue(req, sessionCookie.name); if (id) await prisma.session.updateMany({ where: { id }, data: { revokedAt: new Date() } }); }
+      return json(res, 200, { ok: true }, { 'set-cookie': `${sessionCookie.name}=; Max-Age=0; HttpOnly; SameSite=Lax; Path=${sessionCookie.path}${secureCookie}` });
     }
     if (req.method === 'POST' && url.pathname === '/auth/forgot-password') {
       if (prisma) {

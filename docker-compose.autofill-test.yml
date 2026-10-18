@@ -32,6 +32,8 @@ services:
       WEB_ORIGIN: https://linkaigo.com
       APP_URL: https://linkaigo.com/autofill-test
       SESSION_COOKIE_SECURE: 'true'
+      SESSION_COOKIE_NAME: lingke_autofill_test
+      SESSION_COOKIE_PATH: /autofill-test
       AUTOFILL_EXTENSION_ORIGINS: ${AUTOFILL_EXTENSION_ORIGINS:?required}
       AI_PROVIDER_MODE: http
     depends_on:
@@ -41,6 +43,28 @@ services:
       test-data:
       proxy:
         aliases: [autofill-test-api]
+    mem_limit: 512m
+    logging:
+      options:
+        max-size: 10m
+        max-file: '3'
+  web:
+    image: lingke-autofill-web:${AUTOFILL_TEST_RELEASE:?required}
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://linkaigo.com/autofill-test/api
+        NEXT_PUBLIC_BASE_PATH: /autofill-test
+        NEXT_PUBLIC_SESSION_COOKIE_NAME: lingke_autofill_test
+        NEXT_PUBLIC_CAPTCHA_PROVIDER: disabled
+        EXTENSION_API_ORIGIN: https://linkaigo.com
+        EXTENSION_API_PATH_PREFIX: /autofill-test/api
+        EXTENSION_LOGIN_URL: https://linkaigo.com/autofill-test/login?next=/workspace/autofill
+    restart: unless-stopped
+    networks:
+      proxy:
+        aliases: [autofill-test-web]
     mem_limit: 512m
     logging:
       options:

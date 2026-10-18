@@ -83,12 +83,13 @@ const createAutofillHandler = ({ service, authenticate, allowedOrigins = [], max
     const method = Object.hasOwn(ROUTES, pathname) ? ROUTES[pathname] : null;
     if (!method) throw new ServiceError('not-found', 'Route not found', 404);
     if (req.method === 'OPTIONS' && origin) {
-      res.writeHead(204, { 'access-control-allow-methods': 'POST', 'access-control-allow-headers': 'content-type, authorization' });
+      res.writeHead(204, { 'access-control-allow-methods': 'POST', 'access-control-allow-headers': 'content-type, authorization, x-autofill-account-id' });
       res.end(); return;
     }
     if (req.method !== 'POST') throw new ServiceError('method-not-allowed', 'POST required', 405);
     const principal = await waitFor(() => authenticate(req), controller.signal);
     if (!principal?.id || !principal?.email) throw new ServiceError('authentication-required', 'Authentication required', 401);
+    if (req.headers['x-autofill-account-id'] && req.headers['x-autofill-account-id'] !== principal.id) throw new ServiceError('authentication-required', 'Account changed; start a new run', 401);
     const input = await readRequest(req, controller.signal, maxRequestBytes);
     if (input.protocolVersion !== PROTOCOL_VERSION || !['requestId', 'runId'].every(key => typeof input[key] === 'string' && input[key].trim() && input[key].length <= 128) || !Number.isFinite(input.deadlineAt)) {
       throw new ServiceError('invalid-request', 'Invalid protocol or request metadata');
