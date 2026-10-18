@@ -78,7 +78,13 @@ const createProfileService = ({ prisma, now = () => new Date() }) => {
       }
       return { fields, extra };
     };
-    const profileProjection = projectFields({ ...source.profile, email }, new Set([...profileFields, 'email']));
+    // Homepage presentation (including image data) is not resume input. Exclude
+    // both the expanded and raw extra forms so it never enters AI fill context.
+    const resumeProfile = Object.fromEntries(Object.entries(source.profile).filter(([key]) => key !== 'homepage'));
+    if (resumeProfile.extra && typeof resumeProfile.extra === 'object') {
+      resumeProfile.extra = Object.fromEntries(Object.entries(resumeProfile.extra).filter(([key]) => key !== 'homepage'));
+    }
+    const profileProjection = projectFields({ ...resumeProfile, email }, new Set([...profileFields, 'email']));
     const preferenceProjection = projectFields(source.preferences, new Set(preferenceFields));
     const profile = { ...profileProjection.fields, ...(Object.keys(profileProjection.extra).length ? { extra: profileProjection.extra } : {}) };
     const preferences = { ...preferenceProjection.fields, ...(Object.keys(preferenceProjection.extra).length ? { extra: preferenceProjection.extra } : {}) };

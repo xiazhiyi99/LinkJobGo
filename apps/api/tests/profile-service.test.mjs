@@ -49,6 +49,17 @@ test('reader scopes every query to the trusted account and excludes soft-deleted
   assert.notEqual(removed.profileVersion, a.profileVersion);
 });
 
+test('homepage photos and display edits remain available to the website but do not enter resume input or invalidate its version', async () => {
+  const { service, rows } = setup();
+  const original = await service.getAutofillContext(userA);
+  rows.profile[0].extra.homepage = { displayName: '主页昵称', avatarUrl: 'data:image/webp;base64,UklGRg==', headline: '主页签名' };
+  const profile = await service.getProfile(userA);
+  assert.equal(profile.profile.homepage.avatarUrl, rows.profile[0].extra.homepage.avatarUrl);
+  assert.deepEqual(await service.getAutofillContext(userA), original);
+  rows.profile[0].extra.homepage.avatarUrl = '';
+  assert.deepEqual(await service.getAutofillContext(userA), original);
+});
+
 test('adapter detects source changes without caching and never trusts generatedAt as the version', async () => {
   const { service, client, rows } = setup();
   const initial = await client.load(context());

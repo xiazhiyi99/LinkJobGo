@@ -8,13 +8,13 @@ const resume = {
 };
 
 test('existing resume information supplies initial card values and homepage overrides take precedence', () => {
-  assert.deepEqual(readHomepageCard(resume), { displayName: '简历姓名', headline: '原有签名', location: '北京', description: '简历描述' });
+  assert.deepEqual(readHomepageCard(resume), { displayName: '简历姓名', headline: '原有签名', location: '北京', description: '简历描述', avatarUrl: '' });
   assert.equal(readHomepageCard({ profile: { name: '姓名' }, preferences: { targetTitles: ['研发', '产品'] } }).headline, '研发、产品');
   assert.equal(readHomepageCard({ data: resume }).headline, '原有签名');
 });
 
 test('saving the card preserves unrelated extra data and does not write resume fields or preferences', () => {
-  const draft = { displayName: ' 主页姓名 ', headline: ' 新签名 ', location: '上海', description: '主页描述' };
+  const draft = { displayName: ' 主页姓名 ', headline: ' 新签名 ', location: '上海', description: '主页描述', avatarUrl: '' };
   const update = homepageCardUpdate(resume, draft);
   assert.deepEqual(update, { profile: { customNote: '保留资料', homepage: { ...draft, displayName: '主页姓名', headline: '新签名' } } });
   assert.equal(resume.profile.name, '简历姓名');
@@ -24,7 +24,7 @@ test('saving the card preserves unrelated extra data and does not write resume f
 });
 
 test('cleared optional fields remain cleared after saving and reloading', () => {
-  const update = homepageCardUpdate(resume, { displayName: '主页姓名', headline: '', location: '', description: '' });
+  const update = homepageCardUpdate(resume, { displayName: '主页姓名', headline: '', location: '', description: '', avatarUrl: '' });
   const reloaded = { ...resume, profile: { ...resume.profile, extra: update.profile } };
-  assert.deepEqual(readHomepageCard(reloaded), { displayName: '主页姓名', headline: '', location: '', description: '' });
+  assert.deepEqual(readHomepageCard(reloaded), { displayName: '主页姓名', headline: '', location: '', description: '', avatarUrl: '' });
 });
