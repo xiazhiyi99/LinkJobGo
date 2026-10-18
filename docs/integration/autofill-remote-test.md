@@ -115,3 +115,27 @@ $DC up -d api
 视觉截图确认第三段合成项目的名称、核心开发角色、2021/03–2021/12、项目链接和完整描述正确显示；页面读取也确认三段工作和三段项目对应内容已出现。仍保留了一些原有部门/工作类型内容，属于待处理字段。未做全字段独立视觉评分，没有投递或点击保存。
 
 结论：**下载 → 安装 → 网页登录 → Cookie 身份识别 → 读取远端资料 → 规则填写链路通过；填写完整度仍为 partial。** 普通用户测试期间未提升权限，调试入口保持隐藏。证据包括 `website.png`、`login-prompt.png`、`http-results.json`、两轮 `*-observations.json`、`second-result-popup.png`、`second-details.txt` 和 `filled-project.png`。
+
+## 工作台改进联合发布（2026-10-18）
+
+发布提交 `d85f199`，分支 `codex/autofill-remote-test`，已同步 GitHub 和 `/opt/lingke-autofill-test`。本轮包含全部待发布的投递航迹、记录弹窗和个人主页修改：
+
+- 手动添加投递仅公司必填，职位可空、后续补填或清空；笔试/面试只输入开始时间，其他信息按需展开。
+- 记录详情显示公司、职位与状态，分区编辑资料；独立滚动内容区，顶部与底部操作栏保持可见，任务和历史分开显示。
+- “编辑签名”直接编辑主页信息卡，支持显示姓名、个性签名、城市、个人描述；显示覆盖项保存在 `profile.extra.homepage`，使用现有资料接口，无数据库迁移，不覆盖简历标准字段和求职意向。
+- 测试代理增加投递、任务、日历及邮件工作台路由；对应接口仍要求登录，未登录实测为 401。
+
+### 构建与部署
+
+- 完整相关测试 95 项通过：契约 5、API 65、扩展 10、Web 15；Web 类型检查、diff 检查通过。首次测试因沙箱禁止监听本机端口中止，在允许本机临时 HTTP 服务后完整通过。
+- linux/amd64 Web 生产构建通过。镜像 `lingke-autofill-web:workspace-cards-20261018`，SHA-256 `06017a2db9138cae1593976a3bc75b371a42437d3084374c9dd508b622cca573`。
+- API 增量镜像由 `deploy/autofill-test-api-overlay.Dockerfile` 构建，仅覆盖应用记录服务，依赖和填写引擎沿用上一版。镜像 `lingke-autofill-test:workspace-cards-20261018`，SHA-256 `0e7db3a72f9e15cad510b6c7a4a203c15d45881f47361498cce0beb50b986b93`。
+- 测试 API、Web 均已切换新版。Caddy validate/reload 成功。主站 API/Web/数据库未重启；首页和主站 `/api/health` 仍为 200。
+- 配置备份：测试目录 `.env.autofill-test.before-workspace-cards`、主站部署目录 `/opt/lingke/deploy/Caddyfile.before-workspace-cards`。回滚时恢复这两个文件并重启测试 API/Web，再验证并 reload Caddy；不移除数据库卷。部署后剩余约 769 MB 磁盘。
+
+### 远端验收
+
+- <https://linkaigo.com/autofill-test/workspace/applications>：合成账号只填公司创建成功；职位补填和清空成功；有笔试/面试开始时间、无结束时间可保存。真实 Chrome 打开新版详情弹窗并点击“保存更改”，显示“更改已保存”。
+- <https://linkaigo.com/autofill-test/workspace/profile/home>：真实点击“编辑签名”，在主页内修改签名并保存；刷新后仍显示新值。再次请求资料接口，确认原有简历标准字段、求职意向、全部经历及其他 extra 内容未变化，仍有 18 条经历。
+- 下载 ZIP、测试健康接口、投递/日历/邮箱元信息接口均通过；没有连接邮箱或发起同步，也没有向真实招聘页投递。
+- 本轮不重测填写性能；前一节的美团 partial 结果仍有效。证据保存在忽略目录 `apps/extension/.test-dist/workspace-release-20261018/`：`http-results.json`、`homepage-results.json`、`application-dialog.png`、`homepage.png`，不包含于发布提交。
