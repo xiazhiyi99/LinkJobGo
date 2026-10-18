@@ -1,0 +1,54 @@
+# Isolated API/database; the existing Caddy attaches through its proxy network.
+# Requires --env-file .env.autofill-test and -p lingke-autofill-test.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: autofill_test
+      POSTGRES_PASSWORD: ${AUTOFILL_TEST_DB_PASSWORD:?required}
+      POSTGRES_DB: autofill_test
+    volumes: [autofill-test-data:/var/lib/postgresql/data]
+    networks: [test-data]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U autofill_test -d autofill_test]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    mem_limit: 256m
+  api:
+    image: lingke-autofill-test:${AUTOFILL_TEST_RELEASE:?required}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      API_PORT: 3001
+      DATABASE_URL: postgresql://autofill_test:${AUTOFILL_TEST_DB_PASSWORD}@postgres:5432/autofill_test
+      EMAIL_CODE_SECRET: ${AUTOFILL_TEST_EMAIL_SECRET:?required}
+      WEB_ORIGIN: https://linkaigo.com
+      APP_URL: https://linkaigo.com/autofill-test
+      SESSION_COOKIE_SECURE: 'true'
+      AUTOFILL_EXTENSION_ORIGINS: ${AUTOFILL_EXTENSION_ORIGINS:?required}
+      AI_PROVIDER_MODE: http
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      test-data:
+      proxy:
+        aliases: [autofill-test-api]
+    mem_limit: 512m
+    logging:
+      options:
+        max-size: 10m
+        max-file: '3'
+volumes:
+  autofill-test-data:
+networks:
+  test-data:
+    internal: true
+  proxy:
+    external: true
+    name: ${AUTOFILL_TEST_PROXY_NETWORK:-lingke_lingke}

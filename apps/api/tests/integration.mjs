@@ -3,8 +3,11 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { PrismaClient } from '@prisma/client';
+import { validateResumeContext } from '@job-assistant/autofill-contracts';
+import { createProfileService } from '../src/profile/service.js';
+import { createPlatformResumeClient } from '../src/modules/autofill/adapters/resume-client.js';
 
-const port = 3201;
+const port = Number(process.env.API_TEST_PORT || 3201);
 const base = `http://127.0.0.1:${port}`;
 const databaseUrl = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/job_assistant_dev';
 const prisma = new PrismaClient({ datasourceUrl: databaseUrl });
@@ -25,6 +28,7 @@ const request = async (path, options = {}, cookie = '') => {
   return { response, payload };
 };
 const json = (body) => ({ method: 'POST', body: JSON.stringify(body) });
+const fillMetadata = (extra = {}) => ({ protocolVersion: 'autofill.next.v2', requestId: 'integration-fill', runId: 'integration-fill-run', deadlineAt: Date.now() + 5000, ...extra });
 const email = `integration-${randomUUID()}@example.com`;
 const secondEmail = `integration-${randomUUID()}@example.com`;
 const password = 'password123';
@@ -160,6 +164,7 @@ try {
   assert.equal(autofillContext.payload.records.some((record) => record.recordType === 'education' && record.fields.school === '测试大学'), true);
   assert.equal(autofillContext.payload.records.some((record) => record.recordType === 'experience' && record.fields.company === '测试公司'), true);
   assert.equal(autofillContext.payload.records.every((record) => record.id && record.recordType && Number.isInteger(record.index) && !('userId' in record.fields) && !('id' in record.fields)), true);
+  assert.equal(validateResumeContext(autofillContext.payload).ok, true, 'Actual database export satisfies the migrated contract');
 
   const exported = await request('/profiles/me/export', {}, cookie);
   assert.equal(exported.response.status, 200);
@@ -175,6 +180,42 @@ try {
   const extensionContext = await request('/profiles/me/autofill-context', { headers: { authorization: `Bearer ${extensionLogin.payload.accessToken}` } });
   assert.equal(extensionContext.response.status, 200);
   assert.equal(extensionContext.payload.profileVersion, autofillContext.payload.profileVersion);
+  const resumeClient = createPlatformResumeClient({ profileService: createProfileService({ prisma }) });
+  const loadContext = { principal: extensionLogin.payload.user, deadlineAt: Date.now() + 5000 };
+  const direct = await resumeClient.load(loadContext);
+  const withoutTimestamp = ({ generatedAt, ...context }) => context;
+  assert.deepEqual(withoutTimestamp(direct), withoutTimestamp(extensionContext.payload), 'HTTP and internal port share one projection');
+  const fillSnapshot = {
+    protocolVersion: 'autofill.next.v2', documentId: 'integration-doc', pageRevision: 1,
+    page: { origin: 'https://zhaopin.meituan.com', path: '/web/delivery-confirm', title: 'Synthetic integration' },
+    sections: [['basic', '基本信息', '姓名'], ['education', '教育经历', '学校']].map(([sectionId, label, fieldLabel]) => ({
+      sectionId, label, mode: 'inline', repeatable: sectionId === 'education', actions: [],
+      records: [{ viewId: sectionId + '-view', fields: [{ fieldId: sectionId + '-field', label: fieldLabel, kind: 'text', hints: {}, required: false, currentState: 'empty' }] }],
+    })),
+  };
+  const bearer = { authorization: `Bearer ${extensionLogin.payload.accessToken}` };
+  for (const route of ['readiness', 'analyze', 'plan']) {
+    const denied = await request('/autofill/v2/' + route, json(fillMetadata()));
+    assert.equal(denied.response.status, 401); assert.equal(denied.payload.ok, false);
+  }
+  const readiness = await request('/autofill/v2/readiness', json(fillMetadata()), cookie);
+  assert.equal(readiness.response.status, 200); assert.equal(readiness.payload.data.profileVersion, direct.profileVersion);
+  assert.equal(readiness.payload.requestId, 'integration-fill');
+  assert.equal(readiness.response.headers.get('cache-control'), 'no-store');
+  const analyze = await request('/autofill/v2/analyze', { ...json(fillMetadata({ snapshot: fillSnapshot })), headers: bearer });
+  assert.equal(analyze.response.status, 200, JSON.stringify(analyze.payload));
+  const fillInput = { snapshot: fillSnapshot, semanticPage: analyze.payload.data, optionEvidence: [], scope: { sectionIds: ['basic', 'education'] } };
+  const fillPlan = await request('/autofill/v2/plan', { ...json(fillMetadata({ ...fillInput, expectedProfileVersion: direct.profileVersion })), headers: bearer });
+  assert.equal(fillPlan.response.status, 200, JSON.stringify(fillPlan.payload));
+  assert.equal(fillPlan.payload.data.sections[0].records[0].assignments[0].value, '集成测试用户');
+  assert.equal(fillPlan.payload.data.sections[1].records[0].recordId, exportedEducation.id);
+  assert.equal(fillPlan.payload.data.sections[1].records[0].assignments[0].value, '测试大学');
+  assert.equal((await request('/autofill/v2/plan', { ...json(fillMetadata({ ...fillInput, userId: 'other-account' })), headers: bearer })).response.status, 400);
+  await request('/profiles/me', { method: 'PATCH', body: JSON.stringify({ profile: { city: '版本变更测试城市' } }) }, cookie);
+  const stalePlan = await request('/autofill/v2/plan', { ...json(fillMetadata({ ...fillInput, expectedProfileVersion: direct.profileVersion })), headers: bearer });
+  assert.equal(stalePlan.response.status, 409); assert.equal(stalePlan.payload.error.code, 'resume-version-changed');
+  await assert.rejects(resumeClient.load({ ...loadContext, expectedProfileVersion: direct.profileVersion }),
+    error => error.code === 'resume-version-changed' && error.status === 409);
 
   const fakeResumePath = process.env.FAKE_RESUME_PATH || '/Users/dp/Downloads/fake_resume.txt';
   const resumeContent = existsSync(fakeResumePath) ? readFileSync(fakeResumePath, 'utf8') : '# 测试简历\n姓名：集成测试用户';
@@ -193,13 +234,31 @@ try {
   const isolatedContext = await request('/profiles/me/autofill-context', {}, secondCookie);
   assert.equal(isolatedContext.payload.records.length, 0);
   assert.notEqual(isolatedContext.payload.profile.email, email);
+  const isolatedDirect = await resumeClient.load({ principal: secondLogin.payload.user, userId: extensionLogin.payload.user.id, deadlineAt: Date.now() + 5000 });
+  assert.deepEqual(withoutTimestamp(isolatedDirect), withoutTimestamp(isolatedContext.payload));
+  assert.equal(validateResumeContext(isolatedContext.payload).ok, true);
+  const isolatedPlan = await request('/autofill/v2/plan', json(fillMetadata(fillInput)), secondCookie);
+  assert.equal(isolatedPlan.response.status, 200);
+  assert.equal(isolatedPlan.payload.data.sections[1].records.length, 0);
+  assert.equal(isolatedPlan.payload.data.sections[0].records[0].assignments[0].status, 'missing-source');
   assert.equal((await request(`/profiles/me/educations/${educationId}`, { method: 'DELETE' }, secondCookie)).response.status, 404);
 
   assert.equal((await request(`/profiles/me/educations/${educationId}`, { method: 'DELETE' }, cookie)).response.status, 200);
   assert.equal((await request('/profiles/me', {}, cookie)).payload.educations.length, 0);
+  const deletedContext = await request('/profiles/me/autofill-context', {}, cookie);
+  assert.equal(deletedContext.payload.records.some(record => record.id === educationId), false);
+  const deletedPlan = await request('/autofill/v2/plan', json(fillMetadata(fillInput)), cookie);
+  assert.equal(deletedPlan.payload.data.sections[1].records.length, 0);
   assert.equal((await request(`/profiles/me/educations/${educationId}/restore`, json({}), cookie)).response.status, 200);
   assert.equal((await request('/profiles/me', {}, cookie)).payload.educations.length, 1);
-  console.log('API integration checks passed');
+  for (const data of [{ expiresAt: new Date(Date.now() - 1000) }, { expiresAt: new Date(Date.now() + 60000), revokedAt: new Date() }]) {
+    await prisma.session.updateMany({ where: { userId: extensionLogin.payload.user.id, type: 'extension' }, data });
+    for (const route of ['readiness', 'analyze', 'plan']) {
+      const denied = await request('/autofill/v2/' + route, { ...json(fillMetadata()), headers: bearer });
+      assert.equal(denied.response.status, 401); assert.equal(denied.payload.error.code, 'authentication-required');
+    }
+  }
+  console.log('API integration checks passed (including autofill readiness/analyze/plan)');
 } finally {
   await prisma.$disconnect();
   api.kill('SIGTERM');

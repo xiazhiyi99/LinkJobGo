@@ -1,0 +1,149 @@
+{
+  "schemaVersion": "resume.autofill.v1",
+  "profile": {
+    "name": "合成候选人甲",
+    "city": "北京",
+    "birthday": null,
+    "email": "fixture-a@example.test",
+    "extra": {
+      "research": [
+        "甲",
+        "乙"
+      ],
+      "score": 0
+    }
+  },
+  "preferences": {
+    "targetCities": "北京,上海",
+    "availableFrom": null,
+    "extra": {
+      "customPreference": false
+    }
+  },
+  "records": [
+    {
+      "id": "education-old",
+      "recordType": "education",
+      "index": 0,
+      "fields": {
+        "school": "示例大学甲",
+        "degree": "本科",
+        "current": false,
+        "startDate": "2020-09",
+        "endDate": null
+      },
+      "extra": {
+        "score": 0,
+        "nested": {
+          "kept": [
+            "甲",
+            {
+              "valid": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "education-new",
+      "recordType": "education",
+      "index": 1,
+      "fields": {
+        "school": "示例大学乙",
+        "degree": "硕士",
+        "current": true
+      }
+    },
+    {
+      "id": "experience-work",
+      "recordType": "experience",
+      "index": 0,
+      "fields": {
+        "company": "示例公司",
+        "title": "开发",
+        "current": false
+      },
+      "extra": {
+        "department": "研发",
+        "profileSection": "工作/实习经历"
+      }
+    },
+    {
+      "id": "experience-campus",
+      "recordType": "campus",
+      "index": 0,
+      "fields": {
+        "title": "社团成员",
+        "current": false
+      },
+      "extra": {
+        "profileSection": "在校经历"
+      }
+    },
+    {
+      "id": "project-a",
+      "recordType": "project",
+      "index": 0,
+      "fields": {
+        "name": "示例项目"
+      }
+    },
+    {
+      "id": "award-a",
+      "recordType": "award",
+      "index": 0,
+      "fields": {
+        "name": "示例奖项",
+        "startDate": "2024"
+      },
+      "extra": {
+        "profileSection": "获奖经历"
+      }
+    },
+    {
+      "id": "publication-a",
+      "recordType": "publication",
+      "index": 0,
+      "fields": {
+        "name": "示例论文",
+        "role": "第一作者"
+      },
+      "extra": {
+        "profileSection": "论文与专利"
+      }
+    },
+    {
+      "id": "language-a",
+      "recordType": "language",
+      "index": 0,
+      "fields": {
+        "name": "英语",
+        "level": null
+      },
+      "extra": {
+        "profileSection": "语言能力"
+      }
+    },
+    {
+      "id": "certificate-a",
+      "recordType": "certificate",
+      "index": 0,
+      "fields": {
+        "name": "示例证书"
+      },
+      "extra": {
+        "profileSection": "证书信息"
+      }
+    },
+    {
+      "id": "skill-a",
+      "recordType": "skill",
+      "index": 0,
+      "fields": {
+        "name": "TypeScript"
+      }
+    }
+  ],
+  "profileVersion": "93a4f12b2e4984857c4301a90e8539d27f361d59be168b65ce9709315807d145",
+  "generatedAt": "2026-10-17T12:00:00.000Z"
+}

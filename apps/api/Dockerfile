@@ -13,8 +13,12 @@ COPY apps/extension/package.json ./apps/extension/package.json
 COPY apps/worker/package.json ./apps/worker/package.json
 COPY packages ./packages
 RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @job-assistant/autofill-contracts build
 
 COPY apps/api/src ./apps/api/src
+COPY apps/api/scripts ./apps/api/scripts
+COPY apps/api/tsconfig.autofill.json ./apps/api/tsconfig.autofill.json
+RUN pnpm --filter @job-assistant/api build:autofill
 RUN pnpm --filter @job-assistant/api exec prisma generate --schema src/prisma/schema.prisma
 
 WORKDIR /app/apps/api

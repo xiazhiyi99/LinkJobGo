@@ -1,5 +1,7 @@
 # 页面自动填写规则录入指南
 
+> 2026-10-17：本文适用于现有 `page-rules.v1` JSON 规则表。迁入的 `resume-autofill-next` 第一阶段采用代码 SiteParser 注册表，不直接消费这套 JSON；新增网站函数与平台数据库规则不可混用。迁入边界见[填写引擎接入准备](autofill-integration.md#5-规则数据库与现有功能的兼容)。
+
 这份文档用于后续向 `AutofillRuleSet` 规则表增加平台、页面变体或公司页面规则。规则是“数据化 adapter”，由 Fast Fill 通用扫描器和填写器解释执行，不在数据库中保存可执行代码。
 
 ## 先判断要增加哪一层

@@ -12,11 +12,15 @@ const { createResumePdfService } = require('./ai/tasks/resume-pdf');
 const { createBaiduOcrService } = require('./ai/providers/baidu-ocr');
 const { createResumeImportService } = require('./profile/resume-import');
 const { toDatabaseRows } = require('./profile/resume-import');
+const { createProfileService, profileFields, preferenceFields, modelFields, expandRecord } = require('./profile/service');
 const { sendMail } = require('./auth/mail');
 const { createEmailCodeService } = require('./auth/email-code');
+const { AuthenticationError, createRequestAuthenticator } = require('./auth/request-user');
 const { createCaptchaVerifier } = require('./auth/captcha');
 const { createApplicationService } = require('./modules/applications/service');
 const { createMailService } = require('./modules/mail/service');
+const { createAutofillModule } = require('./modules/autofill');
+const { ServiceError: AutofillError } = require('./modules/autofill/errors');
 
 // Load local .env without requiring another runtime dependency.
 for (const filename of ['.env', path.resolve(__dirname, '../../../.env')]) {
@@ -56,6 +60,7 @@ const visionExtractService = createVisionExtractService(aiGateway);
 const resumeNormalizeService = createResumeNormalizeService(aiGateway);
 const baiduOcrService = createBaiduOcrService();
 const resumePdfService = createResumePdfService({ visionExtractService, ocrService: baiduOcrService, resumeNormalizeService, resumeParseService, normalizePayload: require('./profile/resume-import').normalizePayload, databaseProjection: toDatabaseRows });
+const profileService = createProfileService({ prisma });
 const resumeImportService = () => createResumeImportService({ prisma });
 const applicationService = () => createApplicationService({ prisma });
 const mailService = () => createMailService({ prisma, applicationService: applicationService() });
@@ -129,15 +134,34 @@ const tokenUser = async (req) => {
   return session.user;
 };
 const currentUser = async (req) => (await sessionUser(req)) || (await tokenUser(req));
+// Both route families share account resolution; each retains its wire envelope.
+const authenticateUser = createRequestAuthenticator({
+  currentUser,
+  databaseAvailable: () => Boolean(prisma),
+  verificationRequired: () => process.env.NODE_ENV === 'production',
+});
 const requireUser = async (req, res) => {
-  if (!requireDatabase(res)) return null;
-  const user = await currentUser(req);
-  if (!user) { json(res, 401, { error: '未登录' }); return null; }
-  if (process.env.NODE_ENV === 'production' && !user.emailVerifiedAt) {
-    json(res, 403, { error: '请先验证邮箱', code: 'EMAIL_NOT_VERIFIED' }); return null;
+  try { return await authenticateUser(req); }
+  catch (error) {
+    if (!(error instanceof AuthenticationError)) throw error;
+    json(res, error.status, { error: error.message, ...(error.code === 'EMAIL_NOT_VERIFIED' ? { code: error.code } : {}) });
+    return null;
   }
-  return user;
 };
+const autofillModule = createAutofillModule({
+  profileService, aiGateway,
+  authenticate: async req => {
+    try { return await authenticateUser(req); }
+    catch (error) {
+      if (error instanceof AuthenticationError) throw new AutofillError(error.code, error.message, error.status);
+      throw error;
+    }
+  },
+  config: {
+    mokaMode: process.env.MOKA_RULES_MODE || 'off',
+    allowedOrigins: [origin, ...(process.env.AUTOFILL_EXTENSION_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean)],
+  },
+});
 const requireRuleOperator = (user, res) => {
   if (user && ['admin', 'operator'].includes(user.role)) return true;
   json(res, 403, { error: '需要运营权限', code: 'RULE_OPERATOR_REQUIRED' });
@@ -152,14 +176,6 @@ const moduleErrorResponse = (res, error) => {
   return json(res, status, { error: error?.message || '请求失败', ...(error?.code ? { code: error.code } : {}) });
 };
 
-const profileFields = ['name', 'avatarUrl', 'phone', 'city', 'personalWebsite', 'githubUrl', 'portfolioUrl', 'gender', 'birthday', 'homeCity', 'homeDistrict', 'schoolCity', 'address', 'politicalStatus', 'nationality', 'citizenship', 'wechat', 'nativePlace', 'highestEducation', 'firstWorkYear', 'fullTimeStudent', 'hasRelativesInCompany', 'recommendationMethod', 'workVisaRequired', 'workExperience', 'interests', 'selfIntroduction'];
-const preferenceFields = ['targetTitles', 'targetCities', 'employmentType', 'targetIndustries', 'availableFrom', 'salaryExpectation', 'relocation', 'preferenceNote'];
-const modelFields = {
-  educations: { model: 'education', key: 'educations', fields: ['school', 'degree', 'major', 'startDate', 'endDate', 'current', 'gpa', 'courses'] },
-  experiences: { model: 'experience', key: 'experiences', fields: ['company', 'title', 'city', 'startDate', 'endDate', 'current', 'description'] },
-  projects: { model: 'project', key: 'projects', fields: ['name', 'role', 'startDate', 'endDate', 'url', 'description'] },
-  skills: { model: 'skill', key: 'skills', fields: ['name', 'level', 'certificate', 'issuer', 'obtainedAt'] },
-};
 const splitData = (input, fields) => {
   const data = {};
   const extra = {};
@@ -174,32 +190,6 @@ const splitData = (input, fields) => {
   if (Object.keys(extra).length) data.extra = extra;
   return data;
 };
-const expandRecord = (record) => ({ ...record, ...(record.extra && typeof record.extra === 'object' ? record.extra : {}) });
-const profilePayload = async (userId, email) => {
-  const [profile, preferences, educations, experiences, projects, skills] = await Promise.all([
-    prisma.profile.findUnique({ where: { userId } }),
-    prisma.jobPreference.findUnique({ where: { userId } }),
-    prisma.education.findMany({ where: { userId, deletedAt: null }, orderBy: { createdAt: 'asc' } }),
-    prisma.experience.findMany({ where: { userId, deletedAt: null }, orderBy: { createdAt: 'asc' } }),
-    prisma.project.findMany({ where: { userId, deletedAt: null }, orderBy: { createdAt: 'asc' } }),
-    prisma.skill.findMany({ where: { userId, deletedAt: null }, orderBy: { createdAt: 'asc' } }),
-  ]);
-  const sectionOf = (record) => record.extra && typeof record.extra === 'object' ? record.extra.profileSection : null;
-  return {
-    profile: { ...(profile ? expandRecord(profile) : { userId }), email },
-    preferences: preferences ? expandRecord(preferences) : { userId },
-    educations: educations.map(expandRecord),
-    experiences: experiences.filter((record) => !sectionOf(record) || sectionOf(record) === '工作/实习经历').map(expandRecord),
-    campusExperiences: experiences.filter((record) => sectionOf(record) === '在校经历').map(expandRecord),
-    projects: projects.filter((record) => !sectionOf(record) || sectionOf(record) === '项目经历').map(expandRecord),
-    awards: projects.filter((record) => sectionOf(record) === '获奖经历').map(expandRecord),
-    publications: projects.filter((record) => sectionOf(record) === '论文与专利').map(expandRecord),
-    skills: skills.filter((record) => !['语言能力', '证书信息'].includes(sectionOf(record))).map(expandRecord),
-    languages: skills.filter((record) => sectionOf(record) === '语言能力').map(expandRecord),
-    certificates: skills.filter((record) => sectionOf(record) === '证书信息').map(expandRecord),
-  };
-};
-
 const stableValue = (value) => {
   if (Array.isArray(value)) return value.map(stableValue);
   if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stableValue(value[key])]));
@@ -398,72 +388,12 @@ const currentRuleVersion = async (sourceKey) => {
   return (latest?.versionNo || 0) + 1;
 };
 
-const autofillContextPayload = async (userId, email) => {
-  const source = await profilePayload(userId, email);
-  const systemKeys = new Set(['id', 'userId', 'createdAt', 'updatedAt', 'deletedAt', 'extra']);
-  const cleanExtra = (value) => {
-    if (Array.isArray(value)) return value.map(cleanExtra);
-    if (!value || typeof value !== 'object') return value;
-    return Object.fromEntries(Object.entries(value)
-      .filter(([key]) => !systemKeys.has(key))
-      .map(([key, item]) => [key, cleanExtra(item)]));
-  };
-  const projectFields = (value, allowedFields) => {
-    const fields = {};
-    const extra = {};
-    const nestedExtra = value?.extra && typeof value.extra === 'object' ? cleanExtra(value.extra) : {};
-    for (const [key, item] of Object.entries(value || {})) {
-      if (systemKeys.has(key) || item === undefined) continue;
-      if (allowedFields.has(key)) fields[key] = item;
-      else extra[key] = cleanExtra(item);
-    }
-    for (const [key, item] of Object.entries(nestedExtra)) {
-      if (!allowedFields.has(key)) extra[key] = item;
-    }
-    return { fields, extra };
-  };
-  const profileProjection = projectFields({ ...source.profile, email }, new Set([...profileFields, 'email']));
-  const preferenceProjection = projectFields(source.preferences, new Set(preferenceFields));
-  const profile = { ...profileProjection.fields, ...(Object.keys(profileProjection.extra).length ? { extra: profileProjection.extra } : {}) };
-  const preferences = { ...preferenceProjection.fields, ...(Object.keys(preferenceProjection.extra).length ? { extra: preferenceProjection.extra } : {}) };
-  const definitions = [
-    ['educations', 'education', modelFields.educations.fields],
-    ['experiences', 'experience', modelFields.experiences.fields],
-    ['campusExperiences', 'campus', modelFields.experiences.fields],
-    ['projects', 'project', modelFields.projects.fields],
-    ['awards', 'award', modelFields.projects.fields],
-    ['publications', 'publication', modelFields.projects.fields],
-    ['languages', 'language', modelFields.skills.fields],
-    ['certificates', 'certificate', modelFields.skills.fields],
-    ['skills', 'skill', modelFields.skills.fields],
-  ];
-  const records = definitions.flatMap(([key, recordType, allowedFields]) => (source[key] || []).map((record, index) => {
-    const projection = projectFields(record, new Set(allowedFields));
-    return {
-      id: record.id,
-      recordType,
-      index,
-      fields: projection.fields,
-      ...(Object.keys(projection.extra).length ? { extra: projection.extra } : {}),
-    };
-  }));
-  const context = {
-    schemaVersion: 'resume.autofill.v1',
-    profile,
-    preferences,
-    records,
-  };
-  return {
-    ...context,
-    profileVersion: hash(JSON.stringify(stableValue(context))),
-    generatedAt: new Date().toISOString(),
-  };
-};
-
 const server = http.createServer(async (req, res) => {
-  if (req.method === 'OPTIONS') return json(res, 204, {});
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    // Dispatch before the legacy upload-sized body reader consumes the stream.
+    if (url.pathname.startsWith('/autofill/v2/')) return await autofillModule.handle(req, res, url.pathname);
+    if (req.method === 'OPTIONS') return json(res, 204, {});
     if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true });
     const data = await body(req);
 
@@ -822,13 +752,13 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { resume: document ? { id: document.id, filename: document.filename, contentType: document.contentType, size: Buffer.byteLength(document.content, 'utf8'), createdAt: document.createdAt } : null });
     }
     if (req.method === 'GET' && (url.pathname === '/profiles/me/autofill-context' || url.pathname === '/profiles/me/export')) {
-      const context = await autofillContextPayload(user.id, user.email);
+      const context = await profileService.getAutofillContext(user);
       const headers = url.pathname === '/profiles/me/export'
         ? { 'content-disposition': 'attachment; filename="autofill-context.json"' }
         : {};
       return json(res, 200, context, headers);
     }
-    if (req.method === 'GET' && url.pathname === '/profiles/me') return json(res, 200, await profilePayload(user.id, user.email));
+    if (req.method === 'GET' && url.pathname === '/profiles/me') return json(res, 200, await profileService.getProfile(user));
     if (req.method === 'PATCH' && (url.pathname === '/profiles/me' || url.pathname === '/profiles/me/preferences')) {
       const isPreferences = url.pathname.endsWith('/preferences');
       const fields = isPreferences ? preferenceFields : profileFields;

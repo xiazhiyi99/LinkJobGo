@@ -9,3 +9,13 @@ archive
 fake_resume.txt
 *.pem
 *.log
+# Workspace packages can have their own dependencies, generated output and env.
+**/node_modules
+**/.next
+**/dist
+**/.test-dist
+**/.env
+**/.env.*
+!**/.env.example
+**/*.tsbuildinfo
+**/*.log

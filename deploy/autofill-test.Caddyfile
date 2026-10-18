@@ -1,0 +1,8 @@
+# Include these handlers inside the existing HTTPS site, before its Web fallback.
+# Expose only the routes used by the extension and synthetic-profile verification.
+handle /autofill-test/api/* {
+    uri strip_prefix /autofill-test/api
+    @allowed path /health /auth/extension/login /auth/extension/logout /profiles/me /profiles/me/autofill-context /autofill/v2/*
+    reverse_proxy @allowed autofill-test-api:3001
+    respond 404
+}

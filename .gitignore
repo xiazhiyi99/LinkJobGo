@@ -12,3 +12,7 @@ node_modules/
 __pycache__/
 *.pyc
 *.tsbuildinfo
+packages/autofill-contracts/dist/
+apps/api/src/modules/autofill/dist/
+apps/extension/dist/
+apps/extension/.test-dist/

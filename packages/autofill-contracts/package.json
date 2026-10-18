@@ -1,0 +1,35 @@
+{
+  "name": "@job-assistant/autofill-contracts",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/cjs/index.cjs",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.cts",
+        "default": "./dist/cjs/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "lint": "pnpm run check",
+    "test": "pnpm run build && node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.10",
+    "typescript": "7.0.2"
+  }
+}

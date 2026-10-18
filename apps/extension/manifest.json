@@ -1,9 +1,42 @@
 {
   "manifest_version": 3,
-  "name": "Job Assistant (Placeholder)",
-  "version": "0.1.0",
-  "description": "Browser extension shell for the job assistant platform.",
-  "permissions": ["storage"],
-  "background": {"service_worker": "src/background.js"},
-  "action": {"default_title": "Job Assistant"}
+  "name": "领客 · 平台填写",
+  "version": "0.2.0",
+  "description": "由现有简历 API 生成并验证填写计划；不自动提交申请。",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "pet/squirrel-motion.webp"
+      ],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ]
+    }
+  ],
+  "minimum_chrome_version": "120"
 }

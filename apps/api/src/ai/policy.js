@@ -40,6 +40,8 @@ const taskPolicies = {
   'resume.parse': defaultPolicy,
   'resume.normalize': defaultPolicy,
   'autofill.suggest': defaultPolicy,
+  'autofill.map-fields': defaultPolicy,
+  'autofill.match-options': defaultPolicy,
   'vision.extract': defaultPolicy,
   'mail.classify': defaultPolicy,
 };

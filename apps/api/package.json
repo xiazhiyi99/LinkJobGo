@@ -3,21 +3,26 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "dev": "node src/index.js",
-    "build": "prisma generate --schema src/prisma/schema.prisma && node --check src/index.js",
+    "dev": "pnpm --filter @job-assistant/autofill-contracts build && node scripts/build-autofill.mjs && node src/index.js",
+    "build": "pnpm --filter @job-assistant/autofill-contracts build && node scripts/build-autofill.mjs && prisma generate --schema src/prisma/schema.prisma && node --check src/index.js",
     "lint": "node --check src/index.js",
-    "test": "node --check src/index.js && node --test tests/*.test.mjs",
-    "test:integration": "node tests/integration.mjs",
+    "test": "pnpm --filter @job-assistant/autofill-contracts build && node scripts/build-autofill.mjs && node --check src/index.js && node --test tests/*.test.mjs",
+    "test:integration": "pnpm --filter @job-assistant/autofill-contracts build && node scripts/build-autofill.mjs && node tests/integration.mjs",
+    "test:docker": "node tests/docker-smoke.mjs",
     "prisma:generate": "prisma generate --schema src/prisma/schema.prisma",
-    "prisma:migrate": "prisma migrate dev --schema src/prisma/schema.prisma"
+    "prisma:migrate": "prisma migrate dev --schema src/prisma/schema.prisma",
+    "build:autofill": "pnpm --filter @job-assistant/autofill-contracts build && node scripts/build-autofill.mjs"
   },
   "dependencies": {
     "@alicloud/captcha20230305": "1.1.4",
     "@alicloud/openapi-client": "^0.4.15",
     "@prisma/client": "^6.16.2",
-    "nodemailer": "^7.0.13"
+    "nodemailer": "^7.0.13",
+    "@job-assistant/autofill-contracts": "workspace:*"
   },
   "devDependencies": {
-    "prisma": "^6.16.2"
+    "prisma": "^6.16.2",
+    "esbuild": "0.25.10",
+    "typescript": "7.0.2"
   }
 }

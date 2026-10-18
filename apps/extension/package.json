@@ -1,1 +1,19 @@
-{"name":"@job-assistant/extension","private":true,"version":"0.1.0","scripts":{"build":"node --check src/background.js","lint":"node --check src/background.js","test":"node --check src/background.js"}}
+{
+  "name": "@job-assistant/extension",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "build": "pnpm --filter @job-assistant/autofill-contracts build && node scripts/build.mjs",
+    "lint": "tsc --noEmit",
+    "test": "pnpm run build && node --test tests/*.test.mjs",
+    "test:browser": "node tests/browser.mjs"
+  },
+  "dependencies": {
+    "@job-assistant/autofill-contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.10",
+    "typescript": "7.0.2"
+  }
+}
