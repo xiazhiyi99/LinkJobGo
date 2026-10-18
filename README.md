@@ -8,6 +8,9 @@
 
 ## 设计文档
 
+- [当前产品 PRD](docs/product/prd-v0.3.md)
+- [产品功能测试计划](docs/testing/product-test-plan-2026-10-18.md)
+- [产品功能测试结果与 Bug 表](docs/testing/product-test-results-2026-10-18.md)
 - [系统架构设计](docs/architecture.md)
 - [自动填写 MVP 计划](docs/autofill-mvp-plan.md)
 - [插件源码复用方案](docs/autofill-oss-reuse-plan.md)
