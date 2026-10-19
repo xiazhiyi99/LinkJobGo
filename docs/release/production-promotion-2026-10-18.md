@@ -1,13 +1,14 @@
 # 正式站发布与回滚清单
 
-日期：2026-10-18。状态：候选版本已在隔离测试环境验收；正式主站尚未切换。验收结果见[修复报告](../testing/launch-readiness-2026-10-18.md)。
+日期：2026-10-18。状态：正式主站已切换。实际镜像、代理别名修复、磁盘与验收边界见[正式发布记录](production-deployed-2026-10-18.md)。下方保留发布前检查依据；后续运维使用服务器固定发布目录。
 
 ## 发布对象
 
 - API：远端 `lingke-autofill-test:launch-fix-20261018-r2`，镜像摘要前缀 `b2d65eb28838`。
-- Web：本机 `lingke-web:launch-ready-20261018`，镜像配置摘要前缀 `f98636993d89`。正式路径构建，扩展构建编号 `68cf21b0abf170ca6954`，API `/api`，Cookie `lingke_session`。
+- Web：`lingke-web:launch-ready-20261018`。本机构建配置摘要 `f98636993d89`，远端复用相同依赖的镜像为 `abf84850ff8c`；应用文件及运行配置逐项一致。正式路径构建，扩展构建编号 `68cf21b0abf170ca6954`，API `/api`，Cookie `lingke_session`。
 - 源码：`0b3f900` 包含运行时修复；后续只补 Web 测试脚本和发布记录。不得混用旧镜像 `latest` 或测试路径的 Web/扩展包。
 - 正式数据源仍为 `/opt/lingke/.env`；保留 `/opt/lingke/deploy/Caddyfile` 的现有改动。隔离环境配置和数据库不迁入正式库。
+- 代理必须指向唯一别名 `lingke-production-api`、`lingke-production-web`，不用共享网络上可能重名的 `api`、`web`。正式 Compose 已声明对应别名。
 
 ## 切换前
 
@@ -34,8 +35,8 @@ export LINGKE_API_IMAGE=lingke-autofill-test:launch-fix-20261018-r2
 export LINGKE_WEB_IMAGE=lingke-web:launch-ready-20261018
 docker compose --project-directory /opt/lingke --env-file /opt/lingke/.env \
   -p lingke \
-  -f /opt/lingke-autofill-test/docker-compose.prod.yml \
-  -f /opt/lingke-autofill-test/deploy/docker-compose.release.yml \
+  -f /opt/lingke/releases/launch-20261018/docker-compose.prod.yml \
+  -f /opt/lingke/releases/launch-20261018/docker-compose.release.yml \
   up -d --no-deps --no-build api web
 ```
 
@@ -59,9 +60,11 @@ export LINGKE_API_IMAGE=lingke-api:before-launch-20261018
 export LINGKE_WEB_IMAGE=lingke-web:before-launch-20261018
 docker compose --project-directory /opt/lingke --env-file /opt/lingke/.env \
   -p lingke \
-  -f /opt/lingke-autofill-test/docker-compose.prod.yml \
-  -f /opt/lingke-autofill-test/deploy/docker-compose.release.yml \
+  -f /opt/lingke/releases/launch-20261018/docker-compose.prod.yml \
+  -f /opt/lingke/releases/launch-20261018/docker-compose.release.yml \
   up -d --no-deps --no-build api web
 ```
 
 无数据库迁移时，代码回滚不等于数据库还原。只有确认发生数据损坏、明确恢复范围并获得授权后，才考虑恢复数据库备份，以免覆盖上线后用户新增内容。
+
+应用回滚保留本次唯一代理别名修复。发布前的旧镜像清理已完成，当前约余 1.3GB；不要再次执行历史清理步骤。
