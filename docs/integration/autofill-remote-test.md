@@ -1,6 +1,6 @@
 # 填写扩展远端测试部署
 
-最新账号链路修复（2026-10-18）：配置提交 `46b247a`，API/Web 标签 `auth-recovery-20261018`；六个账号路由已放行，后端加载独立认证配置，网页已重建启用阿里云验证码。模块、本地 SMTP/PG、远端负向校验及找回网页反馈通过；真实人机验证和收信注册/重置仍待人工，见[详细复测](../testing/auth-service-fix-2026-10-18.md)。回滚备份 `Caddyfile.before-auth-recovery`、`.env.autofill-test.before-auth-recovery`。
+最新账号链路修复（2026-10-18）：配置提交 `46b247a`，API/Web 标签 `auth-recovery-20261018`；六个账号路由已放行，后端加载独立认证配置，网页已重建启用阿里云验证码。模块、本地 SMTP/PG、远端校验及真实注册 → QQ 邮件找回 → 网页重置 → 新密码登录闭环通过，后端旧会话撤销、资料保留和 Chrome 刷新访问均已核对，见[详细复测](../testing/auth-service-fix-2026-10-18.md)。密码输入与 CAPTCHA 由用户完成。回滚备份 `Caddyfile.before-auth-recovery`、`.env.autofill-test.before-auth-recovery`。
 
 最新 AI 服务修复（2026-10-18）：配置提交 `d390f10`，测试 API 已加载专用 `.env.autofill-ai`，代理已放行五个需登录的 AI 路由。真实 TXT/DOCX/PDF、OCR、视觉、填写兜底与 Chrome 上传预览通过；[详细复测](../testing/ai-service-fix-2026-10-18.md)。代理备份 `Caddyfile.before-ai-recovery`；仅重建测试 API，主站 API/Web 未重启。
 
