@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { apiRequest } from '../../../lib/api-client';
 import { type Application, type ApplicationStatus, type Task, dateInput, dateText, errorText, safeUrl, statusLabels } from './types';
+import { inputDateValue, localTimeZone } from './date-time';
 
 export function ApplicationModal({ title, children, onClose, className = '', eyebrow, description }: {title: string; children: ReactNode; onClose: () => void; className?: string; eyebrow?: string; description?: ReactNode}) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -33,34 +34,44 @@ export function ApplicationDialog({ application, onClose, onSaved, onOpenMail }:
   const [busy, setBusy] = useState(false);
   const [taskBusy, setTaskBusy] = useState('');
   const [error, setError] = useState('');
-  const [tasks, setTasks] = useState<Task[]>(application?.tasks || []);
+  const tasks = current?.tasks || [];
+  const actionPending = useRef(false);
   const [formKey, setFormKey] = useState(0);
   const [saved, setSaved] = useState(false);
   const formId = useId();
   useEffect(() => {
     if (!application) return;
     let cancelled = false;
-    apiRequest<{application: Application}>(`/applications/${encodeURIComponent(application.id)}`).then(result => { if (!cancelled) { setCurrent(result.application); setTasks(result.application.tasks || []); setFormKey(key => key + 1); } }).catch(error => { if (!cancelled) setError(errorText(error)); }).finally(() => { if (!cancelled) setLoading(false); });
+    apiRequest<{application: Application}>(`/applications/${encodeURIComponent(application.id)}`).then(result => { if (!cancelled) { setCurrent(result.application); setFormKey(key => key + 1); } }).catch(error => { if (!cancelled) setError(errorText(error)); }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [application?.id]);
   async function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); setError(''); setSaved(false);
+    event.preventDefault(); if (actionPending.current || loading) return;
+    actionPending.current = true; setBusy(true); setError(''); setSaved(false);
     const data = Object.fromEntries(new FormData(event.currentTarget).entries());
-    const payload: Record<string, unknown> = { ...data, status: data.status as ApplicationStatus, ...(current ? {version: current.version} : {source: 'manual', idempotencyKey: crypto.randomUUID()}) };
-    for (const [key, , type] of fields) if (type === 'date' || type === 'datetime-local') payload[key] = data[key] ? new Date(String(data[key])).toISOString() : null;
-    // A rescheduled start must not retain an invisible end from the old schedule.
-    if (String(data.eventStart || '') !== dateInput(current?.eventStart, true)) payload.eventEnd = null;
-    try { const result = await apiRequest<{application: Application}>(current ? `/applications/${encodeURIComponent(current.id)}` : '/applications', {method: current ? 'PATCH' : 'POST', body: JSON.stringify(payload)}); setCurrent({...current, ...result.application}); setSaved(true); onSaved(result.application); }
-    catch (error) { setError(errorText(error)); } finally { setBusy(false); }
+    try {
+      const payload: Record<string, unknown> = { ...data, status: data.status as ApplicationStatus, ...(current ? {version: current.version} : {source: 'manual', idempotencyKey: crypto.randomUUID()}) };
+      for (const [key, , type] of fields) if (type === 'date' || type === 'datetime-local') {
+        const raw = String(data[key] || '');
+        payload[key] = current?.[key] && raw === dateInput(current[key], type === 'datetime-local') ? current[key] : inputDateValue(raw, type === 'datetime-local');
+      }
+      // A rescheduled start must not retain an invisible end from the old schedule.
+      if (String(data.eventStart || '') !== dateInput(current?.eventStart, true)) payload.eventEnd = null;
+      const result = await apiRequest<{application: Application}>(current ? `/applications/${encodeURIComponent(current.id)}` : '/applications', {method: current ? 'PATCH' : 'POST', body: JSON.stringify(payload)});
+      const updated = {...current, ...result.application}; setCurrent(updated); setSaved(true); onSaved(updated);
+    } catch (error) { setError(errorText(error)); } finally { setBusy(false); actionPending.current = false; }
   }
   async function addTask(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (!current) return;
+    event.preventDefault(); if (!current || actionPending.current) return;
+    actionPending.current = true;
     const form = event.currentTarget; const data = new FormData(form); setTaskBusy('new'); setError('');
-    try { const result = await apiRequest<{task: Task}>(`/applications/${encodeURIComponent(current.id)}/tasks`, {method: 'POST', body: JSON.stringify({title: data.get('taskTitle'), dueAt: data.get('taskDue') ? new Date(String(data.get('taskDue'))).toISOString() : null, idempotencyKey: crypto.randomUUID()})}); setTasks(items => [...items, result.task]); form.reset(); onSaved(current); } catch (error) { setError(errorText(error)); } finally { setTaskBusy(''); }
+    try { const result = await apiRequest<{task: Task}>(`/applications/${encodeURIComponent(current.id)}/tasks`, {method: 'POST', body: JSON.stringify({title: data.get('taskTitle'), dueAt: inputDateValue(String(data.get('taskDue') || ''), true), idempotencyKey: crypto.randomUUID()})}); const updated = {...current, tasks: [...tasks, result.task]}; setCurrent(updated); form.reset(); onSaved(updated); } catch (error) { setError(errorText(error)); } finally { setTaskBusy(''); actionPending.current = false; }
   }
   async function toggleTask(task: Task) {
+    if (!current || actionPending.current) return;
+    actionPending.current = true;
     setTaskBusy(task.id); setError('');
-    try { const result = await apiRequest<{task: Task}>(`/tasks/${encodeURIComponent(task.id)}`, {method: 'PATCH', body: JSON.stringify({status: task.status === 'done' ? 'open' : 'done'})}); setTasks(items => items.map(item => item.id === task.id ? result.task : item)); if (current) onSaved(current); } catch (error) { setError(errorText(error)); } finally { setTaskBusy(''); }
+    try { const result = await apiRequest<{task: Task}>(`/tasks/${encodeURIComponent(task.id)}`, {method: 'PATCH', body: JSON.stringify({status: task.status === 'done' ? 'open' : 'done'})}); const updated = {...current, tasks: tasks.map(item => item.id === task.id ? result.task : item)}; setCurrent(updated); onSaved(updated); } catch (error) { setError(errorText(error)); } finally { setTaskBusy(''); actionPending.current = false; }
   }
   const renderField = ([key, label, type]: typeof fields[number]) => <label key={key}>{label}<input name={key} type={type} required={key === 'company'} defaultValue={type === 'date' || type === 'datetime-local' ? dateInput(current?.[key], type === 'datetime-local') : current?.[key] || ''}/></label>;
   const sourceLabel = ({manual: '手动添加', extension: '填写助手', email: '招聘邮件'} as Record<string, string>)[current?.source || ''] || '—';
@@ -74,6 +85,7 @@ export function ApplicationDialog({ application, onClose, onSaved, onOpenMail }:
     <div className="appx-record-body">
       {error && <p role="alert" className="appx-error">{error}</p>}
       {loading ? <div className="appx-record-loading" role="status"><span>正在读取记录…</span><i/><i/><i/></div> : <>
+        <p className="appx-muted">时间均按本机时区显示：{localTimeZone()}</p>
         <form id={formId} key={formKey} className="appx-record-form" onSubmit={save} onChange={() => setSaved(false)}>
           <section className="appx-record-section">
             <div className="appx-record-section-heading"><h3>基本信息</h3><span>仅公司必填</span></div>
@@ -90,12 +102,12 @@ export function ApplicationDialog({ application, onClose, onSaved, onOpenMail }:
         </form>
         {current && <section className="appx-record-section appx-record-tasks">
           <div className="appx-record-section-heading"><h3>跟进任务 <span className="appx-record-count">{tasks.filter(task => task.status !== 'done').length}</span></h3><span>记下下一步</span></div>
-          {tasks.map(task => <div className="appx-task" key={task.id}><label><input type="checkbox" checked={task.status === 'done'} onChange={() => void toggleTask(task)} disabled={Boolean(taskBusy)}/><span className={task.status === 'done' ? 'appx-done' : ''}>{task.title}</span></label><small>{task.dueAt ? dateText(task.dueAt) : ''}</small>{safeUrl(task.url) && <a href={safeUrl(task.url)} target="_blank" rel="noopener noreferrer">打开 ↗</a>}</div>)}
+          {tasks.map(task => <div className="appx-task" key={task.id}><label><input type="checkbox" checked={task.status === 'done'} onChange={() => void toggleTask(task)} disabled={busy || Boolean(taskBusy)}/><span className={task.status === 'done' ? 'appx-done' : ''}>{task.title}</span></label><small>{task.dueAt ? dateText(task.dueAt) : ''}</small>{safeUrl(task.url) && <a href={safeUrl(task.url)} target="_blank" rel="noopener noreferrer">打开 ↗</a>}</div>)}
           {!tasks.length && <p className="appx-record-empty">暂无跟进任务，添加一件接下来要做的事。</p>}
           <form className="appx-task-form" onSubmit={addTask}>
             <label>任务内容<input name="taskTitle" placeholder="如：准备业务面试" required/></label>
             <label>提醒时间 <span>选填</span><input name="taskDue" type="datetime-local"/></label>
-            <button type="submit" disabled={Boolean(taskBusy)}>{taskBusy === 'new' ? '添加中…' : '添加任务'}</button>
+            <button type="submit" disabled={busy || Boolean(taskBusy)}>{taskBusy === 'new' ? '添加中…' : '添加任务'}</button>
           </form>
         </section>}
         {current && <details className="appx-record-disclosure appx-record-history">
@@ -106,7 +118,7 @@ export function ApplicationDialog({ application, onClose, onSaved, onOpenMail }:
     </div>
     <footer className="appx-record-footer">
       <span className={saved ? 'appx-record-saved' : ''} role="status">{saved ? '更改已保存' : current ? `来源：${sourceLabel}` : '保存后可添加跟进任务'}</span>
-      <div><button type="button" className="appx-secondary" onClick={onClose}>关闭</button><button type="submit" form={formId} className="appx-primary" disabled={busy || loading}>{busy ? '保存中…' : current ? '保存更改' : '创建记录'}</button></div>
+      <div><button type="button" className="appx-secondary" onClick={onClose}>关闭</button><button type="submit" form={formId} className="appx-primary" disabled={busy || loading || Boolean(taskBusy)}>{busy ? '保存中…' : current ? '保存更改' : '创建记录'}</button></div>
     </footer>
   </ApplicationModal>;
 }

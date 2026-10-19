@@ -2,18 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
-export type CalendarItem = {
-  type: string;
-  id: string;
-  title: string;
-  start: string | null;
-  end?: string | null;
-  status?: string | null;
-  applicationId?: string | null;
-};
+import { type CalendarItem, type CalendarMode, type CalendarRange, type CalendarSegment, STATUS_LABELS, dateKey, todayKey, civilDate, validDateKey, addDays, itemKey, shortDate, visibleDays, getCalendarRange, parseItems, segmentsForDay, layoutCalendarSegments, eventTone } from './calendar-model';
+import { localTimeZone } from './date-time';
+export { type CalendarItem, type CalendarRange, getCalendarRange, layoutCalendarSegments } from './calendar-model';
+const HOUR_HEIGHT = 64;
+const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+const MODES: Array<{ value: CalendarMode; label: string }> = [
+  { value: 'day', label: '日' }, { value: 'week', label: '周' }, { value: 'month', label: '月' },
+];
 
-export type CalendarMode = 'month' | 'week' | 'day';
-export type CalendarRange = { from: string; to: string };
 export type ApplicationsCalendarProps = {
   items: CalendarItem[];
   onSelect?: (item: CalendarItem) => void;
@@ -22,138 +19,6 @@ export type ApplicationsCalendarProps = {
   initialMode?: CalendarMode;
   initialDate?: string;
 };
-
-const DAY_MS = 86_400_000;
-const MINUTE_MS = 60_000;
-const SHANGHAI_OFFSET = 8 * 60 * MINUTE_MS;
-const HOUR_HEIGHT = 64;
-const MIN_EVENT_HEIGHT = 28;
-const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-const MODES: Array<{ value: CalendarMode; label: string }> = [
-  { value: 'day', label: '日' }, { value: 'week', label: '周' }, { value: 'month', label: '月' },
-];
-const STATUS_LABELS: Record<string, string> = {
-  saved: '待投递', applied: '已投递', screening: '筛选中', interview: '笔试/面试中',
-  offer: '已获 offer', closed: '已结束', open: '待办', completed: '已完成', cancelled: '已取消',
-};
-
-// Civil calendar dates use UTC methods with a fixed Shanghai offset, independent
-// of the browser timezone. API ranges and displayed times therefore stay aligned.
-const dateKey = (date: Date) => date.toISOString().slice(0, 10);
-const todayKey = () => dateKey(new Date(Date.now() + SHANGHAI_OFFSET));
-const civilDate = (key: string) => new Date(`${key}T00:00:00.000Z`);
-const validDateKey = (key?: string): key is string => Boolean(key && /^\d{4}-\d{2}-\d{2}$/.test(key)
-  && Number.isFinite(civilDate(key).getTime()) && dateKey(civilDate(key)) === key);
-const addDays = (date: Date, days: number) => new Date(date.getTime() + days * DAY_MS);
-const mondayOf = (date: Date) => addDays(date, -((date.getUTCDay() + 6) % 7));
-const dayStart = (date: Date) => date.getTime() - SHANGHAI_OFFSET;
-const itemKey = (item: CalendarItem) => `${item.type}:${item.id}`;
-const clock = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(Math.floor(minutes % 60)).padStart(2, '0')}`;
-const shortDate = (date: Date) => `${date.getUTCMonth() + 1} 月 ${date.getUTCDate()} 日`;
-
-function visibleDays(selectedDate: string, mode: CalendarMode) {
-  const selected = civilDate(selectedDate);
-  const first = mode === 'month'
-    ? mondayOf(new Date(Date.UTC(selected.getUTCFullYear(), selected.getUTCMonth(), 1)))
-    : mode === 'week' ? mondayOf(selected) : selected;
-  return Array.from({ length: mode === 'month' ? 42 : mode === 'week' ? 7 : 1 }, (_, index) => addDays(first, index));
-}
-
-/** Inclusive bounds, matching the API's gte/lte calendar query. */
-export function getCalendarRange(selectedDate: string, mode: CalendarMode): CalendarRange {
-  const days = visibleDays(selectedDate, mode);
-  return {
-    from: new Date(dayStart(days[0])).toISOString(),
-    to: new Date(dayStart(addDays(days[days.length - 1], 1)) - 1).toISOString(),
-  };
-}
-
-function parseInstant(value?: string | null) {
-  if (!value) return NaN;
-  // Date-only and timezone-less API values are interpreted in the UI timezone.
-  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00+08:00`
-    : /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/.test(value)
-      ? `${value.replace(' ', 'T')}+08:00` : value;
-  return Date.parse(normalized);
-}
-
-type ParsedItem = { item: CalendarItem; start: number; end: number; hasEnd: boolean };
-export type CalendarSegment = {
-  item: CalendarItem;
-  startMinute: number;
-  endMinute: number;
-  visualStart: number;
-  visualEnd: number;
-  timeLabel: string;
-  continuesBefore: boolean;
-  continuesAfter: boolean;
-};
-
-function parseItems(items: CalendarItem[]): ParsedItem[] {
-  return items.flatMap((item) => {
-    const start = parseInstant(item.start);
-    if (!Number.isFinite(start)) return [];
-    const suppliedEnd = parseInstant(item.end);
-    const hasEnd = Number.isFinite(suppliedEnd) && suppliedEnd > start;
-    return [{ item, start, end: hasEnd ? suppliedEnd : start + 30 * MINUTE_MS, hasEnd }];
-  });
-}
-
-function segmentsForDay(items: ParsedItem[], date: Date): CalendarSegment[] {
-  const startOfDay = dayStart(date);
-  const endOfDay = startOfDay + DAY_MS;
-  return items.flatMap(({ item, start, end, hasEnd }) => {
-    // The footprint for an unknown end must not create another day's event.
-    if (start >= endOfDay || (hasEnd ? end <= startOfDay : start < startOfDay)) return [];
-    const startMinute = Math.max(0, (start - startOfDay) / MINUTE_MS);
-    const endMinute = Math.min(1440, (end - startOfDay) / MINUTE_MS);
-    const visualDuration = Math.max(endMinute - startMinute, MIN_EVENT_HEIGHT / HOUR_HEIGHT * 60);
-    const visualStart = Math.min(startMinute, 1440 - visualDuration);
-    const continuesBefore = start < startOfDay;
-    const continuesAfter = hasEnd && end > endOfDay;
-    const timeLabel = item.type === 'task' ? `${clock(startMinute)} · 待办`
-      : hasEnd ? `${continuesBefore ? '前日 ' : ''}${clock(startMinute)}–${clock(endMinute)}${continuesAfter ? ' 继续' : ''}`
-        : clock(startMinute);
-    return [{ item, startMinute, endMinute, visualStart, visualEnd: visualStart + visualDuration, timeLabel, continuesBefore, continuesAfter }];
-  }).sort((left, right) => left.startMinute - right.startMinute || right.endMinute - left.endMinute || itemKey(left.item).localeCompare(itemKey(right.item)));
-}
-
-/** Place every connected overlap group in separate horizontal lanes. */
-export function layoutCalendarSegments(segments: CalendarSegment[]) {
-  const sorted = [...segments].sort((left, right) => left.visualStart - right.visualStart || right.visualEnd - left.visualEnd);
-  const groups: CalendarSegment[][] = [];
-  let group: CalendarSegment[] = [];
-  let groupEnd = -1;
-  for (const segment of sorted) {
-    if (group.length && segment.visualStart >= groupEnd) {
-      groups.push(group);
-      group = [];
-      groupEnd = -1;
-    }
-    group.push(segment);
-    groupEnd = Math.max(groupEnd, segment.visualEnd);
-  }
-  if (group.length) groups.push(group);
-  return groups.flatMap((overlapping) => {
-    const laneEnds: number[] = [];
-    const placed = overlapping.map((segment) => {
-      let lane = laneEnds.findIndex((end) => end <= segment.visualStart);
-      if (lane < 0) lane = laneEnds.length;
-      laneEnds[lane] = segment.visualEnd;
-      return { ...segment, lane };
-    });
-    return placed.map((segment) => ({ ...segment, lanes: laneEnds.length }));
-  });
-}
-
-function eventTone(item: CalendarItem) {
-  if (item.status === 'completed' || item.status === 'offer') return 'success';
-  if (item.status === 'closed' || item.status === 'cancelled') return 'muted';
-  if (item.type === 'task') return 'task';
-  if (item.status === 'interview') return 'interview';
-  if (item.status === 'screening') return 'screening';
-  return 'default';
-}
 
 export function ApplicationsCalendar({ items, onSelect, onRangeChange, loading = false, initialMode = 'month', initialDate }: ApplicationsCalendarProps) {
   const [mode, setMode] = useState<CalendarMode>(initialMode);
@@ -215,7 +80,7 @@ export function ApplicationsCalendar({ items, onSelect, onRangeChange, loading =
         </div>
       </div>
     </div>
-    <div className="application-calendar-summary" aria-live="polite"><span>{loading ? '正在加载日程…' : visibleCount ? `${visibleCount} 项日程` : '这段时间暂无日程'}</span><span>北京时间 · GMT+8</span></div>
+    <div className="application-calendar-summary" aria-live="polite"><span>{loading ? '正在加载日程…' : visibleCount ? `${visibleCount} 项日程` : '这段时间暂无日程'}</span><span>本地时间 · {localTimeZone()}</span></div>
 
     {mode === 'month' ? <div className="application-calendar-month-scroll">
       <div className="application-calendar-month">
@@ -231,7 +96,7 @@ export function ApplicationsCalendar({ items, onSelect, onRangeChange, loading =
     </div> : <div className={`application-calendar-time-scroll application-calendar-time-scroll--${mode}`} ref={scrollRef}>
       <div className="application-calendar-timetable" style={{ '--calendar-columns': days.length, '--calendar-hour-height': `${HOUR_HEIGHT}px` } as CSSProperties}>
         <div className="application-calendar-time-header">
-          <span className="application-calendar-timezone">GMT+8</span>
+          <span className="application-calendar-timezone">本地时间</span>
           {days.map((date) => <button key={dateKey(date)} type="button" className={`application-calendar-time-day${dateKey(date) === today ? ' is-today' : ''}`} onClick={() => openDay(date)} aria-label={`查看 ${shortDate(date)}日程`}><span>{WEEKDAYS[(date.getUTCDay() + 6) % 7]}</span><strong>{date.getUTCDate()}</strong></button>)}
         </div>
         <div className="application-calendar-time-body">

@@ -7,6 +7,7 @@ import { validateResumeContext } from '@job-assistant/autofill-contracts';
 import { createProfileService } from '../src/profile/service.js';
 import { createPlatformResumeClient } from '../src/modules/autofill/adapters/resume-client.js';
 import { checkProfileUpdates } from './helpers/profile-update-integration.mjs';
+import { checkApplications } from './helpers/applications-integration.mjs';
 
 const port = Number(process.env.API_TEST_PORT || 3201);
 const base = `http://127.0.0.1:${port}`;
@@ -274,6 +275,12 @@ try {
     }
   }
   await checkProfileUpdates(request, educationId);
+  const applicationRequest = (session) => async (path, body, method = body ? 'POST' : 'GET') => {
+    const result = await request(path, { method, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) }, session);
+    return { status: result.response.status, data: result.payload };
+  };
+  const applicationChecks = await checkApplications(applicationRequest(cookie), applicationRequest(secondCookie));
+  console.log(`Application/task/calendar integration checks passed: ${applicationChecks.passed}`);
   console.log('API integration checks passed (including autofill readiness/analyze/plan)');
 } finally {
   await prisma.$disconnect();

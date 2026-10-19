@@ -2,6 +2,7 @@ const STATUS_ORDER = { saved: 0, applied: 1, screening: 2, interview: 3, offer: 
 const STATUSES = new Set(Object.keys(STATUS_ORDER));
 const SOURCES = new Set(['manual', 'extension', 'email']);
 const EVENT_TYPES = new Set(['fill.completed', 'application.submitted']);
+const TASK_STATUSES = new Set(['open', 'done']);
 
 const text = (value, max = 500) => {
   if (value == null) return null;
@@ -11,10 +12,26 @@ const text = (value, max = 500) => {
 const dateOrNull = (value) => {
   if (value == null || value === '') return null;
   const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) throw Object.assign(new Error('日期格式无效'), { code: 'INVALID_DATE' });
+  if (Number.isNaN(date.getTime())) throw Object.assign(new Error('日期格式无效'), { code: 'INVALID_DATE', status: 400 });
   return date;
 };
 const error = (message, code = 'INVALID_APPLICATION', status = 400) => Object.assign(new Error(message), { code, status });
+const taskStatus = (value) => {
+  if (!TASK_STATUSES.has(value)) throw error('任务状态只能为 open 或 done', 'INVALID_TASK_STATUS');
+  return value;
+};
+// Rescheduling without a new end must not retain an end from the old interview.
+function schedulePatch(input, current = {}) {
+  const patch = {};
+  if (input.eventStart !== undefined) patch.eventStart = dateOrNull(input.eventStart);
+  if (input.eventEnd !== undefined) patch.eventEnd = dateOrNull(input.eventEnd);
+  const changed = input.eventStart !== undefined && (patch.eventStart?.getTime() ?? null) !== (current.eventStart ? new Date(current.eventStart).getTime() : null);
+  if (changed && input.eventEnd === undefined) patch.eventEnd = null;
+  const start = input.eventStart !== undefined ? patch.eventStart : current.eventStart;
+  const end = Object.hasOwn(patch, 'eventEnd') ? patch.eventEnd : current.eventEnd;
+  if (end && (!start || new Date(end).getTime() <= new Date(start).getTime())) throw error('结束时间必须晚于开始时间', 'INVALID_EVENT_RANGE');
+  return patch;
+}
 const parseCursor = (value) => {
   if (!value) return null;
   try {
@@ -41,8 +58,9 @@ function applicationPayload(input = {}, { source = 'manual' } = {}) {
     source: normalizedSource,
     status,
     appliedOn: dateOrNull(input.appliedOn),
-    eventStart: dateOrNull(input.eventStart),
-    eventEnd: dateOrNull(input.eventEnd),
+    eventStart: null,
+    eventEnd: null,
+    ...schedulePatch(input),
     assessmentUrl: text(input.assessmentUrl, 1000),
     interviewUrl: text(input.interviewUrl, 1000),
     nextFollowUpAt: dateOrNull(input.nextFollowUpAt),
@@ -115,7 +133,8 @@ function createApplicationService({ prisma }) {
     for (const key of ['company', 'title', 'jobUrl', 'assessmentUrl', 'interviewUrl', 'nextAction', 'nextActionUrl', 'notes']) if (input[key] !== undefined) next[key] = text(input[key], key === 'notes' ? 4000 : 1000);
     if (input.company !== undefined && !next.company) throw error('公司不能为空');
     if (input.title !== undefined) next.title = next.title || '';
-    for (const key of ['appliedOn', 'eventStart', 'eventEnd', 'nextFollowUpAt']) if (input[key] !== undefined) next[key] = dateOrNull(input[key]);
+    for (const key of ['appliedOn', 'nextFollowUpAt']) if (input[key] !== undefined) next[key] = dateOrNull(input[key]);
+    if (input.eventStart !== undefined || input.eventEnd !== undefined) Object.assign(next, schedulePatch(input, current));
     if (input.status !== undefined) {
       if (!STATUSES.has(String(input.status))) throw error('status 不合法');
       next.status = String(input.status);
@@ -152,22 +171,31 @@ function createApplicationService({ prisma }) {
   async function createTask(userId, applicationId, input = {}) {
     if (applicationId) { const app = await ownedApplication(userId, applicationId); if (!app) throw error('投递记录不存在', 'APPLICATION_NOT_FOUND', 404); }
     const title = text(input.title, 300); if (!title) throw error('任务标题不能为空');
+    const status = input.status === undefined ? 'open' : taskStatus(input.status);
+    const dueAt = dateOrNull(input.dueAt);
     const idempotencyKey = text(input.idempotencyKey, 200);
+    const sameApplication = (existing) => {
+      if (existing && existing.applicationId !== (applicationId || null)) throw error('幂等键已用于其他投递记录', 'TASK_IDEMPOTENCY_CONFLICT', 409);
+      return existing;
+    };
     if (idempotencyKey) {
       const existing = await prisma.task.findFirst({ where: { userId, idempotencyKey } });
-      if (existing) return existing;
+      if (existing) return sameApplication(existing);
     }
     try {
-      return await prisma.task.create({ data: { userId, applicationId: applicationId || null, title, kind: text(input.kind, 40) || 'follow_up', status: text(input.status, 40) || 'open', dueAt: dateOrNull(input.dueAt), url: text(input.url, 1000), source: text(input.source, 40) || 'manual', idempotencyKey } });
+      return await prisma.task.create({ data: { userId, applicationId: applicationId || null, title, kind: text(input.kind, 40) || 'follow_up', status, dueAt, url: text(input.url, 1000), source: text(input.source, 40) || 'manual', idempotencyKey } });
     } catch (caught) {
-      if (idempotencyKey && caught?.code === 'P2002') return prisma.task.findFirst({ where: { userId, idempotencyKey } });
+      if (idempotencyKey && caught?.code === 'P2002') {
+        const existing = await prisma.task.findFirst({ where: { userId, idempotencyKey } });
+        if (existing) return sameApplication(existing);
+      }
       throw caught;
     }
   }
 
   async function listTasks(userId, query = {}) {
     const where = { userId };
-    if (query.status) where.status = String(query.status);
+    if (query.status !== undefined) where.status = taskStatus(query.status);
     if (query.applicationId) {
       const application = await ownedApplication(userId, query.applicationId);
       if (!application) throw error('投递记录不存在', 'APPLICATION_NOT_FOUND', 404);
@@ -178,8 +206,16 @@ function createApplicationService({ prisma }) {
 
   async function updateTask(userId, id, input = {}) {
     const data = {};
-    for (const key of ['title', 'kind', 'status', 'url']) if (input[key] !== undefined) data[key] = text(input[key], key === 'title' ? 300 : 1000);
+    for (const key of ['title', 'kind', 'url']) if (input[key] !== undefined) data[key] = text(input[key], key === 'title' ? 300 : key === 'kind' ? 40 : 1000);
+    if (input.title !== undefined && !data.title) throw error('任务标题不能为空', 'INVALID_TASK_TITLE');
+    if (input.kind !== undefined && !data.kind) throw error('任务类型不能为空', 'INVALID_TASK_KIND');
+    if (input.status !== undefined) data.status = taskStatus(input.status);
     if (input.dueAt !== undefined) data.dueAt = dateOrNull(input.dueAt);
+    if (!Object.keys(data).length) {
+      const existing = await prisma.task.findFirst({ where: { id: String(id), userId } });
+      if (!existing) throw error('任务不存在', 'TASK_NOT_FOUND', 404);
+      return existing;
+    }
     const result = await prisma.task.updateMany({ where: { id: String(id), userId }, data });
     if (!result.count) throw error('任务不存在', 'TASK_NOT_FOUND', 404);
     return prisma.task.findFirst({ where: { id: String(id), userId } });
@@ -188,11 +224,25 @@ function createApplicationService({ prisma }) {
   async function calendar(userId, query = {}) {
     const from = dateOrNull(query.from) || new Date(Date.now() - 30 * 86400000);
     const to = dateOrNull(query.to) || new Date(Date.now() + 90 * 86400000);
+    if (from > to) throw error('日历开始时间不能晚于结束时间', 'INVALID_CALENDAR_RANGE');
     const [applications, tasks] = await Promise.all([
-      prisma.application.findMany({ where: { userId, eventStart: { gte: from, lte: to } }, orderBy: { eventStart: 'asc' } }),
+      prisma.application.findMany({ where: { userId, OR: [
+        { eventStart: { gte: from, lte: to } },
+        { eventStart: { lt: from }, eventEnd: { gt: from } },
+        { nextFollowUpAt: { gte: from, lte: to } },
+      ] }, orderBy: { eventStart: 'asc' } }),
       prisma.task.findMany({ where: { userId, dueAt: { gte: from, lte: to } }, orderBy: { dueAt: 'asc' } }),
     ]);
-    return { items: [...applications.map((item) => ({ type: 'application', id: item.id, title: [item.company, item.title].filter(Boolean).join(' · '), start: item.eventStart, end: item.eventEnd, status: item.status, applicationId: item.id })), ...tasks.map((item) => ({ type: 'task', id: item.id, title: item.title, start: item.dueAt, end: item.dueAt, status: item.status, applicationId: item.applicationId }))].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()) };
+    const inRange = (date) => date && date >= from && date <= to;
+    const items = applications.flatMap((item) => {
+      const title = [item.company, item.title].filter(Boolean).join(' · ');
+      const entries = [];
+      if (inRange(item.eventStart) || (item.eventStart && item.eventStart < from && item.eventEnd > from)) entries.push({ type: 'application', id: item.id, title, start: item.eventStart, end: item.eventEnd, status: item.status, applicationId: item.id });
+      if (inRange(item.nextFollowUpAt)) entries.push({ type: 'follow_up', id: item.id, title: `${title} · ${item.nextAction || '跟进'}`, start: item.nextFollowUpAt, end: null, status: 'open', applicationId: item.id });
+      return entries;
+    });
+    items.push(...tasks.map((item) => ({ type: 'task', id: item.id, title: item.title, start: item.dueAt, end: null, status: item.status, applicationId: item.applicationId })));
+    return { items: items.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()) };
   }
 
   // Worker-facing bridge for a classified message. It is intentionally a
@@ -210,7 +260,8 @@ function createApplicationService({ prisma }) {
       const parsedStatus = STATUSES.has(String(parsed.status)) ? String(parsed.status) : 'saved';
       const patch = {};
       for (const [key, value] of [['jobUrl', text(parsed.jobUrl, 1000)], ['assessmentUrl', text(parsed.assessmentUrl, 1000)], ['interviewUrl', text(parsed.interviewUrl, 1000)]]) if (value) patch[key] = value;
-      for (const [key, value] of [['appliedOn', parsed.appliedOn], ['eventStart', parsed.eventStart], ['eventEnd', parsed.eventEnd]]) if (value) patch[key] = dateOrNull(value);
+      if (parsed.appliedOn) patch.appliedOn = dateOrNull(parsed.appliedOn);
+      if ((!application || !application.isUserEdited) && (parsed.eventStart || parsed.eventEnd)) Object.assign(patch, schedulePatch({ ...(parsed.eventStart ? { eventStart: parsed.eventStart } : {}), ...(parsed.eventEnd ? { eventEnd: parsed.eventEnd } : {}) }, application || {}));
       if (!application) application = await tx.application.create({ data: { userId, company, title, source: 'email', status: parsedStatus, idempotencyKey: `mail:${message.id}`, ...patch } });
       else if (!application.isUserEdited) {
         if (STATUS_ORDER[parsedStatus] > STATUS_ORDER[application.status]) patch.status = parsedStatus;
