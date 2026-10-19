@@ -44,6 +44,7 @@ services:
       API_PORT: 3001
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      AUTOFILL_EXTENSION_ORIGINS: ${AUTOFILL_EXTENSION_ORIGINS:-chrome-extension://jmfbkpdfefifliffkdkmljihmkeapjkb}
     depends_on:
       postgres:
         condition: service_healthy
@@ -59,6 +60,10 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_SESSION_COOKIE_NAME: ${NEXT_PUBLIC_SESSION_COOKIE_NAME:-lingke_session}
+        EXTENSION_API_ORIGIN: ${EXTENSION_API_ORIGIN:-https://linkaigo.com}
+        EXTENSION_API_PATH_PREFIX: ${EXTENSION_API_PATH_PREFIX:-/api}
+        EXTENSION_LOGIN_URL: ${EXTENSION_LOGIN_URL:-https://linkaigo.com/login?next=/workspace/autofill}
         NEXT_PUBLIC_CAPTCHA_PROVIDER: ${NEXT_PUBLIC_CAPTCHA_PROVIDER}
         NEXT_PUBLIC_ALIYUN_CAPTCHA_REGION: ${NEXT_PUBLIC_ALIYUN_CAPTCHA_REGION}
         NEXT_PUBLIC_ALIYUN_CAPTCHA_PREFIX: ${NEXT_PUBLIC_ALIYUN_CAPTCHA_PREFIX}

@@ -27,6 +27,27 @@ test('OAuth Outlook adapter normalizes provider messages without contacting netw
   assert.match(calls[0].options.headers.authorization, /test-token/);
 });
 
+test('missing credential encryption configuration rejects IMAP before contacting the provider', async () => {
+  const previous = process.env.MAIL_CREDENTIAL_KEY; delete process.env.MAIL_CREDENTIAL_KEY;
+  let contacted = 0;
+  const mail = require('../src/modules/mail/service.js').createMailService({ prisma: {}, adapters: { imap: { connect: async () => { contacted++; return { messages: [] }; } } } });
+  try {
+    await assert.rejects(mail.createImap('synthetic-user', { provider: 'qq', email: 'synthetic@qq.com', authorizationCode: 'synthetic-code' }), e => e.code === 'MAIL_CREDENTIAL_KEY_REQUIRED');
+    assert.equal(contacted, 0);
+  } finally { if (previous === undefined) delete process.env.MAIL_CREDENTIAL_KEY; else process.env.MAIL_CREDENTIAL_KEY = previous; }
+});
+
+test('OAuth cannot redirect the user to authorization without a credential encryption key', async () => {
+  const previous = process.env.MAIL_CREDENTIAL_KEY, client = process.env.MAIL_OUTLOOK_CLIENT_ID;
+  delete process.env.MAIL_CREDENTIAL_KEY; process.env.MAIL_OUTLOOK_CLIENT_ID = 'synthetic-client';
+  const mail = require('../src/modules/mail/service.js').createMailService({ prisma: {} });
+  try { await assert.rejects(mail.createOAuthStart('synthetic-user', { provider: 'outlook' }), e => e.code === 'MAIL_CREDENTIAL_KEY_REQUIRED'); }
+  finally {
+    if (previous === undefined) delete process.env.MAIL_CREDENTIAL_KEY; else process.env.MAIL_CREDENTIAL_KEY = previous;
+    if (client === undefined) delete process.env.MAIL_OUTLOOK_CLIENT_ID; else process.env.MAIL_OUTLOOK_CLIENT_ID = client;
+  }
+});
+
 test('manual mail analysis is sanitized and linked to an application', async () => {
   const row = { id: 'mail-1', userId: 'user-1', applicationId: null, aiResult: null, isJobRelated: null };
   const application = { id: 'app-1', company: '腾讯', title: '产品运营' };

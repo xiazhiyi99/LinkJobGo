@@ -1,0 +1,7 @@
+# Merge after docker-compose.prod.yml. Explicit images make promotion and
+# rollback independent of builds or source-folder changes on the server.
+services:
+  api:
+    image: ${LINGKE_API_IMAGE:?Set the verified API release image}
+  web:
+    image: ${LINGKE_WEB_IMAGE:?Set the verified Web release image}
