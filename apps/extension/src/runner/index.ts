@@ -25,7 +25,7 @@ export interface RunnerAdapter {
 export function createDialogFlowAdapter({ canProbeEmptySection }: { canProbeEmptySection?: (section: SectionSnapshot) => boolean } = {}): RunnerAdapter {
   return { canProbeEmptySection, editorFor(source, snapshot) { const candidates = snapshot.sections.filter(section => section.mode === 'modal' && section.label === source.label && section.records.length === 1 && section.records[0]!.fields.length > 0 && section.actions.some(action => action.kind === 'save-record') && section.actions.some(action => action.kind === 'close-record')); return candidates.length === 1 ? candidates[0] : undefined; } };
 }
-export interface StartOptions { scope?: FillScope; overwriteExisting?: boolean; allowCollegeReset?: boolean; signal?: AbortSignal; deadlineAt?: number; actionTimeoutMs?: number }
+export interface StartOptions { scope?: FillScope; overwriteExisting?: boolean; allowCollegeReset?: boolean; signal?: AbortSignal; deadlineAt?: number; actionTimeoutMs?: number; /** Explicit QA audit; ordinary filling already confirms each control write. */ auditFinalValues?: boolean }
 export interface Runner { start(options?: StartOptions): Promise<RunReport>; pause(): void; resume(): Promise<RunReport>; cancel(): void; getState(): RunnerState; subscribe(listener: (state: RunnerState) => void): () => void; dispose(): void }
 class Halt extends Error { constructor(readonly code: string, readonly paused = false) { super(code); } }
 interface SectionWork { recordSemantics: Map<string, SemanticPage['sections'][number]>; plan: SectionPlan; semantic: SemanticPage['sections'][number]; source: SectionSnapshot; editor: SectionSnapshot; views: Map<string, string>; viewPositions: Map<string, number>; savedViews: Map<string, string>; expected: Map<string, FillAssignment>; blocked?: string; quarantined?: string; finalized: Set<string>; dateWrites: Map<string,number>; pendingDates: Map<string,{ assignment: FillAssignment; partnerKey: string; failedAt: number }>; dateRetried: Set<string>; overwriteOrder?: string[]; pendingAdd?: { key: string; beforeIds: Set<string> }; pendingSave?: { key: string; beforeIds: Set<string>; editorId: string } }
@@ -620,25 +620,32 @@ export function createRunner({ page, controls, mappingClient, onProgress, adapte
         }
       }
       await execute();
-      emit('verifying');
-      for (const entry of work) for (const record of entry.plan.records) {
-        if (entry.quarantined || entry.savedViews.has(recordKey(record))) continue;
-        const viewId = entry.views.get(recordKey(record)); if (!viewId) continue;
-        const snapshot = await scan(); const current = snapshot.sections.find(section => section.sectionId === entry.editor.sectionId);
-        try { if (!current) throw new Halt('final-section-missing'); const bound = await bind(entry, current, viewId, record);
-          // Verification is read-only. Overlap each field's unchanged stability
-          // window within this one bound record; never overlap writes or records.
-          const assignments = record.assignments.filter(assignment => ['filled','already-correct'].includes(item(entry, record, assignment).status));
-          const results = await Promise.all(assignments.map(assignment => controls.verifyControl(bound.fieldMap[assignment.templateFieldId]!, entry.expected.get(assignmentKey(record, assignment)) ?? assignment, cctx(bound))));
-          check();
-          const after = await scan(); checkOverwriteOrder(entry, after);
-          if (after.pageRevision !== bound.pageRevision) throw new Halt('final-binding-changed', true);
-          for (const [index, assignment] of assignments.entries()) { const resultItem = item(entry, record, assignment), verified = results[index]!; if (verified.status !== 'ok' || !verified.value.matches) { resultItem.status = 'failed'; resultItem.reason = 'final-readback-mismatch'; resultItem.verification = 'none'; } }
-        } catch (error) { check(); for (const assignment of record.assignments) { const resultItem = item(entry, record, assignment); if (['filled','already-correct'].includes(resultItem.status)) { resultItem.status = 'needs-user'; resultItem.reason = 'final-binding-unverified'; resultItem.verification = 'none'; } } throw error; }
+      if (options.auditFinalValues === true) {
+        emit('verifying');
+        for (const entry of work) for (const record of entry.plan.records) {
+          if (entry.quarantined || entry.savedViews.has(recordKey(record))) continue;
+          const viewId = entry.views.get(recordKey(record)); if (!viewId) continue;
+          const snapshot = await scan(); const current = snapshot.sections.find(section => section.sectionId === entry.editor.sectionId);
+          try { if (!current) throw new Halt('final-section-missing'); const bound = await bind(entry, current, viewId, record);
+            // Verification is read-only. Overlap each field's unchanged stability
+            // window within this one bound record; never overlap writes or records.
+            const assignments = record.assignments.filter(assignment => ['filled','already-correct'].includes(item(entry, record, assignment).status));
+            const results = await Promise.all(assignments.map(assignment => controls.verifyControl(bound.fieldMap[assignment.templateFieldId]!, entry.expected.get(assignmentKey(record, assignment)) ?? assignment, cctx(bound))));
+            check();
+            const after = await scan(); checkOverwriteOrder(entry, after);
+            if (after.pageRevision !== bound.pageRevision) throw new Halt('final-binding-changed', true);
+            for (const [index, assignment] of assignments.entries()) { const resultItem = item(entry, record, assignment), verified = results[index]!; if (verified.status !== 'ok' || !verified.value.matches) { resultItem.status = 'failed'; resultItem.reason = 'final-readback-mismatch'; resultItem.verification = 'none'; } }
+          } catch (error) { check(); for (const assignment of record.assignments) { const resultItem = item(entry, record, assignment); if (['filled','already-correct'].includes(resultItem.status)) { resultItem.status = 'needs-user'; resultItem.reason = 'final-binding-unverified'; resultItem.verification = 'none'; } } throw error; }
+        }
+      } else {
+        // Preserve identity/order checks without rereading every filled value.
+        // Independent full-value auditing belongs to explicit QA runs.
+        const after = await scan();
+        for (const entry of work) checkOverwriteOrder(entry, after);
       }
       for (const proof of [...pendingProbes]) await rollbackProbe(proof);
       // Only our own interrupted-attempt warnings become historical after all
-      // resumed execution, independent final checks and cleanup have succeeded.
+      // resumed execution, requested audit and cleanup have succeeded.
       // Equal strings supplied by another warning source are not removed.
       if (transientDeadlineWarnings.size) { report!.warnings = report!.warnings.filter((_, index) => !transientDeadlineWarnings.has(index)); transientDeadlineWarnings.clear(); }
       report!.status = isReportComplete(report!) ? 'completed' : 'partial'; emit(report!.status);
