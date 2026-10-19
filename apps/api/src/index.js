@@ -22,6 +22,8 @@ const { createCaptchaVerifier } = require('./auth/captcha');
 const { createApplicationService } = require('./modules/applications/service');
 const { createMailService } = require('./modules/mail/service');
 const { createAutofillModule } = require('./modules/autofill');
+const { createAdminUsersService } = require('./modules/admin-users/service');
+const { createAdminUsersHandler } = require('./modules/admin-users/routes');
 const { ServiceError: AutofillError } = require('./modules/autofill/errors');
 
 // Load local .env without requiring another runtime dependency.
@@ -164,6 +166,11 @@ const autofillModule = createAutofillModule({
     mokaMode: process.env.MOKA_RULES_MODE || 'off',
     allowedOrigins: [origin, ...(process.env.AUTOFILL_EXTENSION_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean)],
   },
+});
+const adminUsersHandler = createAdminUsersHandler({
+  service: createAdminUsersService({ prisma, onRoleChange: event => console.info('[admin-audit]', JSON.stringify(event)) }),
+  authenticate: authenticateUser,
+  allowedOrigins: [origin],
 });
 const requireRuleOperator = (user, res) => {
   if (user && accountRole(user) === 'admin') return true;
@@ -397,6 +404,7 @@ const server = http.createServer(async (req, res) => {
     // Dispatch before the legacy upload-sized body reader consumes the stream.
     if (url.pathname.startsWith('/autofill/v2/')) return await autofillModule.handle(req, res, url.pathname);
     if (url.pathname === '/admin/autofill/sites') return await autofillModule.handleAdminSites(req, res);
+    if (url.pathname === '/admin/users' || url.pathname.startsWith('/admin/users/')) return await adminUsersHandler(req, res, url);
     if (url.pathname === '/auth/me' && ['GET', 'OPTIONS'].includes(req.method)) {
       const requestOrigin = req.headers.origin;
       const allowed = [origin, ...(process.env.AUTOFILL_EXTENSION_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean)];

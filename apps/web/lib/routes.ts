@@ -5,4 +5,5 @@ export const routes = {
   autofill: "/workspace/autofill",
   applications: "/workspace/applications",
   adminSiteRules: "/workspace/admin/site-rules",
+  adminUsers: "/workspace/admin/users",
 } as const;

@@ -7,7 +7,8 @@ import { useAccount } from "../auth/AuthGate";
 import { isAdminAccount } from "../../features/admin/site-rules";
 import { routes } from "../../lib/routes";
 
-function NavigationIcon({ name }: { name: "person" | "autofill" | "rules" }) {
+function NavigationIcon({ name }: { name: "person" | "autofill" | "rules" | "users" }) {
+  if (name === "users") return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 4v2"/></svg>;
   if (name === "rules") return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 9v11M12 13h5M12 16h3"/></svg>;
   if (name === "autofill") {
     return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="m8 12 2 2 5-5M8 17h8"/></svg>;
@@ -57,6 +58,7 @@ export function WorkspaceSidebar() {
         <span>{item.label}</span><span className="nav-indicator" aria-hidden="true" />
       </Link>)}
       {admin && <Link href={routes.adminSiteRules} aria-current={pathname === routes.adminSiteRules ? "page" : undefined} className={pathname === routes.adminSiteRules ? "active" : ""}><NavigationIcon name="rules" /><span>规则管理</span><span className="nav-indicator" aria-hidden="true" /></Link>}
+      {admin && <Link href={routes.adminUsers} aria-current={pathname === routes.adminUsers ? "page" : undefined} className={pathname === routes.adminUsers ? "active" : ""}><NavigationIcon name="users" /><span>用户管理</span><span className="nav-indicator" aria-hidden="true" /></Link>}
     </nav>
     <div className="sidebar-bottom"><div className="user-card"><span className="avatar">林</span><div><strong>林同学</strong><small>{admin ? '管理员账户' : '求职者账户'}</small></div></div></div>
   </aside>;

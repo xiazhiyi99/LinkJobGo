@@ -1,0 +1,50 @@
+.toolbar { margin-top: 28px; }
+.searchButton, .footer button { padding: 9px 14px; border: 1px solid var(--ws-line); border-radius: 7px; background: #fff; color: var(--ws-ink); font-size: 12px !important; }
+.searchButton:hover, .footer button:hover { background: #edf4ff; }
+.table table { min-width: 1050px; }
+.table tbody th { width: 23%; }
+.table td { line-height: 1.7; }
+.email { display: block; margin-top: 6px; color: #526b8c; font-size: 11px; font-weight: 400; overflow-wrap: anywhere; }
+.self { display: inline-block; margin-left: 8px; color: #75889f; font-size: 10px; font-weight: 400; }
+.role { color: #718198; white-space: nowrap; }
+.role[data-role=admin] { color: var(--ws-blue); }
+.verification { font-size: 11px; white-space: nowrap; color: #8d7b5e; }
+.verification[data-verified=true] { color: #26805c; }
+.count { margin: 0 0 8px; white-space: nowrap; color: #4e6585; font-size: 11px; }
+.count strong { color: var(--ws-ink); font-size: 14px; font-weight: 550; }
+.count > span { display: inline-block; margin-left: 8px; color: #8291a5; font-size: 10px; }
+.websites { display: grid; gap: 5px; }
+.websites > span, .websites details > span { display: flex; align-items: baseline; gap: 10px; }
+.websites small { flex: none; margin: 0; }
+.websites em { font-size: 11px; color: #8291a5; font-style: normal; }
+.websites code { color: #355479; overflow-wrap: anywhere; }
+.websites summary { cursor: pointer; color: var(--ws-blue); font-size: 10px; }
+.edit { border: 0; padding: 0; background: none; color: var(--ws-blue); font-size: 11px !important; white-space: nowrap; }
+.edit:disabled { color: #94a0b2; cursor: default; }
+.success { color: #26805c; font-size: 12px; }
+.footer { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-top: 16px; }
+.footer p { margin: 0; max-width: 560px; }
+.footer nav { display: flex; align-items: center; flex: none; gap: 12px; color: #75859a; font-size: 11px; }
+.footer button { font: inherit; padding: 7px 10px; }
+.footer button:disabled { opacity: .45; cursor: default; }
+.dialog { width: min(450px, calc(100% - 40px)); padding: 28px; border: 1px solid #e2e8f1; border-radius: 16px; color: #20314d; background: #fff; box-shadow: 0 24px 80px #20314d24; }
+.dialog::backdrop { background: #20314d55; backdrop-filter: blur(3px); }
+.dialogHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.dialogHeading p { margin: 0 0 8px; color: #75859a; font-size: 11px; }
+.dialogHeading h2 { margin: 0; font-size: 24px; font-weight: 550; letter-spacing: -.04em; }
+.dialog button { font: inherit; cursor: pointer; }
+.dialogHeading > button { background: none; border: 0; padding: 0 4px; font-size: 24px; color: #7c8ba0; }
+.target { margin: 24px 0; font-size: 14px; }
+.target span { display: block; margin-top: 5px; font-size: 12px; color: #66768c; overflow-wrap: anywhere; }
+.roleSelect { display: grid; gap: 9px; font-size: 12px; }
+.roleSelect select { width: 100%; border: 1px solid #dce5f1; border-radius: 8px; padding: 11px 12px; background: #fafcff; color: #20314d; font: inherit; }
+.explanation { margin: 12px 0; color: #66768c; line-height: 1.8; font-size: 12px; }
+.changeSummary { padding-top: 16px; border-top: 1px solid #e4eaf2; color: #355479; font-size: 12px; }
+.changeSummary span { margin: 0 10px; color: #8d9cb0; }
+.dialogActions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 26px; }
+.dialogActions button { padding: 10px 16px; border: 1px solid #dce5f1; border-radius: 8px; background: #fff; color: #526b8c; font-size: 12px; }
+.dialogActions .primary { background: #0755c7; border-color: #0755c7; color: #fff; }
+.dialog button:disabled { opacity: .45; cursor: default; }
+.error { font-size: 12px; line-height: 1.8; color: #b24c44; }
+.dialog button:focus-visible, .roleSelect select:focus-visible, .footer button:focus-visible { outline: 2px solid #0755c7; outline-offset: 3px; }
+@media (max-width: 900px) { .footer { flex-direction: column; } .footer nav { width: 100%; justify-content: flex-end; } }
