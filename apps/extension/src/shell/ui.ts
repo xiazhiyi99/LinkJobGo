@@ -12,7 +12,7 @@ export interface LauncherRunner {
 export function launcherStartOptions(location: Pick<Location, 'origin' | 'pathname'>, overwriteExisting: boolean, allowCollegeReset: boolean): { overwriteExisting: boolean; allowCollegeReset?: true } {
   return location.origin === 'https://zhaopin.meituan.com' && ['/web/delivery-confirm', '/web/personal-center/resume-detail'].includes(location.pathname) && overwriteExisting && allowCollegeReset ? { overwriteExisting, allowCollegeReset: true } : { overwriteExisting };
 }
-export const phaseLabels: Record<RunnerState['phase'], string> = { idle: '准备填写', analyzing: '识别页面字段', probing: '检查页面与可选项', planning: '匹配简历资料', executing: '正在填写', verifying: '核对填写结果', paused: '已暂停', completed: '本轮填写完成', partial: '还有事项需要处理', cancelled: '已停止填写', failed: '填写未完成' };
+export const phaseLabels: Record<RunnerState['phase'], string> = { idle: '准备填写', analyzing: '识别页面字段', probing: '检查页面与可选项', planning: '匹配简历资料', executing: '正在填写', verifying: '核对填写结果', paused: '已暂停', completed: '本轮填写完成', partial: '填写完毕，有待填事项', cancelled: '已停止填写', failed: '填写未完成' };
 export const isRunning = (phase: RunnerState['phase']) => ['analyzing', 'probing', 'planning', 'executing', 'verifying'].includes(phase);
 export function reasonLabel(reason?: string): string {
   if (!reason || reason === 'pending') return '等待填写或核验';
@@ -124,7 +124,7 @@ export function launcherBubble(state: ShellState): { kind: 'action' | 'status'; 
     case 'verifying': return { kind: 'status', text: '正在核对填写结果…', warning: false };
     case 'paused': return { kind: 'action', text: '继续填写', warning: false };
     case 'completed': return { kind: 'status', text: `填写完成，已核验 ${summary?.verified ?? 0} 项`, warning: false };
-    case 'partial': return { kind: 'status', text: '还有待处理项，请点扩展图标', warning: true };
+    case 'partial': return { kind: 'status', text: phaseLabels.partial, warning: true };
     case 'cancelled': return { kind: 'status', text: '已停止填写', warning: false };
     case 'failed': return { kind: 'status', text: '填写未完成，请点扩展图标', warning: true };
   }
