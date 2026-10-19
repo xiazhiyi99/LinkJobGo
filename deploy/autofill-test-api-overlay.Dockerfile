@@ -5,3 +5,5 @@ ARG SOURCE_REVISION
 LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 COPY apps/api/src/modules/applications/service.js /app/apps/api/src/modules/applications/service.js
 COPY apps/api/src/profile/service.js /app/apps/api/src/profile/service.js
+COPY apps/api/src/profile/update.js /app/apps/api/src/profile/update.js
+COPY apps/api/src/index.js /app/apps/api/src/index.js

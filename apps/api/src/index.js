@@ -13,7 +13,8 @@ const { createResumePdfService } = require('./ai/tasks/resume-pdf');
 const { createBaiduOcrService } = require('./ai/providers/baidu-ocr');
 const { createResumeImportService } = require('./profile/resume-import');
 const { toDatabaseRows } = require('./profile/resume-import');
-const { createProfileService, profileFields, preferenceFields, modelFields, expandRecord } = require('./profile/service');
+const { createProfileService, modelFields, expandRecord } = require('./profile/service');
+const { createProfileUpdater } = require('./profile/update');
 const { sendMail } = require('./auth/mail');
 const { createEmailCodeService } = require('./auth/email-code');
 const { AuthenticationError, createRequestAuthenticator } = require('./auth/request-user');
@@ -771,51 +772,11 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && url.pathname === '/profiles/me') return json(res, 200, await profileService.getProfile(user));
     if (req.method === 'PATCH' && (url.pathname === '/profiles/me' || url.pathname === '/profiles/me/preferences')) {
-      const isPreferences = url.pathname.endsWith('/preferences');
-      const fields = isPreferences ? preferenceFields : profileFields;
-      const model = isPreferences ? prisma.jobPreference : prisma.profile;
-      const where = { userId: user.id };
-      const updateData = splitData(isPreferences ? data : (data.profile || data), fields);
-      const record = await model.upsert({ where, create: { userId: user.id, ...updateData }, update: updateData });
-      let preferencesRecord = null;
-      if (!isPreferences && data.preferences && typeof data.preferences === 'object') {
-        const preferenceData = splitData(data.preferences, preferenceFields);
-        preferencesRecord = await prisma.jobPreference.upsert({ where, create: { userId: user.id, ...preferenceData }, update: preferenceData });
-      }
-      // The profile editor saves its three groups together. Replace the active
-      // rows for each group in one transaction so browser-only draft ids never
-      // leak into the database and a second save cannot create duplicates.
-      if (!isPreferences && data.records && typeof data.records === 'object') {
-        const sectionNames = {
-          教育经历: 'educations',
-          '工作/实习经历': 'experiences',
-          项目经历: 'projects',
-          '在校经历': 'experiences',
-          获奖经历: 'projects',
-          '论文与专利': 'projects',
-          语言能力: 'skills',
-          证书信息: 'skills',
-          技能: 'skills',
-        };
-        const grouped = {};
-        for (const [section, items] of Object.entries(data.records)) {
-          const collection = sectionNames[section];
-          if (!collection || !Array.isArray(items)) continue;
-          grouped[collection] = [...(grouped[collection] || []), ...items.map((item) => ({ item, section }))];
-        }
-        await prisma.$transaction(async (tx) => {
-          for (const [collection, definition] of Object.entries(modelFields)) {
-            const modelForGroup = tx[definition.model];
-            await modelForGroup.updateMany({ where: { userId: user.id, deletedAt: null }, data: { deletedAt: new Date() } });
-            for (const { item, section } of grouped[collection] || []) {
-              const recordData = splitData(item, definition.fields);
-              recordData.extra = { ...(recordData.extra || {}), profileSection: section };
-              await modelForGroup.create({ data: { userId: user.id, ...recordData } });
-            }
-          }
-        });
-      }
-      return json(res, 200, { [isPreferences ? 'preferences' : 'profile']: expandRecord(record), ...(preferencesRecord ? { preferences: expandRecord(preferencesRecord) } : {}) });
+      try {
+        return json(res, 200, await createProfileUpdater({ prisma, splitData }).update(user, data, {
+          preferencesOnly: url.pathname.endsWith('/preferences'),
+        }));
+      } catch (error) { return moduleErrorResponse(res, error); }
     }
 
     const match = url.pathname.match(/^\/profiles\/me\/(educations|experiences|projects|skills)(?:\/([^/]+))?(?:\/(restore))?$/);

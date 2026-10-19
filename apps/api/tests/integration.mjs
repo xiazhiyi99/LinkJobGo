@@ -6,6 +6,7 @@ import { PrismaClient } from '@prisma/client';
 import { validateResumeContext } from '@job-assistant/autofill-contracts';
 import { createProfileService } from '../src/profile/service.js';
 import { createPlatformResumeClient } from '../src/modules/autofill/adapters/resume-client.js';
+import { checkProfileUpdates } from './helpers/profile-update-integration.mjs';
 
 const port = Number(process.env.API_TEST_PORT || 3201);
 const base = `http://127.0.0.1:${port}`;
@@ -272,6 +273,7 @@ try {
       assert.equal(denied.response.status, 401); assert.equal(denied.payload.error.code, 'authentication-required');
     }
   }
+  await checkProfileUpdates(request, educationId);
   console.log('API integration checks passed (including autofill readiness/analyze/plan)');
 } finally {
   await prisma.$disconnect();

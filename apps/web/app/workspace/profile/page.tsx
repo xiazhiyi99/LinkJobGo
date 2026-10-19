@@ -6,6 +6,7 @@ import { ProfileSidebar } from '../../../components/profile/ProfileSidebar';
 import { getProfile, importResume, updateProfile, updateProfilePreferences, uploadResume, type ProfilePayload } from '../../../features/profile/profile-api';
 import type { ResumeDraft } from '../../../features/profile/resume-parser';
 import { validateProfile } from '../../../features/profile/profile-validation';
+import { profileSectionUpdate, skillRecords } from '../../../features/profile/profile-section-update';
 
 type FieldKind = 'text' | 'email' | 'tel' | 'url' | 'date' | 'number' | 'select' | 'textarea';
 type FieldSpan = 'full' | 'half' | 'third' | 'quarter' | 'twoThirds' | 'threeQuarter';
@@ -222,11 +223,12 @@ function hydrateProfile(payload: ProfilePayload) {
     citizenship: textValue(profile.citizenship), nationality: textValue(profile.nationality), politicalStatus: textValue(profile.politicalStatus),
     wechat: textValue(profile.wechat), nativePlace: textValue(profile.nativePlace), highestEducation: textValue(profile.highestEducation),
     firstWorkYear: textValue(profile.firstWorkYear), fullTimeStudent: textValue(profile.fullTimeStudent), hasRelativesInCompany: textValue(profile.hasRelativesInCompany),
-    homeCity: textValue(profile.city || profile.homeCity), website: textValue(profile.personalWebsite || profile.website),
+    homeCity: textValue(profile.city || profile.homeCity), homeDistrict: textValue(profile.homeDistrict), schoolCity: textValue(profile.schoolCity), address: textValue(profile.address),
+    workExperience: textValue(profile.workExperience), interests: textValue(profile.interests), website: textValue(profile.personalWebsite || profile.website),
     github: textValue(profile.githubUrl || profile.github), selfIntroduction: textValue(profile.selfIntroduction),
     targetTitles: textValue(preferences.targetTitles), targetCities: textValue(preferences.targetCities),
     targetIndustries: textValue(preferences.targetIndustries), employmentType: textValue(preferences.employmentType),
-    availableFrom: textValue(preferences.availableFrom), salaryExpectation: textValue(preferences.salaryExpectation), relocation: textValue(preferences.relocation),
+    availableFrom: textValue(preferences.availableFrom), salaryExpectation: textValue(preferences.salaryExpectation), relocation: textValue(preferences.relocation), preferenceNote: textValue(preferences.preferenceNote),
     recommendationMethod: textValue(profile.recommendationMethod), workVisaRequired: textValue(profile.workVisaRequired),
   };
   const skills = recordsValue(source.skills);
@@ -245,34 +247,13 @@ function hydrateProfile(payload: ProfilePayload) {
     获奖经历: recordsValue(source.awards),
     语言能力: languages.length ? languages : skills.filter((item) => item.kind === 'language'),
     证书信息: certificates.length ? certificates : skills.filter((item) => item.kind === 'certificate'),
-    技能: skills.filter((item) => item.kind === 'skill'),
+    技能: skillRecords(skills),
   };
   return { values, records };
 }
 
-function toApiProfile(values: Record<string, string>) {
-  return {
-    name: values.name || '', phone: values.phone || '', city: values.homeCity || '',
-    personalWebsite: values.website || '', githubUrl: values.github || '', selfIntroduction: values.selfIntroduction || '',
-    gender: values.gender || '', birthday: values.birthday || '', citizenship: values.citizenship || '', nationality: values.nationality || '',
-    politicalStatus: values.politicalStatus || '', wechat: values.wechat || '', nativePlace: values.nativePlace || '',
-    highestEducation: values.highestEducation || '', firstWorkYear: values.firstWorkYear || '', fullTimeStudent: values.fullTimeStudent || '',
-    hasRelativesInCompany: values.hasRelativesInCompany || '', recommendationMethod: values.recommendationMethod || '',
-    workVisaRequired: values.workVisaRequired || '',
-  };
-}
-
-function toApiPreferences(values: Record<string, string>) {
-  return {
-    targetTitles: values.targetTitles || '', targetCities: values.targetCities || '',
-    targetIndustries: values.targetIndustries || '', employmentType: values.employmentType || '',
-    availableFrom: values.availableFrom || '', salaryExpectation: values.salaryExpectation || '',
-    relocation: values.relocation || '', preferenceNote: values.preferenceNote || '',
-  };
-}
-
-function FormField({ field, value, onChange }: { field: FieldSpec; value: string; onChange: (value: string) => void }) {
-  const common = { value, onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => onChange(event.target.value), placeholder: field.placeholder, readOnly: field.readOnly };
+function FormField({ field, value, onChange, disabled = false }: { field: FieldSpec; value: string; onChange: (value: string) => void; disabled?: boolean }) {
+  const common = { value, disabled, onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => onChange(event.target.value), placeholder: field.placeholder, readOnly: field.readOnly };
   return <label className={`profile-field profile-field--${field.span || 'half'}`}><span>{field.label}</span>{field.kind === 'textarea' ? <textarea {...common} rows={field.rows || 4} /> : field.kind === 'select' ? <select {...common}>{field.options?.map((option) => <option key={option} value={option === '请选择' || option.startsWith('请选择') ? '' : option}>{option}</option>)}</select> : <input {...common} type={field.kind || 'text'} />}</label>;
 }
 
@@ -291,6 +272,8 @@ export default function ProfilePage() {
   const [removed, setRemoved] = useState<RemovedItem[]>([]);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const saveInFlight = useRef(false);
   const sectionDrafts = useRef<Record<string, { values: Record<string, string>; records: Record<string, ProfileRecord[]>; removed: RemovedItem[] }>>({});
   const { progress, filledFieldCount, experienceCount } = useMemo(() => {
     const total = allSections.reduce((sum, section) => sum + section.fields.length, 0);
@@ -322,6 +305,7 @@ export default function ProfilePage() {
   const beginEdit = (section: SectionDefinition) => { setEditing(section.title); setDraftValues({ ...values }); setDraftRecords(cloneRecords(records)); setRemoved([]); };
   const cancelEdit = () => { if (editing) delete sectionDrafts.current[editing]; setEditing(null); setRemoved([]); };
   const selectSection = (id: string) => {
+    if (saveInFlight.current) return;
     if (id === selectedSectionId) return;
     if (editing) sectionDrafts.current[editing] = { values: draftValues, records: draftRecords, removed };
     const section = allSections.find((_, index) => `profile-section-${index}` === id);
@@ -334,19 +318,30 @@ export default function ProfilePage() {
     setRemoved(draft?.removed || []);
   };
   const save = async (section: SectionDefinition) => {
+    if (saveInFlight.current) return;
     if (section.title === '基本信息') { const errors = validateProfile({ name: draftValues.name || '' }); if (errors.name) { notify(errors.name); return; } }
     const nextValues = section.kind === 'single'
       ? { ...values, ...Object.fromEntries(section.fields.map((field) => [field.key, draftValues[field.key] || ''])) }
       : values;
     const nextRecords = section.kind === 'repeat' ? { ...records, [section.title]: draftRecords[section.title] || [] } : records;
-    delete sectionDrafts.current[section.title];
-    setValues(nextValues); setRecords(nextRecords); setEditing(null); setRemoved([]); notify('已保存');
+    const patch = profileSectionUpdate(section, nextValues, values, nextRecords[section.title] || [], records[section.title] || []);
+    saveInFlight.current = true; setSaving(true);
     try {
-      if (section.title === '求职意向') await updateProfilePreferences(toApiPreferences(nextValues));
-      else await updateProfile({ profile: toApiProfile(nextValues), preferences: toApiPreferences(nextValues), records: nextRecords });
+      const body = section.kind === 'repeat' ? patch : patch[section.title === '求职意向' ? 'preferences' : 'profile'];
+      if (Object.keys(body).length) {
+        const result = section.title === '求职意向' ? await updateProfilePreferences(body) : await updateProfile(patch);
+        if (section.kind === 'repeat') {
+          const saved = (result.records as Record<string, unknown[]>)?.[section.title];
+          if (!Array.isArray(saved)) throw new Error('保存结果缺少经历，请刷新确认');
+          const labels = section.title === '教育经历' ? { active: '在读', inactive: '已毕业' } : section.title === '工作/实习经历' ? { active: '在职', inactive: '已离职' } : undefined;
+          nextRecords[section.title] = recordsValue(saved, labels);
+        }
+      }
+      delete sectionDrafts.current[section.title];
+      setValues(nextValues); setRecords(nextRecords); setEditing(null); setRemoved([]); notify('已保存');
     } catch (error) {
-      notify(error?.status === 401 ? '请先登录后再同步资料' : '已保存本地草稿，服务暂不可用');
-    }
+      notify(error?.status === 401 ? '请先登录后再同步资料' : '保存失败，编辑内容已保留，请重试');
+    } finally { saveInFlight.current = false; setSaving(false); }
   };
 
   const applyResumeDraft = async (draft: ResumeDraft, options?: { replaceFields?: string[]; keepFields?: string[] }) => {
@@ -420,13 +415,13 @@ export default function ProfilePage() {
             const isEditing = editing === section.title;
             const sectionRecords = isEditing ? draftRecords[section.title] || [] : records[section.title] || [];
             return <section id={`profile-section-${sectionIndex}`} role="tabpanel" aria-labelledby={`tab-profile-section-${sectionIndex}`} hidden={selectedSectionId !== `profile-section-${sectionIndex}`} className={`profile-section profile-public-section profile-section--${section.kind}`} key={section.title}>
-              <header><div><h3>{section.title}</h3></div><div className="profile-actions">{isEditing && <button className="profile-button profile-button--quiet" onClick={cancelEdit}>取消</button>}<button className="profile-button" onClick={() => isEditing ? save(section) : beginEdit(section)}>{isEditing ? '保存' : '编辑'}</button></div></header>
-              {section.kind === 'single' ? (isEditing ? <div className="profile-form">{section.fields.map((field) => <FormField key={field.key} field={field} value={draftValues[field.key] || ''} onChange={(value) => setDraftValues((current) => ({ ...current, [field.key]: value }))} />)}</div> : <div className="profile-read-grid">{section.fields.map((field) => <div className={`profile-read-item profile-read-item--${field.span || 'half'}`} key={field.key}><span>{field.label}</span><strong>{values[field.key] || '-'}</strong></div>)}</div>) : <>
-                {isEditing && <div className="profile-form profile-form--repeat">{sectionRecords.map((item) => <div className="profile-record" key={item.id}><div className="profile-record-heading"><span>经历条目</span><button className="profile-remove" onClick={() => removeRecord(section.title, item.id)}>移除</button></div><div className="profile-form">{section.fields.map((field) => <FormField key={field.key} field={field} value={item[field.key] || ''} onChange={(value) => setDraftRecords((current) => ({ ...current, [section.title]: (current[section.title] || []).map((entry) => entry.id === item.id ? { ...entry, [field.key]: value } : entry) }))} />)}</div></div>)}</div>}
+              <header><div><h3>{section.title}</h3></div><div className="profile-actions">{isEditing && <button className="profile-button profile-button--quiet" disabled={saving} onClick={cancelEdit}>取消</button>}<button className="profile-button" disabled={saving || isLoading} onClick={() => isEditing ? save(section) : beginEdit(section)}>{isEditing ? (saving ? '保存中…' : '保存') : '编辑'}</button></div></header>
+              {section.kind === 'single' ? (isEditing ? <div className="profile-form">{section.fields.map((field) => <FormField key={field.key} disabled={saving} field={field} value={draftValues[field.key] || ''} onChange={(value) => setDraftValues((current) => ({ ...current, [field.key]: value }))} />)}</div> : <div className="profile-read-grid">{section.fields.map((field) => <div className={`profile-read-item profile-read-item--${field.span || 'half'}`} key={field.key}><span>{field.label}</span><strong>{values[field.key] || '-'}</strong></div>)}</div>) : <>
+                {isEditing && <div className="profile-form profile-form--repeat">{sectionRecords.map((item) => <div className="profile-record" key={item.id}><div className="profile-record-heading"><span>经历条目</span><button className="profile-remove" disabled={saving} onClick={() => removeRecord(section.title, item.id)}>移除</button></div><div className="profile-form">{section.fields.map((field) => <FormField key={field.key} disabled={saving} field={field} value={item[field.key] || ''} onChange={(value) => setDraftRecords((current) => ({ ...current, [section.title]: (current[section.title] || []).map((entry) => entry.id === item.id ? { ...entry, [field.key]: value } : entry) }))} />)}</div></div>)}</div>}
                 {!isEditing && sectionRecords.map((item, index) => <RecordPreview key={item.id} item={item} fields={section.fields} index={index} />)}
                 {!sectionRecords.length && !isEditing && <div className="profile-empty-state">还没有添加{section.title}，从一条经历开始。</div>}
                 {isEditing && removed.filter((entry) => entry.section === section.title).map((entry) => <div className="profile-undo" key={entry.item.id}>已移除一条记录<button onClick={() => undoRecord(removed.findIndex((item) => item.item.id === entry.item.id))}>撤销</button></div>)}
-                <button className="add-profile" onClick={() => addRecord(section)}>＋ 添加{section.title}</button>
+                <button className="add-profile" disabled={saving || isLoading} onClick={() => addRecord(section)}>＋ 添加{section.title}</button>
               </>}
             </section>;
           })}
