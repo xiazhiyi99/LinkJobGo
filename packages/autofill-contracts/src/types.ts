@@ -23,7 +23,7 @@ export interface SectionSnapshot { sectionId: string; label: string; mode: 'inli
 export interface PageSnapshot { protocolVersion: typeof PROTOCOL_VERSION; documentId: string; pageRevision: number; page: { origin: string; path: string; title: string; hashRoute?: string }; sections: SectionSnapshot[]; }
 export type Derivation = 'alibaba-awards-summary' | 'alibaba-paper-venue' | 'alibaba-paper-author' | 'moka-highest-education-school';
 export interface SemanticBinding { derivation?: Derivation; templateFieldId: string; sourceKey: SourceKey | null; status: 'resolved' | 'unresolved' | 'unsupported'; resolvedBy: 'site' | 'ai' | null; reason?: string; }
-export interface SemanticSection { recordVariants?: { recordType: RecordType; bindings: SemanticBinding[] }[]; recordFilter?: 'papers' | 'alibaba-papers'; sectionId: string; recordType?: RecordType; template: RecordSnapshot; bindings: SemanticBinding[]; }
+export interface SemanticSection { recordVariants?: { recordType: RecordType; bindings: SemanticBinding[] }[]; recordFilter?: 'papers' | 'alibaba-papers' | 'internships'; sectionId: string; recordType?: RecordType; template: RecordSnapshot; bindings: SemanticBinding[]; }
 export interface SemanticPage { documentId: string; pageRevision: number; sections: SemanticSection[]; warnings: string[]; }
 export type PartialSemanticPage = { sections: SemanticSection[]; warnings?: string[] };
 export interface OptionEvidence { documentId: string; pageRevision: number; probeId: string; sectionId: string; viewId: string; templateFieldId: string; recordId?: string; options: OptionSnapshot[]; status: 'ready' | 'unavailable' | 'failed'; customInput?: 'exact-text'; parentValues?: Record<string, Value>; }

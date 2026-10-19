@@ -113,7 +113,7 @@ export function validateSemanticPage(value: unknown, snapshot: PageSnapshot, cat
       if (!template || structure(template) !== structure(section.template)) { add('template', 'Template structure must originate from snapshot'); continue; }
       if (section.recordType !== undefined && !Object.hasOwn(RECORD_FIELDS, section.recordType)) add('recordType', 'Unknown record type');
       if (section.recordVariants !== undefined && (!list(section.recordVariants) || !section.recordVariants.length || section.recordType !== undefined || section.bindings.length || !original.repeatable)) add('recordVariants', 'Mixed section requires exclusive repeated variants');
-      if (section.recordFilter !== undefined && (!['papers', 'alibaba-papers'].includes(section.recordFilter) || section.recordType !== 'publication')) add('recordFilter', 'Invalid record filter');
+      if (section.recordFilter !== undefined && (section.recordFilter === 'internships' ? section.recordType !== 'experience' : !['papers', 'alibaba-papers'].includes(section.recordFilter) || section.recordType !== 'publication')) add('recordFilter', 'Invalid record filter');
       const variants = section.recordVariants ?? [{ recordType: section.recordType, bindings: section.bindings }];
       const types = new Set();
       for (const variant of variants) {

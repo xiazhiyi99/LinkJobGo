@@ -113,6 +113,26 @@ test('Moka registry keeps exact observed hash routes and does not enable drafts'
   assert.throws(() => createConfiguredSiteRegistry({ mokaMode: 'true' }));
 });
 
+test('Moka internship plans retain source IDs and indices after filtering full-time records', async () => {
+  await harness(async ({ post, store, calls, profileService }) => {
+    const base = store.rows.experience[0]; base.extra.employmentType = '正式';
+    store.rows.experience.push(
+      { ...structuredClone(base), id: 'fulltime-second', createdAt: '2026-03-01T00:00:00.000Z' },
+      { ...structuredClone(base), id: 'internship-third', createdAt: '2026-04-01T00:00:00.000Z', extra: { employmentType: '实习' } },
+      { ...structuredClone(base), id: 'unknown-fourth', createdAt: '2026-05-01T00:00:00.000Z', extra: {} },
+    );
+    const snap = snapshot({ origin: 'https://app.mokahr.com', path: '/campus_apply/zuoyebang/144908', hashRoute: '/job/6e0a630d-9d1b-4855-b0c2-a916adf971d3/apply' });
+    snap.sections = [section('internships', '实习经历', [['公司名称'], ['职位名称'], ['工作职责', 'textarea']], true)];
+    const analyzed = await post('analyze', { snapshot: snap }); assert.equal(analyzed.status, 200);
+    const plan = await post('plan', { snapshot: snap, semanticPage: analyzed.data, optionEvidence: [], scope: { sectionIds: ['internships'] } });
+    assert.equal(plan.status, 200, JSON.stringify(plan));
+    assert.deepEqual(plan.data.sections[0].records.map(r => [r.recordId, r.recordIndex, r.targetIndex]), [['internship-third', 2, 0]]);
+    assert.ok(plan.data.sections[0].records[0].assignments.every(a => a.sourceRef.recordId === 'internship-third'));
+    assert.equal(validateFillPlan(plan.data, { snapshot: snap, semanticPage: analyzed.data, catalog: FIELD_CATALOG, resumeContext: await profileService.getAutofillContext(userA) }).ok, true);
+    assert.equal(calls.length, 0);
+  });
+});
+
 test('unknown-site mapping/options traverse the unified HTTP provider and accept only catalog/candidate IDs', async () => {
   await harness(async ({ post, calls, attempts }) => {
     const snap = snapshot({ origin: 'https://new.example.test', path: '/apply' });

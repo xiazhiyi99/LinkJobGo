@@ -85,7 +85,15 @@ const educationLabels: Record<string, string> = { '学校名称': 'school', '专
 const experienceLabels: Record<string, string> = { '公司名称': 'company', '职位名称': 'title', '工作职责': 'description', '至今': 'current' };
 
 export const mokaDraftParser: SiteParser = {
-  id: 'moka', version: '1.0.0', origins: ['https://app.mokahr.com'],
+  id: 'moka', version: '1.1.0', origins: ['https://app.mokahr.com'],
+  includeRecord({ filter, record }) {
+    if (filter !== 'internships' || record.recordType !== 'experience') return false;
+    const type = record.extra?.employmentType;
+    // An explicit type overrides a legacy section label. Unknown records stay
+    // excluded with the existing warning rather than guessing from job titles.
+    if (typeof type === 'string' && type.trim()) return ['实习', '实习生', 'intern', 'internship'].includes(type.trim().toLowerCase());
+    return record.extra?.profileSection === '实习经历';
+  },
   ownsPage(page) { return Boolean(identifyPage(page)); },
   matches(page) { return Boolean(identifyPage(page)); },
   parse({ snapshot, catalog }) {
@@ -106,7 +114,7 @@ export const mokaDraftParser: SiteParser = {
           : repeatable && sectionLabel === '实习经历' && hasRecordShape(section, { '公司名称': isText, '职位名称': isText, '工作职责': field => field.kind === 'textarea' }) ? 'experience' as const : undefined;
         const template = section.records[0]!;
         return {
-          sectionId: section.sectionId, ...(recordType ? { recordType } : {}), template,
+          sectionId: section.sectionId, ...(recordType ? { recordType } : {}), ...(recordType === 'experience' && sectionLabel === '实习经历' ? { recordFilter: 'internships' as const } : {}), template,
           bindings: template.fields.map((field): SemanticBinding => {
             const label = clean(field.label);
             const reason = unsupportedReason(field);

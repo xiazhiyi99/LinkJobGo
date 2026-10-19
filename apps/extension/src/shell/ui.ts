@@ -1,4 +1,6 @@
-import type { RunItem, RunReport } from '@job-assistant/autofill-contracts';
+import type { RunReport } from '@job-assistant/autofill-contracts';
+import { reportSummary, needsReportDetail, needsAttention } from '../report/index.js';
+export { reportSummary } from '../report/index.js';
 import type { RunnerState } from '../runner/index.js';
 import type { ShellState } from './coordinator.js';
 import { LinkSquirrel } from './pet/link-squirrel.js';
@@ -44,12 +46,6 @@ export function warningLabel(warning: string): string {
   // Only the runner's bounded, known instruction may be shown verbatim.
   return /^请先打开「[^」\r\n\u0000-\u001f]{1,100}」的编辑界面，再开始填写。$/.test(warning) ? warning : reasonLabel(warning);
 }
-const isVerified = (item: RunItem) => ['filled', 'already-correct'].includes(item.status) && item.verification !== 'none';
-const isPreserved = (item: RunItem) => item.status === 'skipped' && /preserv|nonempty|existing/.test(item.reason ?? '');
-const parserStamp = (warning: string) => /^site-parser:[^@\s]+@[^@\s]+$/.test(warning);
-export function reportSummary(report: RunReport) {
-  return { verified: report.items.filter(isVerified).length, saved: report.items.filter(item => isVerified(item) && item.verification === 'saved').length, preserved: report.items.filter(isPreserved).length, pending: report.items.filter(item => item.reason === 'pending').length, attention: report.items.filter(item => !isVerified(item) && !isPreserved(item) && item.reason !== 'pending').length, failed: report.items.filter(item => item.status === 'failed').length, warnings: [...new Set(report.warnings)].filter(warning => !parserStamp(warning)) };
-}
 export function renderReport(report: RunReport): string {
   const summary = reportSummary(report);
   return `已验证 ${summary.verified} · 已保留 ${summary.preserved} · 待处理字段 ${summary.attention}${summary.failed ? `（失败 ${summary.failed}）` : ''}${summary.warnings.length ? ` · 页面提醒 ${summary.warnings.length}` : ''}`;
@@ -64,7 +60,7 @@ export function renderReportDetails(root: HTMLElement, report: RunReport | null)
   const opened = root.querySelector('details')?.open ?? false;
   root.replaceChildren(); if (!report) return;
   const summary = reportSummary(report);
-  const items = report.items.filter(item => !isVerified(item) && item.reason !== 'pending');
+  const items = report.items.filter(needsReportDetail);
   if (!items.length && !summary.warnings.length) return;
   const doc = root.ownerDocument, details = doc.createElement('details'), heading = doc.createElement('summary');
   details.open = opened;
@@ -87,7 +83,7 @@ export function shellView(state: ShellState) {
   const interrupted = state.readiness.status === 'failed' && ['cancelled', 'paused'].includes(state.readiness.reason ?? '');
   const blocked = state.readiness.status === 'failed' && !interrupted;
   const terminal = ['completed', 'partial', 'cancelled', 'failed'].includes(state.phase);
-  const firstIssue = state.report?.items.find(item => !isVerified(item) && !isPreserved(item) && !['pending', 'paused'].includes(item.reason ?? ''));
+  const firstIssue = state.report?.items.find(item => needsAttention(item) && item.reason !== 'paused');
   let note = '自动识别、匹配并填写当前页面；完成后请核对。';
   if (checking) note = '正在检查服务授权与简历，检查通过后自动开始。';
   else if (interrupted) note = '检查已停止；已填写内容保留。';

@@ -2,6 +2,7 @@ import { PROTOCOL_VERSION, FIELD_CATALOG, validatePageSnapshot, validateSemantic
 import type { FillAssignment, FillPlan, FillScope, MappingClient, OperationContext, OptionEvidence, PageSnapshot, RecordPlan, SemanticBinding, SourceRef, RunItem, RunReport, SectionPlan, SectionSnapshot, SemanticPage, Value } from '@job-assistant/autofill-contracts';
 import type { AddedRecordProof, BoundRecord, PageSession } from '../page/index.js';
 import type { ControlDriver, InspectionStage, InspectionStageTiming } from '../controls/index.js';
+import { isReportComplete } from '../report/index.js';
 export type RunnerPhase = 'idle' | 'analyzing' | 'probing' | 'planning' | 'executing' | 'verifying' | 'paused' | 'completed' | 'partial' | 'cancelled' | 'failed';
 export type DiagnosticTrigger = 'initial' | 'resume' | 'record-rebind' | 'probe-revision-change' | 'option-refresh' | 'section-continuation';
 export interface RunnerOperationDiagnostic {
@@ -640,7 +641,7 @@ export function createRunner({ page, controls, mappingClient, onProgress, adapte
       // resumed execution, independent final checks and cleanup have succeeded.
       // Equal strings supplied by another warning source are not removed.
       if (transientDeadlineWarnings.size) { report!.warnings = report!.warnings.filter((_, index) => !transientDeadlineWarnings.has(index)); transientDeadlineWarnings.clear(); }
-      report!.status = report!.items.every(item => item.status === 'filled' || item.status === 'already-correct') && report!.warnings.every(isParserStamp) ? 'completed' : 'partial'; emit(report!.status);
+      report!.status = isReportComplete(report!) ? 'completed' : 'partial'; emit(report!.status);
     } catch (error) {
       for (const proof of [...pendingProbes]) await rollbackProbe(proof, true);
       const paused = requested === 'pause' || error instanceof Halt && error.paused; const cancelled = requested === 'cancel' || options.signal?.aborted;
