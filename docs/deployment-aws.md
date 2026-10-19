@@ -170,6 +170,8 @@ docker compose -f docker-compose.prod.yml logs -f api web caddy
 
 ## 更新和回滚
 
+2026-10-18 候选版本使用[显式镜像发布与回滚清单](release/production-promotion-2026-10-18.md)。服务器有本地 Caddy 改动时，不要执行下方旧流程中的 `reset --hard`；先保留现有配置，再使用已验证镜像切换 API/Web。
+
 每次发布使用一个明确的 Git 提交：
 
 ```bash
