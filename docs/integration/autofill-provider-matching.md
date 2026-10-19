@@ -44,7 +44,7 @@ const companyParser: SiteParser = {
 
 需要覆盖字段时，在 `parse` 中调用基础解析器的 `parse(input)`，按 `sectionId/templateFieldId` 修改已确认的差异，并继续经过共享契约校验。不要复制整套字段和日期代码。将规则加入 `createConfiguredSiteRegistry` 的定义列表，同时明确其启停配置。
 
-管理页直接显示运行注册表的 `scope/provider/priority` 和所有域名、路径及 Hash 模式，不另维护一份网站清单。目前管理页仍只读。
+目录接口返回运行注册表的 `scope/provider/priority`；管理页显示规则类型、服务商标识、所有域名、路径及 Hash 模式，不另维护一份网站清单。目前管理页仍只读。
 
 ## 验证界限
 
