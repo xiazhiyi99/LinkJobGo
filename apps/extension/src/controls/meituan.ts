@@ -10,7 +10,7 @@ const visible = (element: HTMLElement) => {
 };
 interface Ownership { before: Map<HTMLElement, string>; focusedBefore: boolean; proven?: HTMLElement; opened: boolean }
 const matches = (element: HTMLElement) => element.ownerDocument.location.origin === 'https://zhaopin.meituan.com' && ['/web/delivery-confirm', '/web/personal-center/resume-detail'].includes(element.ownerDocument.location.pathname);
-const finiteSelectLabels = new Set(['性别', '学历', '成绩排名', '是否全日制', '语言类型', '语言水平', '熟练程度', '语言考试', '工作类型', '发表渠道', '作者顺序']);
+const finiteSelectLabels = new Set(['性别', '学历', '成绩排名', '是否全日制', '实验室', '语言类型', '语言水平', '熟练程度', '语言考试', '工作类型', '发表渠道', '作者顺序']);
 /** No Vue internals or page data: ownership derives from the click's before/after DOM and local geometry. */
 export function createMeituanControlAdapter(): ControlAdapter {
   const comboStates = new WeakMap<HTMLElement, Ownership>();

@@ -25,17 +25,18 @@ async function files(dir) {
   const entries = (await readdir(dir, { withFileTypes: true })).filter(e => e.name !== '.DS_Store').sort((a, b) => a.name.localeCompare(b.name));
   return (await Promise.all(entries.map(e => e.isDirectory() ? files(resolve(dir, e.name)) : [resolve(dir, e.name)]))).flat();
 }
-export async function buildExtension({ config = buildConfiguration(), outdir = resolve(root, 'dist') } = {}) {
+export async function buildExtension({ config = buildConfiguration(), outdir = resolve(root, 'dist'), traceTiming = false } = {}) {
+  if (traceTiming && !config.development) throw new Error('Timing traces require a development build');
   const require = createRequire(import.meta.url);
   const compiler = require.resolve('typescript/package.json');
   execFileSync(process.execPath, [resolve(dirname(compiler), require(compiler).bin.tsc), '--noEmit'], { cwd: root, stdio: 'inherit' });
   const sources = [...await files(resolve(root, 'src')), resolve(root, 'manifest.json'), resolve(root, 'package.json'), resolve(root, 'tsconfig.json'), fileURLToPath(import.meta.url), resolve(root, '../../pnpm-lock.yaml'), ...await files(resolve(root, '../../packages/autofill-contracts/src'))];
-  const hash = createHash('sha256').update(JSON.stringify(config));
+  const hash = createHash('sha256').update(JSON.stringify({ ...config, traceTiming }));
   for (const file of sources.filter(f => !f.endsWith('.md'))) hash.update(relative(root, file)).update(await readFile(file));
   const buildId = hash.digest('hex').slice(0, 20);
   await rm(outdir, { force: true, recursive: true }); await mkdir(outdir, { recursive: true });
-  const define = { __AUTOFILL_BUILD_ID__: JSON.stringify(buildId), __PLATFORM_API_ORIGIN__: JSON.stringify(config.apiOrigin), __PLATFORM_API_PATH_PREFIX__: JSON.stringify(config.apiPathPrefix ?? ''), __PLATFORM_LOGIN_URL__: JSON.stringify(config.loginUrl ?? new URL('/login', config.apiOrigin).href), __PLATFORM_DEVELOPMENT__: JSON.stringify(config.development) };
-  for (const name of ['content', 'background', 'popup']) await build({ entryPoints: [resolve(root, `src/shell/${name}.ts`)], outfile: resolve(outdir, name + '.js'), bundle: true, format: name === 'content' ? 'iife' : 'esm', platform: 'browser', target: 'chrome120', define });
+  const define = { __AUTOFILL_BUILD_ID__: JSON.stringify(buildId), __AUTOFILL_TRACE_TIMING__: JSON.stringify(traceTiming), __PLATFORM_API_ORIGIN__: JSON.stringify(config.apiOrigin), __PLATFORM_API_PATH_PREFIX__: JSON.stringify(config.apiPathPrefix ?? ''), __PLATFORM_LOGIN_URL__: JSON.stringify(config.loginUrl ?? new URL('/login', config.apiOrigin).href), __PLATFORM_DEVELOPMENT__: JSON.stringify(config.development) };
+  for (const name of ['content', 'background', 'popup']) await build({ entryPoints: [resolve(root, `src/shell/${name}.ts`)], outfile: resolve(outdir, name + '.js'), bundle: true, minifySyntax: !config.development, format: name === 'content' ? 'iife' : 'esm', platform: 'browser', target: 'chrome120', define });
   for (const filename of ['popup.html', 'popup.css']) await cp(resolve(root, 'src/shell', filename), resolve(outdir, filename));
   await mkdir(resolve(outdir, 'pet')); await cp(resolve(root, 'src/shell/pet/squirrel-motion.webp'), resolve(outdir, 'pet/squirrel-motion.webp'));
   const manifest = JSON.parse(await readFile(resolve(root, 'manifest.json'), 'utf8'));

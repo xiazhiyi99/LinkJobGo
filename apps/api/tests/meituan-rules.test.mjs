@@ -44,6 +44,14 @@ test('paper sections never receive patent records or unsupported channel/impact-
   assert.equal(validateSemanticPage({ protocolVersion: 'autofill.next.v2', documentId: snap.documentId, pageRevision: 1, ...result }, snap, FIELD_CATALOG).ok, true);
 });
 
+test('laboratory names and classification levels remain distinct sources', () => {
+  const snap = snapshot([section('教育经历', ['实验室', '请输入实验室'])]);
+  snap.sections[0].records[0].fields[0].kind = 'combobox';
+  const result = parserFor(snap).parse({ snapshot: snap, catalog: FIELD_CATALOG });
+  assert.deepEqual(result.sections[0].bindings.map(binding => binding.sourceKey.path), [['extra', 'laboratoryLevel'], ['extra', 'laboratory']]);
+  assert.equal(validateSemanticPage({ protocolVersion: 'autofill.next.v2', documentId: snap.documentId, pageRevision: 1, ...result }, snap, FIELD_CATALOG).ok, true);
+});
+
 test('author aliases distinguish first author from shared first author and reject ambiguous matches', () => {
   const parser = parserFor(snapshot([section('论文', ['作者顺序'])]));
   const sourceKey = { scope: 'record', recordType: 'publication', path: ['fields', 'role'] };

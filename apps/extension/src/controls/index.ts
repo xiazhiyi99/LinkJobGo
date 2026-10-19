@@ -3,7 +3,7 @@ import type { ActionHandle, AddedRecordProof, ControlTarget, FieldHandle, PageSe
 
 export type InspectionStage = 'open' | 'query' | 'options' | 'cleanup';
 export interface InspectionStageTiming { stage: InspectionStage; durationMs: number; outcome: 'ok' | 'failed' }
-export interface ControlContext extends OperationContext { sectionId: string; viewId?: string; overwrite?: 'preserve' | 'replace'; replaceIfValue?: { value: Value }; allowCollegeReset?: boolean; query?: string; cleanupDeadlineAt?: number; onInspectionStage?: (timing: InspectionStageTiming) => void }
+export interface ControlContext extends OperationContext { sectionId: string; viewId?: string; overwrite?: 'preserve' | 'replace'; replaceIfValue?: { value: Value }; allowCollegeReset?: boolean; query?: string; cleanupDeadlineAt?: number; onInspectionStage?: (timing: InspectionStageTiming) => void; verification?: 'existing' | 'after-write' }
 export interface ControlValue { value: Value }
 export interface ControlInspection { supported: boolean; kind: ControlTarget['kind']; optionEvidence?: OptionEvidence }
 export interface WriteReceipt { attempted: boolean; value: Value }
@@ -172,6 +172,7 @@ export function createControlDriver({ page, adapters = [] }: { page: PageSession
   let disposed = false;
   const lifetime = new AbortController();
   const probes = new Map<string, { probeId: string; nodes: Map<string, HTMLElement>; labels: Map<string, string>; parentState: string; query?: string; customInput?: 'exact-text' }>();
+  const settledWrites = new WeakMap<HTMLElement, { documentId: string; pageRevision: number; fieldId: string; value: Value; at: number }>();
   // Diagnostic observers receive enums and durations only. They are never an
   // authority for control behavior, and their exceptions cannot escape.
   const inspectionClock = (ctx: ControlContext) => {
@@ -568,12 +569,21 @@ export function createControlDriver({ page, adapters = [] }: { page: PageSession
     verifyControl(handle, assignment, ctx) { return boundary(async () => {
       const inspected = field(handle, ctx);
       if (inspected.kind === 'combobox' && Array.isArray(assignment.value) && !comboAdapter(inspected.element)?.multiple) throw new ControlError('multiple-not-supported', 'unsupported');
-      const actual = await stableRead(handle, ctx);
       const probe = probes.get(handle.fieldId);
       const expected = typeof assignment.value === 'string' ? probe?.labels.get(assignment.value) ?? assignment.value : Array.isArray(assignment.value) ? assignment.value.map(value => probe?.labels.get(value) ?? value) : assignment.value;
       const target = field(handle, ctx);
       const native = target.kind === 'select' ? nativeOptions(handle, target.element as HTMLSelectElement) : target.kind === 'radio' ? target.elements.map((node, index) => ({ optionId: `${handle.fieldId}-radio-${index}`, label: radioLabel(node) })) : [];
       const expectedNative = typeof expected === 'string' ? native.find(option => option.optionId === expected)?.label ?? expected : Array.isArray(expected) ? expected.map(value => native.find(option => option.optionId === value)?.label ?? value) : expected;
+      const current = readTarget(target);
+      // A mismatch already proves that a write is needed. Waiting cannot make
+      // an unrelated old value better evidence for an idempotency check.
+      if (ctx.verification === 'existing' && norm(current) !== norm(expectedNative)) return { matches: false, actual: current };
+      const settled = settledWrites.get(target.element);
+      // writeControl already waited for stability. Reuse that observation only
+      // for this exact binding and unchanged value, immediately after the write.
+      // The independent final pass still uses the normal stable read.
+      const reuse = ctx.verification === 'after-write' && settled && settled.documentId === handle.documentId && settled.pageRevision === handle.pageRevision && settled.fieldId === handle.fieldId && Date.now() - settled.at < 500 && norm(current) === norm(settled.value);
+      const actual = reuse ? current : await stableRead(handle, ctx);
       const adapted = comboAdapter(target.element);
       return { matches: norm(actual) === norm(expectedNative) && !(adapted?.multiple && (adapted.isOpen?.() ?? Boolean(linkedPanel(target.element)))), actual };
     }); },
@@ -833,6 +843,7 @@ export function createControlDriver({ page, adapters = [] }: { page: PageSession
         if (dateAdapter(target.element)) await chooseDate(handle, ctx, target, String(value)); else setInput(input, String(value));
       } else throw new ControlError('unsupported-control', 'unsupported');
       const actual = await stableRead(handle, ctx);
+      settledWrites.set(field(handle, ctx).element, { documentId: handle.documentId, pageRevision: handle.pageRevision, fieldId: handle.fieldId, value: actual, at: Date.now() });
       return { attempted: true, value: actual };
       } finally { if (replacement) guardEvents.forEach(event => target.element.removeEventListener(event, changed, true)); }
     }); },

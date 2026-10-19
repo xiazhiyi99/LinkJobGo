@@ -13,13 +13,22 @@ export function createMeituanPageAdapter(): SiteAdapter {
     reuseStructureWithinTask: true,
     incrementalSections: true,
     isTransientMutation(mutation) {
-      const portals = '.mtd-select-popup,.mtd-datepicker-pop';
+      const portals = '.mtd-select-popup,.mtd-select-popup-wrapper,.mtd-datepicker-pop';
       const safe = (element: Element) => !element.matches('style,link,script,iframe,form') && !element.querySelector('style,link,script,iframe,form') && !element.shadowRoot && !Array.from(element.querySelectorAll('*')).some(node => node.shadowRoot);
       const target = mutation.target.nodeType === 1 ? mutation.target as Element : mutation.target.parentElement;
       const popup = target?.closest(portals);
       if (popup) return safe(popup) && [...mutation.addedNodes, ...mutation.removedNodes].every(node => node.nodeType !== 1 || safe(node as Element));
       const changed = [...mutation.addedNodes, ...mutation.removedNodes];
-      return mutation.type === 'childList' && Boolean(target?.matches('body')) && changed.length > 0 && changed.every(node => node.nodeType === 1 && (node as Element).matches(portals) && safe(node as Element));
+      if (mutation.type === 'childList' && target?.matches('body') && changed.length > 0 && changed.every(node => node.nodeType === 1 && (node as Element).matches(portals) && safe(node as Element))) return true;
+      // This adapter deliberately scans only the declared resume sections.
+      // Animation/text changes in unrelated UI cannot add fields there. Keep
+      // ancestors, resources and anything resembling a form on the full path,
+      // including a section whose identifying class has just been removed.
+      // Unscoped controls (including MTD's hidden height-measurement textarea
+      // and other extensions' editors) are outside this adapter's field set.
+      const formStructure = `${selectors},.mtd-form,.model_list,.list_add,.model_title`;
+      const unrelated = (element: Element) => safe(element) && !element.matches(`html,head,body,${formStructure}`) && !element.closest(selectors) && !element.querySelector(formStructure);
+      return Boolean(target && unrelated(target) && changed.every(node => node.nodeType !== 1 || unrelated(node as Element)));
     },
     includeUnscopedFields: false,
     sections(document) { return Array.from(document.querySelectorAll(selectors)); },

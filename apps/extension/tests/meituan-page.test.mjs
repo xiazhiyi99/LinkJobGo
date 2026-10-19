@@ -25,14 +25,20 @@ test('rollback accepts the actual information/experience labels only within veri
 });
 
 test('only isolated option/calendar portal mutations bypass form rescanning', () => {
-  const body = { nodeType: 1, matches: selector => selector === 'body', closest: () => null };
+  const body = { nodeType: 1, shadowRoot: null, matches: selector => selector.split(',').includes('body'), closest: () => null, querySelector: () => null, querySelectorAll: () => [] };
   const popup = { nodeType: 1, shadowRoot: null, matches: selector => selector.includes('.mtd-select-popup'), querySelector: () => null, querySelectorAll: () => [], closest() { return this; } };
   const mutation = (target, addedNodes = [], removedNodes = [], type = 'childList') => ({ target, addedNodes, removedNodes, type });
   assert.equal(adapter.isTransientMutation(mutation(body, [popup])), true);
   assert.equal(adapter.isTransientMutation(mutation(popup, [], [], 'attributes')), true);
   assert.equal(adapter.isTransientMutation(mutation(body, [], [popup])), true);
   assert.equal(adapter.isTransientMutation(mutation(body, [{ ...popup, matches: () => false }])), false);
-  assert.equal(adapter.isTransientMutation(mutation({ nodeType: 1, closest: () => null }, [], [], 'attributes')), false, 'ordinary field/section changes must still invalidate bindings');
+  const field = { nodeType: 1, shadowRoot: null, matches: selector => selector.includes('input'), closest: selector => selector.includes('.edu_experience_edit') ? {} : null, querySelector: () => null, querySelectorAll: () => [] };
+  assert.equal(adapter.isTransientMutation(mutation(field, [], [], 'attributes')), false, 'ordinary field/section changes must still invalidate bindings');
   assert.equal(adapter.isTransientMutation(mutation(body, [{ ...popup, querySelector: () => ({ tagName: 'STYLE' }) }])), false, 'styles in a portal may affect the whole form');
   assert.equal(adapter.isTransientMutation(mutation(body, [{ ...popup, shadowRoot: {} }])), false, 'new accessible roots need full discovery');
+  const unrelated = { nodeType: 1, shadowRoot: null, matches: () => false, closest: () => null, querySelector: () => null, querySelectorAll: () => [] };
+  assert.equal(adapter.isTransientMutation(mutation(unrelated, [], [], 'attributes')), true, 'unrelated decorative animations do not change resume controls');
+  assert.equal(adapter.isTransientMutation(mutation({ ...unrelated, querySelector: () => ({ className: 'list_add' }) }, [], [], 'attributes')), false, 'removing an empty section class still invalidates structure');
+  assert.equal(adapter.isTransientMutation(mutation({ ...field, closest: () => null }, [], [], 'attributes')), true, 'controls outside the declared resume sections do not change this adapter field set');
+
 });

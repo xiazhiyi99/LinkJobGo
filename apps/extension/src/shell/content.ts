@@ -11,6 +11,7 @@ import { createStartCoordinator } from './coordinator.js';
 import { mountLauncher, launcherStartOptions } from './ui.js';
 import { extension, type MessageSender } from './chrome.js';
 declare const __AUTOFILL_BUILD_ID__: string;
+declare const __AUTOFILL_TRACE_TIMING__: boolean;
 const instanceKey = Symbol.for('resume.next.content.instances');
 const contentGlobal = globalThis as unknown as Record<symbol, WeakMap<Document, () => void>>;
 const instances = contentGlobal[instanceKey] ??= new WeakMap<Document, () => void>();
@@ -27,6 +28,14 @@ export function bootstrapContent({ config = {} }: { config?: { document?: Docume
     return commandDocumentId;
   };
   const coordinator = createStartCoordinator({ runner, readinessClient: createReadinessClient({ transport: config.transport ?? backgroundTransport }), getDocumentId: currentDocumentId });
+  // Local development profiling only. Production builds erase this listener;
+  // no résumé values, source IDs, account data or credentials are logged.
+  let tracedCommand = 0;
+  const stopTimingTrace = __AUTOFILL_TRACE_TIMING__ ? coordinator.subscribe(state => {
+    if (!state.commandTiming?.finishedAt || tracedCommand === state.commandTiming.startedAt) return;
+    tracedCommand = state.commandTiming.startedAt;
+    console.info('[lingke:timing]', JSON.stringify({ buildId: __AUTOFILL_BUILD_ID__, durationMs: state.commandTiming.finishedAt - state.commandTiming.startedAt, phaseMs: state.timing?.phaseMs, diagnostics: state.timing?.diagnostics }));
+  }) : () => {};
   const root = doc.createElement('div'); root.id = 'resume-next-launcher'; root.dataset.autofillExclude = 'true'; root.dataset.extensionId = extension.runtime.id;
   doc.documentElement.append(root);
   const unmount = mountLauncher({ runner: coordinator, root, spriteUrl: extension.runtime.getURL('pet/squirrel-motion.webp') });
@@ -76,7 +85,7 @@ export function bootstrapContent({ config = {} }: { config?: { document?: Docume
     respond(publicPopupState(commandState()));
   };
   extension.runtime.onMessage.addListener(listener);
-  const dispose = () => { coordinator.cancel(); coordinator.dispose(); runner.dispose(); controls.dispose(); page.dispose(); unmount(); extension.runtime.onMessage.removeListener(listener); doc.defaultView?.removeEventListener('pagehide', pageHide); instances.delete(doc); };
+  const dispose = () => { stopTimingTrace(); coordinator.cancel(); coordinator.dispose(); runner.dispose(); controls.dispose(); page.dispose(); unmount(); extension.runtime.onMessage.removeListener(listener); doc.defaultView?.removeEventListener('pagehide', pageHide); instances.delete(doc); };
   // BFCache restores the same Document without reinjecting content scripts.
   // Cancel its work while hidden, but retain the launcher/listener for restore.
   const pageHide = (event: PageTransitionEvent) => { if (!event.isTrusted) return; if (event.persisted) coordinator.cancel(); else dispose(); };

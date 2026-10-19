@@ -13,7 +13,7 @@ export const FIELD_CATALOG: FieldCatalog = [
   { sourceKey: { scope: 'record', recordType: 'project', path: ['extra', 'organization'] }, label: '项目所属组织', valueType: 'string' },
   { sourceKey: { scope: 'record', recordType: 'publication', path: ['extra', 'publicationType'] }, label: '成果类型', valueType: 'string' },
   { sourceKey: { scope: 'record', recordType: 'language', path: ['extra', 'score'] }, label: '语言考试分数', valueType: 'string' },
-  ...Object.entries({ college: '所属学院', rank: '成绩排名', fullTime: '是否全日制教育', laboratory: '实验室', advisor: '导师', researchDirection: '研究方向' }).map(([key, label]) => ({ sourceKey: { scope: 'record' as const, recordType: 'education' as const, path: ['extra', key] }, label, valueType: 'string' as const })),
+  ...Object.entries({ college: '所属学院', rank: '成绩排名', fullTime: '是否全日制教育', laboratory: '实验室名称', laboratoryLevel: '实验室级别', advisor: '导师', researchDirection: '研究方向' }).map(([key, label]) => ({ sourceKey: { scope: 'record' as const, recordType: 'education' as const, path: ['extra', key] }, label, valueType: 'string' as const })),
   ...Object.entries({ department: '工作部门', employmentType: '工作类型' }).map(([key, label]) => ({ sourceKey: { scope: 'record' as const, recordType: 'experience' as const, path: ['extra', key] }, label, valueType: 'string' as const })),
   ...PROFILE_FIELDS.map(field => ({ sourceKey: { scope:'profile' as const, path:[field] }, label:labels[field]!, valueType:'string' as const })),
   ...PREFERENCE_FIELDS.map(field => ({ sourceKey: { scope:'preferences' as const, path:[field] }, label:labels[field]!, valueType:'string' as const })),

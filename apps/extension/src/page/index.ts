@@ -398,7 +398,7 @@ export class PageSession {
       return this.snapshot!;
     } finally { this.refreshing = false; this.performanceMetrics.refreshMs += performance.now() - started; }
   }
-  async scanPage(ctx: OperationContext = {}): Promise<StepResult<PageSnapshot>> { return this.check(ctx) ?? ok(this.refresh(true)); }
+  async scanPage(ctx: OperationContext = {}): Promise<StepResult<PageSnapshot>> { return this.check(ctx) ?? ok(this.refresh(!this.adapter?.incrementalSections)); }
   async scanSection(sectionId: string, ctx: OperationContext = {}): Promise<StepResult<SectionSnapshot>> { const error = this.check(ctx); if (error) return error; const section = this.refreshSection(sectionId).sections.find(s => s.sectionId === sectionId); return section ? ok(section) : fail('missing-section', 'Section no longer exists'); }
   getDiagnostics(): Array<{ code: string; message: string }> { if (this.disposed) return []; this.refresh(); return this.diagnostics.map(item => ({ ...item })); }
   getIdentity(): { documentId: string; pageRevision: number } { if (!this.disposed) this.refresh(); return { documentId: this.documentId, pageRevision: this.revision }; }

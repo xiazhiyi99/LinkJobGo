@@ -4,11 +4,14 @@ import { build } from 'esbuild';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { buildConfiguration } from '../scripts/build.mjs';
+import { buildConfiguration, buildExtension } from '../scripts/build.mjs';
 const bundled = await build({ stdin: { contents: "export * from './src/platform/auth.ts'; export * from './src/platform/api-client.ts'; export * from './src/shell/background.ts'; export * from './src/shell/debug-access.ts';", resolveDir: fileURLToPath(new URL('../', import.meta.url)) }, bundle: true, write: false, format: 'esm', platform: 'node', define: { __PLATFORM_API_ORIGIN__: '"http://127.0.0.1:3001"', __PLATFORM_API_PATH_PREFIX__: '""', __PLATFORM_LOGIN_URL__: '"http://127.0.0.1:3000/login"', __PLATFORM_DEVELOPMENT__: 'true' } });
 const { createAuthService, createApiClient, createBackground, PlatformError, publicPopupState, adminOnly } = await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString('base64')}`);
 const user = { id:'synthetic-user', email:'synthetic@example.test', role:'user', emailVerified:true, capabilities:{extensionDebug:false} };
 const metadata = () => ({protocolVersion:'autofill.next.v2',requestId:crypto.randomUUID(),runId:crypto.randomUUID(),deadlineAt:Date.now()+2000});
+test('production builds cannot enable local timing traces', async () => {
+  await assert.rejects(buildExtension({ config: { development: false }, traceTiming: true }), /Timing traces require a development build/);
+});
 async function upstream(run) {
   const received=[];
   let respond=(req,input)=>({status:200,body:req.url.endsWith('/auth/me')?{user}:{ok:true,requestId:input.requestId,data:{}}});

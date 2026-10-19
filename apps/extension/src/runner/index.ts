@@ -182,7 +182,9 @@ export function createRunner({ page, controls, mappingClient, onProgress, adapte
     let snapshot = await scan(); documentId = snapshot.documentId; report!.documentId = documentId;
     const sources = snapshot.sections.filter(section => !options.scope || options.scope.sectionIds.includes(section.sectionId)); const selected: Array<{ source: SectionSnapshot; editor: SectionSnapshot; savedViewId?: string; addition?: { record: SectionSnapshot['records'][number]; proof: AddedRecordProof } }> = [];
     for (const source of sources) {
-      check(); const addition = source.mode === 'inline' && controls.rollbackAddedRecord && page.canProbeAddition(source.sectionId) && source.actions.some(candidate => candidate.kind === 'add-record') ? await probeAddition(source) : undefined;
+      // Existing controls already provide a real template. Probe only empty
+      // collections; later conditional differences still go through rebind.
+      check(); const addition = !source.records.some(record => record.fields.length) && source.mode === 'inline' && controls.rollbackAddedRecord && page.canProbeAddition(source.sectionId) && source.actions.some(candidate => candidate.kind === 'add-record') ? await probeAddition(source) : undefined;
       if (addition) snapshot = await scan();
       let savedViewId: string | undefined; let editor = addition ? snapshot.sections.find(candidate => candidate.sectionId === source.sectionId) : source.records.some(record => record.fields.length) ? source : editorFor(source, snapshot);
       if (!editor) {
@@ -451,12 +453,12 @@ export function createRunner({ page, controls, mappingClient, onProgress, adapte
       bound = await bind(entry, unwrap(await page.scanSection(bound.sectionId, context())), bound.viewId, record);
       const resultItem = item(entry, record, assignment), handle = bound.fieldMap[assignment.templateFieldId];
       if (!handle) { resultItem.status = 'failed'; resultItem.reason = 'missing-field-binding'; continue; }
-      const existing = await controls.verifyControl(handle, pending.assignment, cctx(bound)); check();
+      const existing = await controls.verifyControl(handle, pending.assignment, { ...cctx(bound), verification: 'existing' }); check();
       if (existing.status === 'ok' && existing.value.matches) { resultItem.status = 'already-correct'; resultItem.reason = undefined; resultItem.verification = 'readback'; entry.expected.set(key, { ...pending.assignment, value: existing.value.actual }); continue; }
       const wrote = await controls.writeControl(handle, pending.assignment, cctx(bound)); check();
       if (wrote.status !== 'ok') { resultItem.status = wrote.status === 'needs-user' || wrote.status === 'unsupported' ? 'needs-user' : 'failed'; resultItem.reason = wrote.code; continue; }
       bound = await bind(entry, unwrap(await page.scanSection(bound.sectionId, context())), bound.viewId, record);
-      const verified = await controls.verifyControl(bound.fieldMap[assignment.templateFieldId]!, pending.assignment, cctx(bound)); check();
+      const verified = await controls.verifyControl(bound.fieldMap[assignment.templateFieldId]!, pending.assignment, { ...cctx(bound), verification: 'after-write' }); check();
       resultItem.status = verified.status === 'ok' && verified.value.matches ? 'filled' : 'failed'; resultItem.reason = resultItem.status === 'filled' ? undefined : verified.status === 'ok' ? 'readback-mismatch' : verified.code; resultItem.verification = resultItem.status === 'filled' ? 'readback' : 'none';
       if (verified.status === 'ok' && verified.value.matches) entry.expected.set(key, { ...pending.assignment, value: verified.value.actual });
       emit('executing');
@@ -556,7 +558,7 @@ export function createRunner({ page, controls, mappingClient, onProgress, adapte
               }
             }
           }
-          const existing = await controls.verifyControl(handle, assignment, cctx(bound));
+          const existing = await controls.verifyControl(handle, assignment, { ...cctx(bound), verification: 'existing' });
           if (existing.status === 'ok' && existing.value.matches) { resultItem.status = 'already-correct'; resultItem.reason = undefined; resultItem.verification = 'readback'; entry.expected.set(assignmentKey(record, assignment), { ...assignment, value: existing.value.actual }); emit('executing'); continue; }
           const linkedBefore = await linkedDefaultBefore(entry, record, assignment, bound);
           const dependentProof = linkedDefaults.get(assignment.templateFieldId);
@@ -576,7 +578,7 @@ export function createRunner({ page, controls, mappingClient, onProgress, adapte
             continue;
           }
           bound = await bind(entry, unwrap(await page.scanSection(bound.sectionId, context())), bound.viewId, record);
-          const verified = await controls.verifyControl(bound.fieldMap[assignment.templateFieldId]!, assignment, cctx(bound)); check();
+          const verified = await controls.verifyControl(bound.fieldMap[assignment.templateFieldId]!, assignment, { ...cctx(bound), verification: 'after-write' }); check();
           if (linkedBefore && wrote.value.attempted && verified.status === 'ok' && verified.value.matches && await linkedDefaultCurrent(linkedBefore, record, bound)) linkedDefaults.set(linkedBefore.templateFieldId, linkedBefore);
           if (verified.status === 'ok' && verified.value.matches) { entry.expected.set(assignmentKey(record, assignment), { ...assignment, value: verified.value.actual }); if (pairedDate(record, assignment)) entry.dateWrites.set(assignmentKey(record, assignment), ++writeSequence); }
           resultItem.status = verified.status === 'ok' && verified.value.matches ? 'filled' : 'failed'; resultItem.reason = resultItem.status === 'filled' ? undefined : verified.status === 'ok' ? 'readback-mismatch' : verified.code; resultItem.verification = resultItem.status === 'filled' ? 'readback' : 'none'; emit('executing');

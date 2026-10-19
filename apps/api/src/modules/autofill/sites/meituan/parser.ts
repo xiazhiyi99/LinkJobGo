@@ -30,7 +30,7 @@ const noEquivalent: Partial<Record<RecordType, readonly string[]>> = {
 };
 const clean = (value: string) => value.replace(/[\s*：:]/g, '');
 export const meituanParser: SiteParser = {
-  id: 'meituan-resume', version: '1.4.1', origins: ['https://zhaopin.meituan.com'],
+  id: 'meituan-resume', version: '1.4.2', origins: ['https://zhaopin.meituan.com'],
   includeRecord: ({ record }) => record.recordType === 'publication' && typeof record.extra?.publicationType === 'string' && ['论文', '会议论文', '期刊论文', 'paper', 'conference paper', 'journal article'].includes(record.extra.publicationType.trim().toLowerCase()),
   resolveOption(input) {
     if (input.sourceKey.scope === 'record' && input.sourceKey.recordType === 'publication' && input.sourceKey.path.join('.') === 'fields.role') {
@@ -58,7 +58,10 @@ export const meituanParser: SiteParser = {
             const unsupported = Boolean(recordType && noEquivalent[recordType]?.includes(clean(field.label)));
             const fieldName = recordType ? recordLabels[recordType]?.[clean(field.label)] :
               ['基本信息', '基础信息', '个人信息'].includes(label) ? profileLabels[clean(field.label)] : undefined;
-            const extraName = recordType && extraLabels[recordType]?.[clean(field.label)];
+            // The observed lab select asks for a level (国家级/省部级/校级),
+            // while the adjacent text input asks for its name. Never search
+            // classification options using the laboratory name.
+            const extraName = recordType === 'education' && clean(field.label) === '实验室' && field.kind === 'combobox' ? 'laboratoryLevel' : recordType && extraLabels[recordType]?.[clean(field.label)];
             const sourceKey: SourceKey | null = extraName ? { scope: 'record', recordType: recordType!, path: ['extra', extraName] } : fieldName ? recordType
               ? { scope: 'record', recordType, path: ['fields', fieldName] }
               : { scope: 'profile', path: [fieldName] } : null;
