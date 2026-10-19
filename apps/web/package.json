@@ -6,7 +6,7 @@
     "dev": "pnpm --filter @job-assistant/extension build:download && next dev",
     "build": "pnpm --filter @job-assistant/extension build:download && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next typegen && tsc --noEmit"
   },
   "dependencies": {
     "@gsap/react": "latest",

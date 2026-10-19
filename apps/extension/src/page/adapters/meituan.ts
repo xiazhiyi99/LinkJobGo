@@ -5,16 +5,18 @@ const sectionLabels: Record<string, string> = {
   work_experience_edit: '工作经历', project_experience_edit: '项目经历', campus_experience_edit: '校园经历',
   honor_edit: '荣誉', certificate_edit: '证书', paper_edit: '论文', competition_edit: '竞赛经历',
 };
-const probedSections = ['edu_experience_edit','work_experience_edit','project_experience_edit','language_standard_edit'];
+const probedSections = ['edu_experience_edit','work_experience_edit','project_experience_edit','language_standard_edit','campus_experience_edit','honor_edit','certificate_edit','paper_edit'];
 /** Only Meituan's documented DOM structure; no résumé mapping, writes, or option-value extraction. */
 export function createMeituanPageAdapter(): SiteAdapter {
   const selectors = Object.keys(sectionLabels).map(name => `.${name}`).join(',');
   return {
+    reuseStructureWithinTask: true,
+    incrementalSections: true,
     includeUnscopedFields: false,
     sections(document) { return Array.from(document.querySelectorAll(selectors)); },
     records(section) { return probedSections.some(name => section.classList.contains(name)) ? Array.from(section.querySelectorAll('.model_list')).filter(row => row.querySelectorAll(':scope > .mtd-form').length === 1) : Array.from(section.querySelectorAll('.model_list > .mtd-form,.base_info_form')); },
     canProbeAddition(section) { return probedSections.some(name => section.classList.contains(name)) && Boolean(section.querySelector('.list_add')); },
-    rollbackAddedRecord(record) { if (!record.matches('.model_list') || !record.closest(probedSections.map(name => `.${name}`).join(',')) || record.querySelectorAll(':scope > .mtd-form').length !== 1) return undefined; const target = record.querySelector<HTMLElement>(':scope > .delete-list > div'); const label = record.closest('.language_standard_edit') ? '删除这段信息' : '删除这段经历'; return target?.textContent?.trim() === label ? target : undefined; },
+    rollbackAddedRecord(record) { if (!record.matches('.model_list') || !record.closest(probedSections.map(name => `.${name}`).join(',')) || record.querySelectorAll(':scope > .mtd-form').length !== 1) return undefined; const target = record.querySelector<HTMLElement>(':scope > .delete-list > div'); const label = record.closest('.language_standard_edit,.honor_edit,.certificate_edit,.paper_edit') ? '删除这段信息' : '删除这段经历'; return target?.textContent?.trim() === label ? target : undefined; },
     describeSection(section) { return { label: sectionLabels[Array.from(section.classList).find(name => name in sectionLabels) ?? ''], mode: 'inline' }; },
     describeField(element): ReturnType<NonNullable<SiteAdapter['describeField']>> {
       const item = element.closest('.mtd-form-item');

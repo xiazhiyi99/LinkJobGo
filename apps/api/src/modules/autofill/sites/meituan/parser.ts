@@ -11,22 +11,33 @@ const profileLabels: Record<string, string> = { '姓名': 'name', '性别': 'gen
 const recordLabels: Partial<Record<RecordType, Record<string, string>>> = {
   education: { '学校名称': 'school', '学校': 'school', '专业名称': 'major', '专业': 'major', '学历': 'degree', '入学时间': 'startDate', '毕业时间': 'endDate', '在读': 'current' },
   experience: { '公司名称': 'company', '公司': 'company', '职位名称': 'title', '职位': 'title', '开始时间': 'startDate', '在开始时间': 'startDate', '结束时间': 'endDate', '工作内容': 'description', '工作描述': 'description', '在职': 'current', '至今': 'current' },
-  campus: { '组织名称': 'company', '职位名称': 'title', '开始时间': 'startDate', '结束时间': 'endDate', '经历描述': 'description' },
+  campus: { '组织名称': 'company', '校园经历名称': 'company', '职位名称': 'title', '角色': 'title', '开始时间': 'startDate', '结束时间': 'endDate', '经历描述': 'description', '校园经历描述': 'description', '至今': 'current' },
   project: { '项目名称': 'name', '项目角色': 'role', '开始时间': 'startDate', '结束时间': 'endDate', '项目描述': 'description', '项目链接': 'url' },
   language: { '语种': 'name', '语言类型': 'name', '熟练程度': 'level', '语言水平': 'level', '语言考试': 'certificate' },
   certificate: { '证书名称': 'name', '颁发机构': 'issuer', '获得时间': 'obtainedAt' },
-  award: { '奖项名称': 'name', '获奖描述': 'description' },
+  award: { '奖项名称': 'name', '荣誉名称': 'name', '获奖描述': 'description', '荣誉描述': 'description' },
+  publication: { '论文名称': 'name', '作者顺序': 'role', '论文链接': 'url' },
 };
 // These observed fields have no equivalent in the fixed catalog: college != school,
 // rank != GPA, and per-education full-time status != the profile's current student status.
 const noEquivalent: Partial<Record<RecordType, readonly string[]>> = {
   education: ['学院名称','学院','导师','实验室','研究方向','成绩排名','是否全日制'],
   experience: ['部门名称','工作类型'],
-  language: ['考试分数'],
+  publication: ['发表渠道', '影响因子'],
 };
 const clean = (value: string) => value.replace(/[\s*：:]/g, '');
 export const meituanParser: SiteParser = {
-  id: 'meituan-resume', version: '1.3.0', origins: ['https://zhaopin.meituan.com'], resolveOption: resolveResumeOption,
+  id: 'meituan-resume', version: '1.4.0', origins: ['https://zhaopin.meituan.com'],
+  includeRecord: ({ record }) => record.recordType === 'publication' && typeof record.extra?.publicationType === 'string' && ['论文', '会议论文', '期刊论文', 'paper', 'conference paper', 'journal article'].includes(record.extra.publicationType.trim().toLowerCase()),
+  resolveOption(input) {
+    if (input.sourceKey.scope === 'record' && input.sourceKey.recordType === 'publication' && input.sourceKey.path.join('.') === 'fields.role') {
+      const aliases = [['第一作者', '一作'], ['第二作者', '二作'], ['第三作者', '三作'], ['共同第一作者', '共一']];
+      const group = aliases.find(labels => labels.includes(String(input.sourceValue).trim()));
+      const matches = input.candidates.filter(option => !option.disabled && group?.includes(option.label.trim()));
+      return matches.length === 1 ? matches[0].optionId : null;
+    }
+    return resolveResumeOption(input);
+  },
   matches(page, snapshot) {
     return page.origin === 'https://zhaopin.meituan.com' &&
       ['/web/delivery-confirm', '/web/personal-center/resume-detail'].includes(page.path) &&
@@ -39,12 +50,12 @@ export const meituanParser: SiteParser = {
         const recordType = sectionTypes[label];
         const template = section.records[0];
         return {
-          sectionId: section.sectionId, ...(recordType ? { recordType } : {}), template,
+          sectionId: section.sectionId, ...(recordType ? { recordType } : {}), ...(recordType === 'publication' ? { recordFilter: 'papers' as const } : {}), template,
           bindings: template.fields.map(field => {
             const unsupported = Boolean(recordType && noEquivalent[recordType]?.includes(clean(field.label)));
             const fieldName = recordType ? recordLabels[recordType]?.[clean(field.label)] :
               ['基本信息', '基础信息', '个人信息'].includes(label) ? profileLabels[clean(field.label)] : undefined;
-            const sourceKey: SourceKey | null = fieldName ? recordType
+            const sourceKey: SourceKey | null = recordType === 'language' && clean(field.label) === '考试分数' ? { scope: 'record', recordType, path: ['extra', 'score'] } : fieldName ? recordType
               ? { scope: 'record', recordType, path: ['fields', fieldName] }
               : { scope: 'profile', path: [fieldName] } : null;
             const allowed = sourceKey && catalog.some(item => JSON.stringify(item.sourceKey) === JSON.stringify(sourceKey));

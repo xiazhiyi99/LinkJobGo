@@ -12,6 +12,7 @@ export const FIELD_CATALOG: FieldCatalog = [
   { sourceKey: { scope: 'record', recordType: 'education', path: ['extra', 'educationType'] }, label: '教育经历类型', valueType: 'string' },
   { sourceKey: { scope: 'record', recordType: 'project', path: ['extra', 'organization'] }, label: '项目所属组织', valueType: 'string' },
   { sourceKey: { scope: 'record', recordType: 'publication', path: ['extra', 'publicationType'] }, label: '成果类型', valueType: 'string' },
+  { sourceKey: { scope: 'record', recordType: 'language', path: ['extra', 'score'] }, label: '语言考试分数', valueType: 'string' },
   ...PROFILE_FIELDS.map(field => ({ sourceKey: { scope:'profile' as const, path:[field] }, label:labels[field]!, valueType:'string' as const })),
   ...PREFERENCE_FIELDS.map(field => ({ sourceKey: { scope:'preferences' as const, path:[field] }, label:labels[field]!, valueType:'string' as const })),
   ...Object.entries(RECORD_FIELDS).flatMap(([recordType, fields]) => fields.map(field => ({ sourceKey: { scope:'record' as const, recordType:recordType as RecordType, path:['fields',field] }, label:labels[field]!, valueType:field==='current' ? 'boolean' as const : 'string' as const }))),

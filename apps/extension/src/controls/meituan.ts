@@ -63,7 +63,9 @@ export function createMeituanControlAdapter(): ControlAdapter {
           const label = root.querySelector<HTMLElement>('.mtd-select-filter-label');
           return label && !label.classList.contains('mtd-select-filter-hint') ? clean(label.textContent) : '';
         },
-        searchInput: () => root.querySelector<HTMLInputElement>('.mtd-select-filter-input input'),
+        // Finite enums must reach the server intact: searching a résumé alias
+        // such as 大学英语六级 or 第一作者 hides CET-6 or 一作 before alias matching.
+        searchInput: () => ['语言考试', '作者顺序'].includes(itemLabel(root.closest('.mtd-form-item'))) ? null : root.querySelector<HTMLInputElement>('.mtd-select-filter-input input'),
         options: panel => Array.from(panel.querySelectorAll<HTMLElement>('.mtd-select-item')).filter(node => !node.classList.contains('mtd-select-item-loading') && !node.classList.contains('mtd-select-item-empty')),
         optionLabel: node => clean(node.querySelector('.mtd-select-item-content')?.textContent ?? node.textContent),
         optionDisabled: node => node.classList.contains('mtd-select-item-disabled'),

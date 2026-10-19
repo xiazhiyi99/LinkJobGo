@@ -31,7 +31,7 @@ export interface SiteParser {
   // Formats an already-present ordinary source without changing its SourceRef.
   formatValue?(input: { sourceKey: SourceKey; sourceValue: Value; field: FieldSnapshot }): SiteFormattedValue;
   allowCustomInput?(input: { sourceKey: SourceKey; sourceValue: Value; field: FieldSnapshot; evidence: OptionEvidence }): boolean;
-  includeRecord?(input: { filter: 'alibaba-papers'; record: ResumeRecord }): boolean;
+  includeRecord?(input: { filter: 'papers' | 'alibaba-papers'; record: ResumeRecord }): boolean;
   matches(page: PageSnapshot['page'], snapshot: PageSnapshot): boolean;
   parse(input: { snapshot: PageSnapshot; catalog: FieldCatalog }): PartialSemanticPage;
   resolveOption?(input: { sourceKey: SourceKey; sourceValue: Value; candidates: OptionSnapshot[]; field?: FieldSnapshot }): string | string[] | null;
