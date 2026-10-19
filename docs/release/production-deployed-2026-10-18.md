@@ -2,6 +2,16 @@
 
 日期：2026-10-18。入口：`https://linkaigo.com`。用户已明确授权备份后切换正式站，并删除指定历史镜像。
 
+## 后续更新：通用扫描与删除保护（2026-10-19）
+
+正式下载扩展已更新为 **0.3.6**，构建 `238bb3f2443f55ba7c0a`。包含 `ff04846` 的三项通用修复：删除前及控件执行时核对完整记录顺序；重复卡片和共享添加按钮保留集合归属；共享标签不覆盖独立输入框名称。版本提交为 `d98b691`，字节仍使用既有后端规则，不增加 AI 请求。
+
+- 验证：扩展及公共契约 51/51 测试通过，生产构建与 ZIP 校验通过；Chrome 合成 DOM 复测确认两条经历和添加动作保留、“姓/名”各自命名。本次没有重复招聘页面全量填写测速。
+- Web 镜像：`lingke-web:extension-0.3.6-20261019`，镜像 ID `d31d65294f4e2d4404da79d5ef6829b49944fe87ef67149c2544d0c030189086`。沿用原 Web 应用，仅增加替换下载资源的镜像层。
+- 下载 ZIP：1,080,773 字节，SHA-256 `61669496e2340327f21b90100959dedb0124f27a1e7d8c5ac1aa7df74a320a76`。公开 `/downloads/release.json` 和 ZIP 与候选一致；固定扩展 ID、登录 URL 与权限保持原值。
+- 发布配置及凭证：`/opt/lingke/releases/extension-0.3.6-20261019/`。原 Web 镜像保留为 `lingke-web:before-extension-0.3.6-20261019`，回滚使用该目录的 `rollback.env` 与两份 Compose，仅切换 `web`。
+- 只有正式 Web 容器重建；API、PostgreSQL、Redis、Caddy、隔离测试容器 ID 均未改变。正式及隔离 API 健康检查通过，无数据库迁移、配置或密钥变更。
+
 ## 后续更新：空区块与经历缩减
 
 当前扩展为 **0.3.5**（构建 `42ceb7621feae7b5bcd7`），字节规则 `bytedance@1.1.0`，保持不走 AI。API 镜像 `lingke-api:bytedance-complete-20261018`，Web 下载镜像 `lingke-web:bytedance-complete-20261018-final`；配置与原镜像备份位于 `/opt/lingke/releases/bytedance-complete-20261018/`。
