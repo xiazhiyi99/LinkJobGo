@@ -4,7 +4,7 @@ import { isStaticDismissal } from './static-dismissal.js';
 
 export type InspectionStage = 'open' | 'query' | 'options' | 'cleanup';
 export interface InspectionStageTiming { stage: InspectionStage; durationMs: number; outcome: 'ok' | 'failed' }
-export interface ControlContext extends OperationContext { sectionId: string; viewId?: string; overwrite?: 'preserve' | 'replace'; replaceIfValue?: { value: Value }; allowCollegeReset?: boolean; query?: string; cleanupDeadlineAt?: number; onInspectionStage?: (timing: InspectionStageTiming) => void; verification?: 'existing' | 'after-write' }
+export interface ControlContext extends OperationContext { sectionId: string; viewId?: string; overwrite?: 'preserve' | 'replace'; expectedRecordOrder?: readonly string[]; replaceIfValue?: { value: Value }; allowCollegeReset?: boolean; query?: string; cleanupDeadlineAt?: number; onInspectionStage?: (timing: InspectionStageTiming) => void; verification?: 'existing' | 'after-write' }
 export interface ControlValue { value: Value }
 export interface ControlInspection { supported: boolean; kind: ControlTarget['kind']; optionEvidence?: OptionEvidence }
 export interface WriteReceipt { attempted: boolean; value: Value }
@@ -892,7 +892,10 @@ export function createControlDriver({ page, adapters = [] }: { page: PageSession
       if (section.status !== 'ok') throw new ControlError(section.code, section.status);
       const descriptor = section.value.actions.find(action => action.actionId === handle.actionId);
       if (!descriptor || descriptor.kind !== intent.kind) throw new ControlError('action-intent-mismatch');
-      if (intent.kind === 'remove-record' && (ctx.overwrite !== 'replace' || !page.canRemoveRecordAction(handle))) throw new ControlError('unproven-record-removal');
+      if (intent.kind === 'remove-record') {
+        if (ctx.overwrite !== 'replace' || !ctx.expectedRecordOrder || !page.canRemoveRecordAction(handle)) throw new ControlError('unproven-record-removal');
+        if (JSON.stringify(section.value.records.map(record => record.viewId)) !== JSON.stringify(ctx.expectedRecordOrder)) throw new ControlError('overwrite-record-order-changed');
+      }
       const resolved = page.resolveAction(handle); if (resolved.status !== 'ok') throw new ControlError(resolved.code, resolved.status);
       if ((intent.kind === 'save-record' || intent.kind === 'next-section') && !adapters.some(adapter => adapter.approveAction?.(resolved.value.element, intent, handle))) throw new ControlError('unproven-local-action');
       const before = page.getIdentity(); let observed = false;

@@ -109,9 +109,12 @@ export function createRunner({ page, controls, mappingClient, onProgress, adapte
     const handle = page.getActionHandle(descriptor.actionId); if (!handle) throw new Halt('stale-action');
     const unsubscribe = page.observeSection(section.sectionId, () => {});
     try {
-      const result = await controls.performAction(handle, { kind, sectionId: section.sectionId, ...(viewId ? { viewId } : {}) }, { ...context(), overwrite: options.overwriteExisting ? 'replace' : 'preserve', deadlineAt: Math.min(deadlineAt, Date.now() + (options.actionTimeoutMs ?? 8000)), sectionId: section.sectionId, ...(viewId ? { viewId } : {}) });
+      const result = await controls.performAction(handle, { kind, sectionId: section.sectionId, ...(viewId ? { viewId } : {}) }, { ...context(), overwrite: options.overwriteExisting ? 'replace' : 'preserve', ...(kind === 'remove-record' ? { expectedRecordOrder: section.records.map(record => record.viewId) } : {}), deadlineAt: Math.min(deadlineAt, Date.now() + (options.actionTimeoutMs ?? 8000)), sectionId: section.sectionId, ...(viewId ? { viewId } : {}) });
       report!.actions.push({ sectionId: section.sectionId, kind, status: result.status === 'ok' ? 'ok' : result.status === 'cancelled' ? 'cancelled' : result.status === 'needs-user' ? 'needs-user' : 'failed', ...(result.status !== 'ok' ? { reason: result.code } : {}) });
-      if (result.status !== 'ok') await scan();
+      if (result.status !== 'ok') {
+        await scan();
+        if (kind === 'remove-record' && result.code === 'overwrite-record-order-changed') throw new Halt(result.code, true);
+      }
       unwrap(result);
     } finally { unsubscribe(); }
   };
@@ -234,9 +237,10 @@ export function createRunner({ page, controls, mappingClient, onProgress, adapte
       else await rollbackProbe(selectedEntry.addition.proof);
     }
     for (const entry of work) {
+      if (!options.overwriteExisting || options.scope || !expectedSiteParser || !entry.editor.actions.some(action => action.kind === 'remove-record')) continue;
       let current = unwrap(await page.scanSection(entry.editor.sectionId, context()));
       const removals = excessRecordIds({ section: current, semantic: entry.semantic, plan: entry.plan, overwrite: options.overwriteExisting === true, scoped: Boolean(options.scope), knownSite: Boolean(expectedSiteParser) });
-      if (!current.actions.some(action => action.kind === 'remove-record')) continue;
+      if (removals.length && JSON.stringify(current.records.map(record => record.viewId)) !== JSON.stringify(entry.editor.records.map(record => record.viewId))) throw new Halt('overwrite-record-order-changed', true);
       for (const viewId of removals) {
         check(); const expected = current.records.filter(record => record.viewId !== viewId).map(record => record.viewId);
         // Only a registered removal for the exact trailing row can be executed.
