@@ -52,7 +52,9 @@ services:
         condition: service_healthy
     expose:
       - "3001"
-    networks: [lingke]
+    networks:
+      lingke:
+        aliases: [lingke-production-api]
 
   web:
     build:
@@ -76,7 +78,9 @@ services:
       - api
     expose:
       - "3000"
-    networks: [lingke]
+    networks:
+      lingke:
+        aliases: [lingke-production-web]
 
   caddy:
     image: caddy:2-alpine

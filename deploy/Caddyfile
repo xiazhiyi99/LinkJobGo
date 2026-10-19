@@ -2,8 +2,8 @@ linkaigo.com, www.linkaigo.com {
     encode gzip
 
     handle_path /api/* {
-        reverse_proxy api:3001
+        reverse_proxy lingke-production-api:3001
     }
 
-    reverse_proxy web:3000
+    reverse_proxy lingke-production-web:3000
 }
