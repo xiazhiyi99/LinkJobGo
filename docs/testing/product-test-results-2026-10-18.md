@@ -2,6 +2,8 @@
 
 日期：2026-10-18；需求：[PRD](../product/prd-v0.3.md)；计划：[测试计划](product-test-plan-2026-10-18.md)。
 
+后续修复：BUG-01与BUG-05已在 `00f5ac6` 修复并完成本地及远端Chrome复测，见[保存修复记录](profile-save-fix-2026-10-18.md)。下方保留原基线的历史测试结果；其他问题尚未修复。
+
 ## 环境与方法
 
 - 产品基线 `b26bae5`（最新功能 `da6fea2`）；GitHub 分支 `codex/autofill-remote-test` 与远端隔离 checkout 一致。

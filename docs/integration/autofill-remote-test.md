@@ -1,5 +1,7 @@
 # 填写扩展远端测试部署
 
+最新资料保存修复（2026-10-18）：功能提交 `00f5ac6`，API/Web标签 `profile-save-fix-20261018`，已在隔离测试环境部署。103项相关测试、PG集成、Web生产镜像和真实Chrome保存回归通过，18条经历/ID/其他资料保留；[详细复测](../testing/profile-save-fix-2026-10-18.md)。配置回滚备份 `.env.autofill-test.before-profile-save-fix`。页面填写引擎未改动。
+
 ## API 前缀
 
 扩展构建使用 `EXTENSION_API_ORIGIN=https://linkaigo.com` 和 `EXTENSION_API_PATH_PREFIX=/autofill-test/api`；主站接口使用 `/api`，本地直接访问 3001 端口时前缀为空。所有登录、退出、readiness、analyze、plan 路由统一拼接一次前缀。当前下载版本使用测试网站 Cookie，并绑定当前账号；早期 Bearer 版本的验证记录保留在下方历史结果中。
