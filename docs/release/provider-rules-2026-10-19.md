@@ -19,4 +19,4 @@
 
 发布目录 `/opt/lingke/releases/provider-rules-20261019` 保留 Compose、`release.env`、`rollback.env` 和验证结果。运行同目录配置并把第二个 env-file 改为 `rollback.env`，仅重建 `api web`，即可恢复前一版本。
 
-公开扩展包已经下载校验并更新到原安装目录，0.3.8 备份存于忽略的本地 QA 目录。本次发布时 Mac 锁屏，未能点击 Chrome 扩展重载；使用新前端适配器前仍需重载 0.3.9。
+公开扩展包已经下载校验并更新到原安装目录，0.3.8 备份存于忽略的本地 QA 目录。Mac 解锁后已通过 Chrome 扩展管理页点击原扩展的 Reload；界面显示 Reloaded，版本为 `Platform 0.3.9 (5a160a98b0f773b404cb)`，ID 仍为 `jmfbkpdfefifliffkdkmljihmkeapjkb`，处于启用状态。验证截图保存在忽略的本地 QA 目录。
