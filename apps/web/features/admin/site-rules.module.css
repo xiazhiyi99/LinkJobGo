@@ -58,3 +58,5 @@
 @keyframes shimmer { to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .skeleton div { animation: none; } }
 @media (max-width: 800px) { .heading { align-items: flex-start; gap: 16px; } .metrics { gap: 16px; } .metrics p { display: grid; gap: 8px; padding-right: 16px; } .metrics span { font-size: 10px; } .toolbar { flex-wrap: wrap; } .search { width: 100%; } .toolbar select { flex: 1; } .page { padding-top: 26px; } }
+
+.tableWrap .scope { color: #47698e; }

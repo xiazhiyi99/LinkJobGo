@@ -25,7 +25,7 @@ function dismissal(control: HTMLElement): { element: HTMLElement; scope: HTMLEle
   return { element: title, scope };
 }
 
-/** Only the two captured Moka application routes; callbacks never perform DOM actions. */
+/** Shared Moka application controls; callbacks only expose verified DOM targets. */
 export function createMokaControlAdapter(): ControlAdapter {
   const queries = new WeakMap<HTMLElement, { nodes: HTMLElement[]; labels: string[]; sawLoading: boolean; fresh: boolean; cachedExact: boolean }>();
   const combo = (element: HTMLElement): ComboControl | undefined => {
@@ -40,7 +40,7 @@ export function createMokaControlAdapter(): ControlAdapter {
     const title = item ? one(direct(item, prefix('title-'))) : undefined;
     const fieldLabel = clean(title?.textContent);
     const searchable = ['学校名称', '专业名称'].includes(fieldLabel);
-    const groupedCity = root.ownerDocument.location.pathname === '/campus_apply/baai/42174' && fieldLabel === '意向工作城市';
+    const groupedCity = fieldLabel === '意向工作城市';
     const panel = () => {
       if (!root.isConnected || root.parentElement !== container) return;
       const slots = direct(container, 'span');

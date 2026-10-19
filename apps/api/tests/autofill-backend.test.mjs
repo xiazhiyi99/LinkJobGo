@@ -101,7 +101,7 @@ test('known-site readiness, partial mapping, repeated plans and ambiguous option
   });
 });
 
-test('Moka registry keeps exact observed hash routes and does not enable drafts', () => {
+test('Moka registry retains observed applications, excludes listing pages and honors disabled mode', () => {
   const registry = createConfiguredSiteRegistry({ mokaMode: 'enabled' });
   for (const [path, hashRoute] of [['/campus_apply/baai/42174', '/job/13706229-ac4f-4d58-9a8a-f0f43a05730a/apply'], ['/campus_apply/zuoyebang/144908', '/job/6e0a630d-9d1b-4855-b0c2-a916adf971d3/apply']]) {
     const snap = snapshot({ origin: 'https://app.mokahr.com', path, hashRoute });

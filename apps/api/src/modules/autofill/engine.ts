@@ -17,11 +17,12 @@ export function createConfiguredSiteRegistry({ mokaMode = 'off' }: { mokaMode?: 
     list() {
       return definitions.map(({ parser, mode }) => ({
         id: parser.id, name: parser.name, version: parser.version, origins: [...parser.origins], mode, registered: mode !== 'off',
+        scope: parser.scope ?? 'site', provider: parser.provider ?? null, priority: parser.priority ?? 0,
         routes: parser.routes.map(route => ({
           kind: route.path instanceof RegExp ? 'regex' : 'exact',
           path: route.path instanceof RegExp ? route.path.source : route.path,
           ...(route.path instanceof RegExp ? { flags: route.path.flags } : {}),
-          ...(route.hashRoute ? { hashRoute: route.hashRoute } : {}), ...(route.tenant ? { tenant: route.tenant } : {}),
+          ...(route.hashRoute ? { hashRoute: route.hashRoute instanceof RegExp ? route.hashRoute.source : route.hashRoute, hashRouteKind: route.hashRoute instanceof RegExp ? 'regex' : 'exact', ...(route.hashRoute instanceof RegExp ? { hashRouteFlags: route.hashRoute.flags } : {}) } : {}), ...(route.tenant ? { tenant: route.tenant } : {}),
         })),
       }));
     },

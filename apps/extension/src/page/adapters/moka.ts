@@ -1,10 +1,6 @@
 import type { SiteAdapter } from '../index.js';
 import { readHashRoute } from '@job-assistant/autofill-contracts';
 
-const pages: Record<string, string> = {
-  '/campus_apply/baai/42174': '/job/13706229-ac4f-4d58-9a8a-f0f43a05730a/apply',
-  '/campus_apply/zuoyebang/144908': '/job/6e0a630d-9d1b-4855-b0c2-a916adf971d3/apply',
-};
 const prefix = (value: string) => `[class^="${value}"],[class*=" ${value}"]`;
 const blockSelector = prefix('apply-block-');
 const recordSelector = prefix('apply-fields-');
@@ -17,8 +13,11 @@ const direct = (element: Element, selector: string) => Array.from(element.childr
 const clean = (value: string | null) => (value ?? '').replace(/\s+/g, ' ').trim().slice(0, 240);
 
 export function isMokaApplicationPage(location: Pick<Location, 'origin' | 'pathname' | 'hash'>): boolean {
-  return location.origin === 'https://app.mokahr.com' && Object.hasOwn(pages, location.pathname) && readHashRoute(location.hash) === pages[location.pathname];
+  const hashRoute = readHashRoute(location.hash);
+  return location.origin === 'https://app.mokahr.com' && /^\/campus_apply\/[A-Za-z0-9_-]+\/\d+\/?$/.test(location.pathname) && hashRoute !== undefined && /^\/job\/[A-Za-z0-9_-]+\/apply\/?$/.test(hashRoute);
 }
+export const isCompatibleMokaDocument = (document: Document) => blocks(document).some(section => direct(section, recordSelector).some(record =>
+  direct(record, fieldSelector).some(field => direct(field, controlSelector).some(control => control.querySelector(nativeFields)))));
 
 function staticText(element: Element | null): string {
   if (!element) return '';

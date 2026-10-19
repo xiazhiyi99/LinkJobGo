@@ -16,15 +16,18 @@ test('catalogue describes the same registered parsers, routes and runtime modes 
     for (const site of sites) {
       assert.ok(site.name && site.version && site.routes.length);
       for (const origin of site.origins) for (const route of site.routes) {
-        const path = route.kind === 'regex' ? site.id === 'bytedance' ? '/campus/resume/123/apply' : '/personal/resume' : route.path;
+        const path = route.kind === 'regex' ? site.id === 'bytedance' ? '/campus/resume/123/apply' : site.id === 'moka' ? '/campus_apply/baai/42174' : '/personal/resume' : route.path;
         if (route.kind === 'regex') assert.ok(new RegExp(route.path, route.flags).test(path));
-        const classified = registry.classify(snapshot(origin, path, route.hashRoute));
+        const hashRoute = route.hashRouteKind === 'regex' ? '/job/13706229-ac4f-4d58-9a8a-f0f43a05730a/apply' : route.hashRoute;
+        if (route.hashRouteKind === 'regex') assert.ok(new RegExp(route.hashRoute, route.hashRouteFlags).test(hashRoute));
+        const classified = registry.classify(snapshot(origin, path, hashRoute));
         assert.equal(classified.kind, site.registered ? 'known' : 'unknown');
         if (classified.kind === 'known') { assert.equal(classified.parser.id, site.id); assert.equal(classified.parser.version, site.version); }
       }
     }
     const moka = sites.find(site => site.id === 'moka');
-    assert.equal(moka.mode, mokaMode); assert.ok(moka.routes.every(route => route.hashRoute && route.tenant));
+    assert.equal(moka.mode, mokaMode); assert.equal(moka.scope, 'provider'); assert.equal(moka.provider, 'moka');
+    assert.ok(moka.routes.some(route => route.kind === 'regex' && route.hashRouteKind === 'regex'));
     assert.equal(registry.classify(snapshot('https://app.mokahr.com','/campus_apply/unknown/123','/job/unknown/apply')).kind,'unknown');
     const other = registry.list(); other[0].origins.length = 0; other[0].routes[0].path = '/mutated';
     assert.ok(registry.list()[0].origins.length); assert.notEqual(registry.list()[0].routes[0].path, '/mutated');

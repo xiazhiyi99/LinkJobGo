@@ -1,14 +1,17 @@
 import type { FieldSnapshot, PageSnapshot, SectionSnapshot, SemanticBinding, SourceKey, SourceRef } from '@job-assistant/autofill-contracts';
 import { sourceKeyId } from '@job-assistant/autofill-contracts';
-import type { SiteParser } from '../registry.js';
+import { matchesSiteRoute, type SiteParser } from '../registry.js';
 
-// Candidate registration owns only these two formally scanned applications.
-const supportedPages = [
+// Company-specific derivations remain below; common controls are shared across
+// tenants and job IDs only when their actual scanned structure is compatible.
+const observedPages = [
   { path: '/campus_apply/baai/42174', hashRoute: '/job/13706229-ac4f-4d58-9a8a-f0f43a05730a/apply', tenant: 'baai' },
   { path: '/campus_apply/zuoyebang/144908', hashRoute: '/job/6e0a630d-9d1b-4855-b0c2-a916adf971d3/apply', tenant: 'zuoyebang' },
 ] as const;
-const identifyPage = (page: PageSnapshot['page']) => page.origin === 'https://app.mokahr.com'
-  ? supportedPages.find(candidate => candidate.path === page.path && candidate.hashRoute === page.hashRoute) : undefined;
+const origins = ['https://app.mokahr.com'];
+const applicationRoute = { path: /^\/campus_apply\/([A-Za-z0-9_-]+)\/\d+\/?$/, hashRoute: /^\/job\/[A-Za-z0-9_-]+\/apply\/?$/ };
+const identifyPage = (page: PageSnapshot['page']) => origins.includes(page.origin) && matchesSiteRoute(applicationRoute, page)
+  ? { tenant: applicationRoute.path.exec(page.path)![1]! } : undefined;
 const clean = (label: string) => label.replace(/^[*\s]+|[*\s：:]+$/g, '').replace(/\s+/g, ' ');
 const profileKey = (name: string): SourceKey => ({ scope: 'profile', path: [name] });
 const preferenceKey = (name: string): SourceKey => ({ scope: 'preferences', path: [name] });
@@ -84,8 +87,19 @@ const profileLabels: Record<string, string> = { '姓名': 'name', '手机号码'
 const educationLabels: Record<string, string> = { '学校名称': 'school', '专业名称': 'major', '学历': 'degree' };
 const experienceLabels: Record<string, string> = { '公司名称': 'company', '职位名称': 'title', '工作职责': 'description', '至今': 'current' };
 
+function hasSharedStructure(snapshot: PageSnapshot): boolean {
+  return snapshot.sections.some(section => {
+    if (!section.records.length || !section.records[0]!.fields.some(field => ['moka-text', 'moka-select', 'moka-date-part', 'moka-date'].includes(String(field.hints.component)))) return false;
+    const label = clean(section.label);
+    if (isSingleton(section) && label === '个人信息') return Object.keys(profileLabels).some(name => uniqueField(section, name) && section.records[0]!.fields.some(field => clean(field.label) === name && (['性别', '最高学历'].includes(name) ? isChoice(field) : isText(field))));
+    if (section.mode !== 'inline' || !section.repeatable) return false;
+    return label === '教育背景' && hasRecordShape(section, { '学校名称': field => isText(field) || isChoice(field), '专业名称': field => isText(field) || isChoice(field), '学历': isChoice })
+      || label === '实习经历' && hasRecordShape(section, { '公司名称': isText, '职位名称': isText, '工作职责': field => field.kind === 'textarea' });
+  });
+}
+
 export const mokaDraftParser: SiteParser = {
-  id: 'moka', name: 'Moka 招聘', version: '1.1.0', origins: ['https://app.mokahr.com'], routes: supportedPages,
+  id: 'moka', name: 'Moka 招聘', version: '1.2.0', origins, routes: [applicationRoute, ...observedPages], scope: 'provider', provider: 'moka',
   includeRecord({ filter, record }) {
     if (filter !== 'internships' || record.recordType !== 'experience') return false;
     const type = record.extra?.employmentType;
@@ -95,7 +109,7 @@ export const mokaDraftParser: SiteParser = {
     return record.extra?.profileSection === '实习经历';
   },
   ownsPage(page) { return Boolean(identifyPage(page)); },
-  matches(page) { return Boolean(identifyPage(page)); },
+  matches(page, snapshot) { return Boolean(identifyPage(page)) && (observedPages.some(candidate => candidate.path === page.path && candidate.hashRoute === page.hashRoute) || hasSharedStructure(snapshot)); },
   parse({ snapshot, catalog }) {
     const page = identifyPage(snapshot.page);
     const available = new Set(catalog.map(item => sourceKeyId(item.sourceKey)));
@@ -109,7 +123,7 @@ export const mokaDraftParser: SiteParser = {
     return {
       sections: snapshot.sections.filter(section => section.records.length > 0).map(section => {
         const sectionLabel = clean(section.label);
-        const repeatable = page?.tenant === 'zuoyebang' && section.mode === 'inline' && section.repeatable;
+        const repeatable = Boolean(page) && section.mode === 'inline' && section.repeatable;
         const recordType = repeatable && sectionLabel === '教育背景' && hasRecordShape(section, { '学校名称': field => isText(field) || isChoice(field), '专业名称': field => isText(field) || isChoice(field), '学历': isChoice }) ? 'education' as const
           : repeatable && sectionLabel === '实习经历' && hasRecordShape(section, { '公司名称': isText, '职位名称': isText, '工作职责': field => field.kind === 'textarea' }) ? 'experience' as const : undefined;
         const template = section.records[0]!;
@@ -121,7 +135,7 @@ export const mokaDraftParser: SiteParser = {
             let sourceKey: SourceKey | null = null;
             const unambiguous = template.fields.filter(candidate => clean(candidate.label) === label).length === 1;
             if (page && !reason && field.hints.disabled !== true && unambiguous) {
-              if (page.tenant === 'baai' && applicationSections.length === 1 && applicationSections.includes(section) && label === '意向工作城市' && field.kind === 'combobox' && field.hints.component === 'moka-select') {
+              if (applicationSections.length === 1 && applicationSections.includes(section) && label === '意向工作城市' && field.kind === 'combobox' && field.hints.component === 'moka-select') {
                 sourceKey = preferenceKey('targetCities');
               } else if (recordType === 'education') {
                 const name = educationLabels[label];
@@ -141,15 +155,14 @@ export const mokaDraftParser: SiteParser = {
                     return { templateFieldId: field.fieldId, sourceKey: null, derivation: 'moka-highest-education-school', status: 'resolved', resolvedBy: 'site' };
                   }
                   const name = profileLabels[label];
-                  const observed = name !== 'highestEducation' || page.tenant === 'baai';
-                  if (name && observed && (['gender', 'highestEducation'].includes(name) ? isChoice(field) : isText(field))) sourceKey = profileKey(name);
-                  else if (page.tenant === 'zuoyebang' && label === '出生日期 (年龄)' && isFullDate(field) && field.hints.datePrecision === 'month') sourceKey = profileKey('birthday');
+                  if (name && (['gender', 'highestEducation'].includes(name) ? isChoice(field) : isText(field))) sourceKey = profileKey(name);
+                  else if (label === '出生日期 (年龄)' && isFullDate(field) && field.hints.datePrecision === 'month') sourceKey = profileKey('birthday');
                 }
               }
             }
             if (sourceKey && available.has(sourceKeyId(sourceKey))) return { templateFieldId: field.fieldId, sourceKey, status: 'resolved', resolvedBy: 'site' };
             return { templateFieldId: field.fieldId, sourceKey: null, status: reason ? 'unsupported' : 'unresolved', resolvedBy: null,
-              reason: reason ?? 'No verified mapping for this exact application page, section, field type and record structure.' };
+              reason: reason ?? 'No compatible mapping for this provider, section, field type and record structure.' };
           }),
         };
       }),
