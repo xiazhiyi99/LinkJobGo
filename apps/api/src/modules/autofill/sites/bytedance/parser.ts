@@ -13,6 +13,7 @@ const sections: Record<string, { type: RecordType; anchors: string[]; fields: Re
   工作经历: { type: 'experience', anchors: ['公司名称', '职位名称', '描述'], fields: { 公司名称: 'company', 职位名称: 'title', 描述: 'description' } },
   项目经历: { type: 'project', anchors: ['项目名称', '项目角色', '描述'], fields: { 项目名称: 'name', 项目角色: 'role', 项目链接: 'url', 描述: 'description' } },
   语言能力: { type: 'language', anchors: ['语言', '精通程度'], fields: { 语言: 'name', 精通程度: 'level' } },
+  证书: { type: 'certificate', anchors: ['证书名称', '描述'], fields: { 证书名称: 'name' } },
 };
 const sameShape = (section: SectionSnapshot, anchors: string[]) => section.mode === 'inline' && section.records.length > 0 && section.records.every(row => anchors.every(label => row.fields.filter(field => clean(field.label) === label).length === 1));
 function employment(record: ResumeRecord): 'internship' | 'employment' | undefined {
@@ -29,7 +30,7 @@ const fullTimeAliases: Record<string, string> = { 是: '统招全日制', 全日
 
 /** Observed campus résumé fields. All sources, aliases and record selection live here. */
 export const bytedanceParser: SiteParser = {
-  id: 'bytedance', version: '1.0.0', origins: ['https://jobs.bytedance.com'],
+  id: 'bytedance', version: '1.1.0', origins: ['https://jobs.bytedance.com'],
   matches(page) { return /^\/campus\/resume\/\d+\/apply\/?$/.test(page.path); },
   includeRecord({ filter, record }) {
     return record.recordType === 'experience' && (filter === 'internships' ? employment(record) === 'internship' : filter === 'employment' && employment(record) === 'employment');

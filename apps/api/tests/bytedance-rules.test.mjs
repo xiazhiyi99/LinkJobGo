@@ -13,6 +13,7 @@ const snapshot = () => ({ protocolVersion: 'autofill.next.v2', documentId: 'byte
   work('intern'), work('employment'),
   section('projects', '项目经历', [field('项目名称'), field('项目角色'), field('起止时间（开始）'), field('起止时间（结束）'), field('项目链接'), field('描述', 'textarea')]),
   section('language', '语言能力', [field('语言', 'combobox'), field('精通程度', 'combobox')]),
+  section('certificates', '证书', [field('证书名称'), field('描述','textarea')]),
   section('summary', '自我评价', [field('自我评价', 'textarea')], false),
 ] });
 const registry = createConfiguredSiteRegistry();
@@ -32,7 +33,8 @@ test('ByteDance rules use observed labels and separate phone text from dialing p
   assert.deepEqual(page.sections[1].bindings.slice(3, 8).map(b => b.sourceKey.path), [['extra', 'fullTime'], ['extra', 'college'], ['extra', 'laboratory'], ['extra', 'researchDirection'], ['extra', 'advisor']]);
   assert.deepEqual(page.sections[4].bindings.map(b => b.sourceKey.path.at(-1)), ['name', 'role', 'startDate', 'endDate', 'url', 'description']);
   assert.deepEqual(page.sections[5].bindings.map(b => b.sourceKey.path.at(-1)), ['name', 'level']);
-  assert.deepEqual(page.sections[6].bindings[0].sourceKey, { scope: 'profile', path: ['selfIntroduction'] });
+  assert.deepEqual(page.sections.find(s => s.sectionId === 'summary').bindings[0].sourceKey, { scope: 'profile', path: ['selfIntroduction'] });
+  assert.deepEqual(page.sections.find(s => s.sectionId === 'certificates').bindings[0].sourceKey, { scope:'record', recordType:'certificate', path:['fields','name'] });
 });
 
 test('ByteDance section selection filters before assigning stable destination positions and never calls AI', async () => {
@@ -42,7 +44,7 @@ test('ByteDance section selection filters before assigning stable destination po
   const input = { protocolVersion: 'autofill.next.v2', requestId: 'r', runId: 'run', deadlineAt: Date.now() + 5000, snapshot: snap };
   const context = { principal: { id: 'test', email: 'test@example.test' }, requestId: 'r', deadlineAt: input.deadlineAt, signal: new AbortController().signal };
   const semanticPage = await service.analyzePage(input, context);
-  assert.ok(semanticPage.warnings.includes('site-parser:bytedance@1.0.0'));
+  assert.ok(semanticPage.warnings.includes('site-parser:bytedance@1.1.0'));
   const planInput = { ...input, semanticPage, optionEvidence: [], scope: { sectionIds: semanticPage.sections.map(s => s.sectionId) } };
   const plan = await service.buildFillPlan(planInput, context);
   assert.deepEqual(plan.sections.find(s => s.sectionId === 'intern').records.map(r => [r.recordId, r.targetIndex]), [['intern-1', 0]]);

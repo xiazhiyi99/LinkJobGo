@@ -242,6 +242,7 @@ export function createControlDriver({ page, adapters = [] }: { page: PageSession
   const gateAction = (element: HTMLElement, handle: FieldHandle | ActionHandle | AddedRecordProof, ctx: ControlContext, scope?: HTMLElement, approvedSubmit = false, rollbackPhase?: 'delete' | 'confirm') => {
     check(ctx);
     const rollback = 'probeId' in handle;
+    const removal = !rollback && 'actionId' in handle && ctx.overwrite === 'replace' && page.canRemoveRecordAction?.(handle) === true;
     if (rollback && (ctx.sectionId !== handle.sectionId || ctx.viewId !== undefined && ctx.viewId !== handle.viewId)) throw new ControlError('scope-mismatch');
     const resolved = rollback ? page.resolveAddedRecordRollback(handle) : 'fieldId' in handle ? page.resolveField(handle) : page.resolveAction(handle);
     if (resolved.status !== 'ok') throw new ControlError(resolved.code, resolved.status);
@@ -249,7 +250,7 @@ export function createControlDriver({ page, adapters = [] }: { page: PageSession
     const decorativeClick = 'fieldId' in handle && resolved.value.element.contains(element) && element.getAttribute('aria-hidden') === 'true' && adapters.some(adapter => adapter.combo?.(resolved.value.element) && adapter.allowDecorativeClick?.(resolved.value.element, element) === true);
     writable(element, decorativeClick);
     const label = text(element.getAttribute('aria-label') || element.textContent || (element as HTMLInputElement).value);
-    if ((!approvedSubmit || rollback) && element.matches('input,button') && (element as HTMLButtonElement | HTMLInputElement).type === 'submit' || /提交申请|提交简历|立即投递|submit application|apply now|send application/i.test(label) || !rollback && /删除|delete/i.test(label)) throw new ControlError('forbidden-action');
+    if ((!approvedSubmit || rollback) && element.matches('input,button') && (element as HTMLButtonElement | HTMLInputElement).type === 'submit' || /提交申请|提交简历|立即投递|submit application|apply now|send application/i.test(label) || !rollback && !removal && /删除|delete/i.test(label)) throw new ControlError('forbidden-action');
     if (rollback) {
       if (!('recordElement' in resolved.value) || !(resolved.value.recordElement instanceof element.ownerDocument.defaultView!.HTMLElement) || !scope || !scope.contains(element)) throw new ControlError('unproven-record-rollback');
       if (rollbackPhase) {
@@ -891,6 +892,7 @@ export function createControlDriver({ page, adapters = [] }: { page: PageSession
       if (section.status !== 'ok') throw new ControlError(section.code, section.status);
       const descriptor = section.value.actions.find(action => action.actionId === handle.actionId);
       if (!descriptor || descriptor.kind !== intent.kind) throw new ControlError('action-intent-mismatch');
+      if (intent.kind === 'remove-record' && (ctx.overwrite !== 'replace' || !page.canRemoveRecordAction(handle))) throw new ControlError('unproven-record-removal');
       const resolved = page.resolveAction(handle); if (resolved.status !== 'ok') throw new ControlError(resolved.code, resolved.status);
       if ((intent.kind === 'save-record' || intent.kind === 'next-section') && !adapters.some(adapter => adapter.approveAction?.(resolved.value.element, intent, handle))) throw new ControlError('unproven-local-action');
       const before = page.getIdentity(); let observed = false;

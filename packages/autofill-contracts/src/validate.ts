@@ -81,7 +81,7 @@ export function validatePageSnapshot(value: unknown): ValidationResult<PageSnaps
       s.actions.forEach((a: any) => {
         if (!object(a)) { add(p, 'Invalid action'); return; }
         id(a.actionId, `${p}.actionId`);
-        if (a.sectionId !== s.sectionId || !['open-record','add-record','save-record','close-record','next-section'].includes(a.kind) || typeof a.label !== 'string' || !object(a.hints) || (a.viewId !== undefined && !s.records.some((r: any) => object(r) && r.viewId === a.viewId))) add(p, 'Invalid action scope');
+        if (a.sectionId !== s.sectionId || !['open-record','add-record','remove-record','save-record','close-record','next-section'].includes(a.kind) || typeof a.label !== 'string' || !object(a.hints) || (a.kind === 'remove-record' && a.viewId === undefined) || (a.viewId !== undefined && !s.records.some((r: any) => object(r) && r.viewId === a.viewId))) add(p, 'Invalid action scope');
       });
     });
   });

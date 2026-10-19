@@ -5,6 +5,7 @@ import type { ControlDriver, InspectionStage, InspectionStageTiming } from '../c
 import { isReportComplete } from '../report/index.js';
 import { scopeSectionToRecords } from './snapshot-scope.js';
 import { requiresInternshipFilter } from './record-scope.js';
+import { excessRecordIds } from './record-alignment.js';
 export type RunnerPhase = 'idle' | 'analyzing' | 'probing' | 'planning' | 'executing' | 'verifying' | 'paused' | 'completed' | 'partial' | 'cancelled' | 'failed';
 export type DiagnosticTrigger = 'initial' | 'resume' | 'record-rebind' | 'probe-revision-change' | 'option-refresh' | 'section-continuation';
 export interface RunnerOperationDiagnostic {
@@ -102,13 +103,13 @@ export function createRunner({ page, controls, mappingClient, onProgress, adapte
   const waitFor = async (predicate: (snapshot: PageSnapshot) => SectionSnapshot | undefined, timeout = 4000) => { const until = Math.min(deadlineAt, Date.now() + timeout); while (true) { const snapshot = await scan(); const found = predicate(snapshot); if (found) return found; if (Date.now() >= until) throw new Halt('action-completion-unconfirmed'); await delay(); } };
   const sourceCurrent = (entry: SectionWork, snapshot: PageSnapshot) => snapshot.sections.find(section => section.sectionId === entry.source.sectionId);
   const editorFor = (source: SectionSnapshot, snapshot: PageSnapshot) => adapters.map(adapter => adapter.editorFor?.(source, snapshot)).find(Boolean) ?? snapshot.sections.find(section => section.sectionId === source.sectionId && section.records.some(record => record.fields.length));
-  const action = async (section: SectionSnapshot, kind: 'add-record' | 'open-record' | 'save-record' | 'close-record', viewId?: string) => {
+  const action = async (section: SectionSnapshot, kind: 'add-record' | 'remove-record' | 'open-record' | 'save-record' | 'close-record', viewId?: string) => {
     check(); if (kind === 'save-record' && viewId) page.invalidateRecordAddition(viewId); const descriptor = section.actions.find(candidate => candidate.kind === kind && (viewId === undefined ? !candidate.viewId : candidate.viewId === viewId));
     if (!descriptor) throw new Halt(`missing-${kind}`);
     const handle = page.getActionHandle(descriptor.actionId); if (!handle) throw new Halt('stale-action');
     const unsubscribe = page.observeSection(section.sectionId, () => {});
     try {
-      const result = await controls.performAction(handle, { kind, sectionId: section.sectionId, ...(viewId ? { viewId } : {}) }, { ...context(), deadlineAt: Math.min(deadlineAt, Date.now() + (options.actionTimeoutMs ?? 8000)), sectionId: section.sectionId, ...(viewId ? { viewId } : {}) });
+      const result = await controls.performAction(handle, { kind, sectionId: section.sectionId, ...(viewId ? { viewId } : {}) }, { ...context(), overwrite: options.overwriteExisting ? 'replace' : 'preserve', deadlineAt: Math.min(deadlineAt, Date.now() + (options.actionTimeoutMs ?? 8000)), sectionId: section.sectionId, ...(viewId ? { viewId } : {}) });
       report!.actions.push({ sectionId: section.sectionId, kind, status: result.status === 'ok' ? 'ok' : result.status === 'cancelled' ? 'cancelled' : result.status === 'needs-user' ? 'needs-user' : 'failed', ...(result.status !== 'ok' ? { reason: result.code } : {}) });
       if (result.status !== 'ok') await scan();
       unwrap(result);
@@ -231,6 +232,19 @@ export function createRunner({ page, controls, mappingClient, onProgress, adapte
       const unusedSource = entry?.plan.records.find(record => record.targetIndex !== null && record.targetIndex >= selectedEntry.addition!.proof.baselineViewIds.length);
       if (entry && unusedSource) { entry.views.set(recordKey(unusedSource), selectedEntry.addition.proof.viewId); entry.viewPositions.set(recordKey(unusedSource), selectedEntry.addition.proof.baselineViewIds.length); }
       else await rollbackProbe(selectedEntry.addition.proof);
+    }
+    for (const entry of work) {
+      let current = unwrap(await page.scanSection(entry.editor.sectionId, context()));
+      const removals = excessRecordIds({ section: current, semantic: entry.semantic, plan: entry.plan, overwrite: options.overwriteExisting === true, scoped: Boolean(options.scope), knownSite: Boolean(expectedSiteParser) });
+      if (!current.actions.some(action => action.kind === 'remove-record')) continue;
+      for (const viewId of removals) {
+        check(); const expected = current.records.filter(record => record.viewId !== viewId).map(record => record.viewId);
+        // Only a registered removal for the exact trailing row can be executed.
+        if (current.records.at(-1)?.viewId !== viewId || !current.actions.some(action => action.kind === 'remove-record' && action.viewId === viewId)) throw new Halt('record-removal-unavailable', true);
+        emit('executing'); await action(current, 'remove-record', viewId);
+        current = await waitFor(snapshot => { const section = snapshot.sections.find(section => section.sectionId === current.sectionId); return section && JSON.stringify(section.records.map(record => record.viewId)) === JSON.stringify(expected) ? section : undefined; });
+        entry.source = current; entry.editor = current; entry.overwriteOrder = expected;
+      }
     }
     initialized = true;
   };
@@ -514,6 +528,12 @@ export function createRunner({ page, controls, mappingClient, onProgress, adapte
   const execute = async () => {
     for (const entry of work) for (const original of entry.plan.records) {
       check(); if (entry.quarantined || entry.finalized.has(recordKey(original))) continue;
+      // A discarded probe for an unmapped section must not be opened again by
+      // ensureRecord. Without applicable source data there is nothing to write.
+      if (!original.assignments.some(assignment => assignment.value !== null && ['ready','needs-options'].includes(assignment.status))) {
+        for (const assignment of original.assignments) { const resultItem = item(entry, original, assignment); resultItem.status = 'skipped'; resultItem.reason = assignment.reason ?? assignment.status; }
+        entry.finalized.add(recordKey(original)); continue;
+      }
       if (expectedSiteParser === null && requiresInternshipFilter(entry.source.label, entry.semantic)) {
         entry.quarantined = 'record-subtype-unconfirmed';
         for (const resultItem of report!.items.filter(item => item.sectionId === entry.plan.sectionId)) { resultItem.status = 'needs-user'; resultItem.reason = 'record-subtype-unconfirmed'; resultItem.verification = 'none'; }

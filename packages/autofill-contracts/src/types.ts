@@ -16,7 +16,7 @@ export type FieldKind = 'text' | 'textarea' | 'select' | 'radio' | 'checkbox' | 
 export type Hints = Record<string, string | string[] | number | boolean | null>;
 export interface OptionSnapshot { optionId: string; label: string; disabled: boolean; }
 export interface FieldSnapshot { fieldId: string; label: string; kind: FieldKind; required: boolean; currentState: 'empty' | 'nonempty' | 'unknown'; hints: Hints; options?: OptionSnapshot[]; groupId?: string; partRole?: string; }
-export type ActionKind = 'open-record' | 'add-record' | 'save-record' | 'close-record' | 'next-section';
+export type ActionKind = 'open-record' | 'add-record' | 'remove-record' | 'save-record' | 'close-record' | 'next-section';
 export interface ActionDescriptor { actionId: string; kind: ActionKind; sectionId: string; viewId?: string; label: string; hints: Hints; }
 export interface RecordSnapshot { viewId: string; fields: FieldSnapshot[]; }
 export interface SectionSnapshot { sectionId: string; label: string; mode: 'inline' | 'modal' | 'multistep' | 'unknown'; repeatable: boolean; records: RecordSnapshot[]; actions: ActionDescriptor[]; }

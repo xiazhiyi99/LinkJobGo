@@ -27,6 +27,8 @@ export interface SiteAdapter {
   /** A verified inline add creates an unsaved row with a scoped rollback. */
   canProbeAddition?(section: Element): boolean;
   rollbackAddedRecord?(record: Element): HTMLElement | undefined;
+  /** Verified inline removal changes only this unsaved form's record. */
+  canRemoveRecord?(section: Element, record: Element): boolean;
   sections?(document: Document): Element[];
   records?(section: Element): Element[];
   describeSection?(section: Element): { label?: string; mode?: SectionSnapshot['mode'] };
@@ -139,6 +141,13 @@ export class PageSession {
     document.addEventListener('load', this.onResourceLoad, true);
   }
   canProbeAddition(sectionId: string): boolean { this.refresh(); const section = this.sections.get(sectionId); return Boolean(section && this.adapter?.canProbeAddition?.(section)); }
+  canRemoveRecordAction(handle: ActionHandle): boolean {
+    const snapshot = this.refresh(), section = snapshot.sections.find(section => section.sectionId === handle.sectionId);
+    const descriptor = section?.actions.find(action => action.actionId === handle.actionId && action.kind === 'remove-record' && action.viewId === handle.viewId);
+    const record = section?.records.find(record => record.viewId === handle.viewId), registered = record?.fields[0] && this.fields.get(record.fields[0].fieldId);
+    const target = this.actions.get(handle.actionId), root = this.sections.get(handle.sectionId);
+    return Boolean(handle.documentId === snapshot.documentId && handle.pageRevision === snapshot.pageRevision && descriptor && registered && root && target && registered.record.contains(target.element) && this.adapter?.canRemoveRecord?.(root, registered.record));
+  }
   captureRecordAddition(sectionId: string, ctx: OperationContext = {}): StepResult<AdditionBaseline> {
     const error = this.check(ctx); if (error) return error;
     const section = this.refresh().sections.find(candidate => candidate.sectionId === sectionId);
