@@ -1,5 +1,7 @@
 # 填写扩展远端测试部署
 
+最新经历编辑回显修复（2026-10-18）：功能提交 `026e301`，Web标签 `profile-field-display-20261018`，只更新隔离测试 Web；API 保持上一版本运行。30项 Web 测试、类型检查、生产镜像和真实Chrome日期/学历保存刷新通过，18条经历/ID/其他资料保留；[详细复测](../testing/field-display-fix-2026-10-18.md)。配置备份 `.env.autofill-test.before-field-display`。下文保留历次部署记录。
+
 最新资料保存修复（2026-10-18）：功能提交 `00f5ac6`，API/Web标签 `profile-save-fix-20261018`，已在隔离测试环境部署。103项相关测试、PG集成、Web生产镜像和真实Chrome保存回归通过，18条经历/ID/其他资料保留；[详细复测](../testing/profile-save-fix-2026-10-18.md)。配置回滚备份 `.env.autofill-test.before-profile-save-fix`。页面填写引擎未改动。
 
 ## API 前缀
