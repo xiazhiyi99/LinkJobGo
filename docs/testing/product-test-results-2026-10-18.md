@@ -10,6 +10,8 @@ BUG-02 的账号路由、CAPTCHA 构建和发信配置已在 `46b247a` 修复部
 
 ## 环境与方法
 
+BUG-06、BUG-07 已在 `6694b9f` 修复并部署。任务校验、完成/重开、跟进提醒、面试改期/清空、本地时区和日历即时刷新通过模块、数据库、远端 HTTP 及 Chrome 复测；原有 18 条简历记录与版本保持不变。见[任务与日历修复记录](tasks-calendar-fix-2026-10-18.md)。下方原基线表格继续作为历史记录保留。
+
 - 产品基线 `b26bae5`（最新功能 `da6fea2`）；GitHub 分支 `codex/autofill-remote-test` 与远端隔离 checkout 一致。
 - 实测环境为 `https://linkaigo.com/autofill-test`，Web/API 镜像标签 `profile-avatar-20261018`；不是生产主站的全量验收。
 - 使用既有 18 条经历的合成账号跑接口/填写；另克隆专用普通用户账号做真实保存测试，避免影响既有基线。
