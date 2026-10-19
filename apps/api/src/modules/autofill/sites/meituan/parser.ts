@@ -29,8 +29,9 @@ const noEquivalent: Partial<Record<RecordType, readonly string[]>> = {
   publication: ['发表渠道', '影响因子'],
 };
 const clean = (value: string) => value.replace(/[\s*：:]/g, '');
+const supportedPaths = ['/web/delivery-confirm', '/web/personal-center/resume-detail'];
 export const meituanParser: SiteParser = {
-  id: 'meituan-resume', version: '1.4.2', origins: ['https://zhaopin.meituan.com'],
+  id: 'meituan-resume', name: '美团招聘', version: '1.4.2', origins: ['https://zhaopin.meituan.com'], routes: supportedPaths.map(path => ({ path })),
   includeRecord: ({ record }) => record.recordType === 'publication' && typeof record.extra?.publicationType === 'string' && ['论文', '会议论文', '期刊论文', 'paper', 'conference paper', 'journal article'].includes(record.extra.publicationType.trim().toLowerCase()),
   resolveOption(input) {
     if (input.sourceKey.scope === 'record' && input.sourceKey.recordType === 'publication' && input.sourceKey.path.join('.') === 'fields.role') {
@@ -43,7 +44,7 @@ export const meituanParser: SiteParser = {
   },
   matches(page, snapshot) {
     return page.origin === 'https://zhaopin.meituan.com' &&
-      ['/web/delivery-confirm', '/web/personal-center/resume-detail'].includes(page.path) &&
+      supportedPaths.includes(page.path) &&
       snapshot.sections.some(section => ['基本信息', '基础信息', '个人信息', ...Object.keys(sectionTypes)].includes(clean(section.label)));
   },
   parse({ snapshot, catalog }) {

@@ -4,4 +4,5 @@ export const routes = {
   profile: "/workspace/profile",
   autofill: "/workspace/autofill",
   applications: "/workspace/applications",
+  adminSiteRules: "/workspace/admin/site-rules",
 } as const;

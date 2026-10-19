@@ -396,6 +396,7 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     // Dispatch before the legacy upload-sized body reader consumes the stream.
     if (url.pathname.startsWith('/autofill/v2/')) return await autofillModule.handle(req, res, url.pathname);
+    if (url.pathname === '/admin/autofill/sites') return await autofillModule.handleAdminSites(req, res);
     if (url.pathname === '/auth/me' && ['GET', 'OPTIONS'].includes(req.method)) {
       const requestOrigin = req.headers.origin;
       const allowed = [origin, ...(process.env.AUTOFILL_EXTENSION_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean)];

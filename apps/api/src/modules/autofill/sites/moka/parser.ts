@@ -85,7 +85,7 @@ const educationLabels: Record<string, string> = { '学校名称': 'school', '专
 const experienceLabels: Record<string, string> = { '公司名称': 'company', '职位名称': 'title', '工作职责': 'description', '至今': 'current' };
 
 export const mokaDraftParser: SiteParser = {
-  id: 'moka', version: '1.1.0', origins: ['https://app.mokahr.com'],
+  id: 'moka', name: 'Moka 招聘', version: '1.1.0', origins: ['https://app.mokahr.com'], routes: supportedPages,
   includeRecord({ filter, record }) {
     if (filter !== 'internships' || record.recordType !== 'experience') return false;
     const type = record.extra?.employmentType;

@@ -36,9 +36,10 @@ function resolveTencentOption(input: { sourceKey: SourceKey; sourceValue: Value;
   }
   return resolveResumeOption(input);
 }
+const resumePath = '/resume.html';
 export const tencentParser: SiteParser = {
-  id: 'tencent-resume', version: '1.3.0', origins: ['https://careers.tencent.com'], resolveOption: resolveTencentOption,
-  matches(page, snapshot) { return page.origin === 'https://careers.tencent.com' && page.path === '/resume.html' && snapshot.sections.some(section => ['基本信息','工作意向','求职意向','补充信息','个人主页链接',...Object.keys(recordTypes)].includes(clean(section.label))); },
+  id: 'tencent-resume', name: '腾讯招聘', version: '1.3.0', origins: ['https://careers.tencent.com'], routes: [{ path: resumePath }], resolveOption: resolveTencentOption,
+  matches(page, snapshot) { return page.origin === 'https://careers.tencent.com' && page.path === resumePath && snapshot.sections.some(section => ['基本信息','工作意向','求职意向','补充信息','个人主页链接',...Object.keys(recordTypes)].includes(clean(section.label))); },
   parse({ snapshot, catalog }) {
     return { sections: snapshot.sections.filter(section => section.records.length).map(section => {
       const sectionLabel = clean(section.label); const recordType = recordTypes[sectionLabel]; const template = section.records[0];

@@ -21,8 +21,10 @@ export interface SiteFormattedValue {
 }
 export interface SiteParser {
   id: string;
+  name: string;
   version: string;
   origins: readonly string[];
+  routes: readonly { path: string | RegExp; hashRoute?: string; tenant?: string }[];
   // Shared ATS hosts may own only observed application routes. Omission retains
   // whole-origin identity even when matches rejects a page's current structure.
   ownsPage?(page: PageSnapshot['page']): boolean;

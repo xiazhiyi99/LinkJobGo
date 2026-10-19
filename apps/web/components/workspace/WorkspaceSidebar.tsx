@@ -3,8 +3,12 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { workspaceNavigation } from "../../features/workspace/navigation";
+import { useAccount } from "../auth/AuthGate";
+import { isAdminAccount } from "../../features/admin/site-rules";
+import { routes } from "../../lib/routes";
 
-function NavigationIcon({ name }: { name: "person" | "autofill" }) {
+function NavigationIcon({ name }: { name: "person" | "autofill" | "rules" }) {
+  if (name === "rules") return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 9v11M12 13h5M12 16h3"/></svg>;
   if (name === "autofill") {
     return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="m8 12 2 2 5-5M8 17h8"/></svg>;
   }
@@ -14,6 +18,8 @@ function NavigationIcon({ name }: { name: "person" | "autofill" }) {
 export function WorkspaceSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const account = useAccount();
+  const admin = isAdminAccount(account);
   const personalCenter = workspaceNavigation[0];
   const isPersonalCenter = pathname.startsWith("/workspace/profile") || pathname === "/workspace/applications";
   const [expanded, setExpanded] = useState(isPersonalCenter);
@@ -50,7 +56,8 @@ export function WorkspaceSidebar() {
         <NavigationIcon name={item.icon} />
         <span>{item.label}</span><span className="nav-indicator" aria-hidden="true" />
       </Link>)}
+      {admin && <Link href={routes.adminSiteRules} aria-current={pathname === routes.adminSiteRules ? "page" : undefined} className={pathname === routes.adminSiteRules ? "active" : ""}><NavigationIcon name="rules" /><span>规则管理</span><span className="nav-indicator" aria-hidden="true" /></Link>}
     </nav>
-    <div className="sidebar-bottom"><div className="user-card"><span className="avatar">林</span><div><strong>林同学</strong><small>求职者账户</small></div></div></div>
+    <div className="sidebar-bottom"><div className="user-card"><span className="avatar">林</span><div><strong>林同学</strong><small>{admin ? '管理员账户' : '求职者账户'}</small></div></div></div>
   </aside>;
 }

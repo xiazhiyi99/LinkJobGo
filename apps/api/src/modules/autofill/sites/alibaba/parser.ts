@@ -35,8 +35,9 @@ function bind(field: FieldSnapshot, sectionLabel: string, recordType: RecordType
   const allowed = derivation === 'alibaba-awards-summary' || sourceKey !== null && catalog.some(candidate => JSON.stringify(candidate.sourceKey) === JSON.stringify(sourceKey));
   return { templateFieldId: field.fieldId, sourceKey: allowed ? sourceKey : null, ...(allowed && derivation ? { derivation } : {}), status: allowed ? 'resolved' : 'unresolved', resolvedBy: allowed ? 'site' : null, ...(!allowed ? { reason } : {}) };
 }
+const resumePath = /^\/personal\/resume\/?$/;
 export const alibabaParser: SiteParser = {
-  id: 'alibaba-campus-resume', version: '2.0.1', origins: ['https://campus-talent.alibaba.com'],
+  id: 'alibaba-campus-resume', name: '阿里巴巴校园招聘', version: '2.0.1', origins: ['https://campus-talent.alibaba.com'], routes: [{ path: resumePath }],
   deriveValue: deriveAlibabaValue,
   includeRecord: ({ record }) => isAlibabaPaper(record),
   resolveOption(input) {
@@ -57,7 +58,7 @@ export const alibabaParser: SiteParser = {
     }
     return resolveResumeOption(input);
   },
-  matches(page, snapshot) { return page.origin === 'https://campus-talent.alibaba.com' && /^\/personal\/resume\/?$/.test(page.path) && snapshot.sections.some(section => ['基本信息', '其他信息', '奖励与荣誉', ...workLabels, ...Object.keys(recordTypes)].includes(clean(section.label))); },
+  matches(page, snapshot) { return page.origin === 'https://campus-talent.alibaba.com' && resumePath.test(page.path) && snapshot.sections.some(section => ['基本信息', '其他信息', '奖励与荣誉', ...workLabels, ...Object.keys(recordTypes)].includes(clean(section.label))); },
   parse({ snapshot, catalog }) {
     return { sections: snapshot.sections.filter(section => section.records.length).map(section => {
       const sectionLabel = clean(section.label), recordType = recordTypes[sectionLabel], template = section.records[0]!;

@@ -29,9 +29,10 @@ const degreeAliases: Record<string, string> = { 大学本科: '本科', 学士: 
 const fullTimeAliases: Record<string, string> = { 是: '统招全日制', 全日制: '统招全日制', 统招全日制: '统招全日制', 否: '非全日制', 非全日制: '非全日制' };
 
 /** Observed campus résumé fields. All sources, aliases and record selection live here. */
+const applicationPath = /^\/campus\/resume\/\d+\/apply\/?$/;
 export const bytedanceParser: SiteParser = {
-  id: 'bytedance', version: '1.1.0', origins: ['https://jobs.bytedance.com'],
-  matches(page) { return /^\/campus\/resume\/\d+\/apply\/?$/.test(page.path); },
+  id: 'bytedance', name: '字节跳动校园招聘', version: '1.1.0', origins: ['https://jobs.bytedance.com'], routes: [{ path: applicationPath }],
+  matches(page) { return applicationPath.test(page.path); },
   includeRecord({ filter, record }) {
     return record.recordType === 'experience' && (filter === 'internships' ? employment(record) === 'internship' : filter === 'employment' && employment(record) === 'employment');
   },
