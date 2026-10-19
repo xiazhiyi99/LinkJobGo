@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "领客 · 平台填写",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "description": "由现有简历 API 生成并验证填写计划；不自动提交申请。",
   "permissions": [
     "storage",
