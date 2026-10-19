@@ -1,5 +1,6 @@
 import type { ActionKind, FillAssignment, OperationContext, OptionEvidence, OptionSnapshot, StepResult, Value } from '@job-assistant/autofill-contracts';
 import type { ActionHandle, AddedRecordProof, ControlTarget, FieldHandle, PageSession } from '../page/index.js';
+import { isStaticDismissal } from './static-dismissal.js';
 
 export type InspectionStage = 'open' | 'query' | 'options' | 'cleanup';
 export interface InspectionStageTiming { stage: InspectionStage; durationMs: number; outcome: 'ok' | 'failed' }
@@ -327,8 +328,9 @@ export function createControlDriver({ page, adapters = [] }: { page: PageSession
       if (dismiss) {
         const resolved = field(handle, ctx).element;
         // Only a static direct sibling label near this exact control can dismiss a popup.
-        const local = [resolved.parentElement, resolved.parentElement?.parentElement].includes(dismiss.scope) || adapters.some(adapter => adapter.approveDismissal?.(resolved, dismiss) === true);
-        if (!dismiss.scope.contains(resolved) || !local || dismiss.scope.matches('body,html') || dismiss.element.parentElement !== dismiss.scope || !dismiss.element.matches('p,div,span') || dismiss.element.matches('[role],[tabindex],[contenteditable],[onclick]') || dismiss.element.querySelector('input,textarea,select,button,a,label,[role],[tabindex],[contenteditable],[onclick]')) throw new ControlError('unproven-combo-dismissal');
+        const componentApproved = adapters.some(adapter => adapter.approveDismissal?.(resolved, dismiss) === true);
+        const local = [resolved.parentElement, resolved.parentElement?.parentElement].includes(dismiss.scope) || componentApproved;
+        if (!dismiss.scope.contains(resolved) || !local || dismiss.scope.matches('body,html') || dismiss.element.parentElement !== dismiss.scope || !isStaticDismissal(dismiss.element, componentApproved)) throw new ControlError('unproven-combo-dismissal');
         pointerClick(dismiss.element, handle, ctx, dismiss.scope);
       } else click(adapted.closeTarget(), handle, ctx);
       while (adapted.isOpen?.() ?? Boolean(linkedPanel(control))) await sleep(ctx);

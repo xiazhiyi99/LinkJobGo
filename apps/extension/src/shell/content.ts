@@ -5,6 +5,7 @@ import { createVerifiedSelectControlAdapter } from '../controls/verified-selects
 import { createLeverLocationControlAdapter } from '../controls/lever-location.js';
 import { createTencentCityControlAdapter } from '../controls/tencent-city.js';
 import { createMokaControlAdapter } from '../controls/moka.js';
+import { createUniverseSelectControlAdapter } from '../controls/universe-select.js';
 import { createRunner } from '../runner/index.js';
 import { createMappingClient, createReadinessClient, backgroundTransport, type Transport } from './transport.js';
 import { createStartCoordinator } from './coordinator.js';
@@ -19,7 +20,7 @@ export function bootstrapContent({ config = {} }: { config?: { document?: Docume
   const doc = config.document ?? document;
   const existing = instances.get(doc); if (existing) return existing;
   const page = createPageSession({ document: doc, siteAdapter: createSitePageAdapter(doc) });
-  const controls = createControlDriver({ page, adapters: [dialogSaveAdapter, createMeituanControlAdapter(), createVerifiedSelectControlAdapter(), createLeverLocationControlAdapter(), createTencentCityControlAdapter(), createMokaControlAdapter()] });
+  const controls = createControlDriver({ page, adapters: [dialogSaveAdapter, createMeituanControlAdapter(), createVerifiedSelectControlAdapter(), createLeverLocationControlAdapter(), createTencentCityControlAdapter(), createMokaControlAdapter(), createUniverseSelectControlAdapter()] });
   const runner = createRunner({ page, controls, mappingClient: createMappingClient({ transport: config.transport ?? backgroundTransport }) });
   let commandLocation = doc.location.href;
   let commandDocumentId = crypto.randomUUID();

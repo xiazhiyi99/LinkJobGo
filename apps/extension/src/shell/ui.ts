@@ -16,6 +16,12 @@ export const phaseLabels: Record<RunnerState['phase'], string> = { idle: '准备
 export const isRunning = (phase: RunnerState['phase']) => ['analyzing', 'probing', 'planning', 'executing', 'verifying'].includes(phase);
 export function reasonLabel(reason?: string): string {
   if (!reason || reason === 'pending') return '等待填写或核验';
+  if (reason === 'invalid-page-snapshot') return '页面扫描结果无效，已暂停；请更新扩展并刷新招聘页面，再重新填写';
+  if (reason === 'invalid-semantic-page') return '页面字段识别结果无效，已暂停；请停止本轮后重新填写';
+  if (reason === 'invalid-fill-plan') return '填写方案未通过校验，已暂停；请停止本轮后重新填写';
+  if (reason === 'invalid-plan-input' || reason === 'invalid-analyze-input') return '当前区块的扫描数据未通过校验，已停止；请更新扩展并刷新招聘页面后重新填写';
+  if (reason === 'record-subtype-unconfirmed') return '当前方案尚未区分实习与正式工作，已跳过实习区块，请手动填写';
+  if (reason === 'replan-record-type-changed') return '重新识别的经历类型与原方案不一致，已暂停；请检查该区块后停止本轮并重新填写';
   if (reason === 'pending-record-mutation-unconfirmed') return '新增或保存记录的结果尚未确认，已暂停以避免重复或写错记录';
   if (reason === 'section-identity-unconfirmed' || reason.startsWith('section-quarantined:')) return '此区块的记录归属无法确认，已跳过整个区块；其他已确认归属的区块可继续填写';
   // Free-form parser explanations are not control error codes.

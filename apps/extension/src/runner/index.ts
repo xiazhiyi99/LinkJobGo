@@ -3,6 +3,8 @@ import type { FillAssignment, FillPlan, FillScope, MappingClient, OperationConte
 import type { AddedRecordProof, BoundRecord, PageSession } from '../page/index.js';
 import type { ControlDriver, InspectionStage, InspectionStageTiming } from '../controls/index.js';
 import { isReportComplete } from '../report/index.js';
+import { scopeSectionToRecords } from './snapshot-scope.js';
+import { requiresInternshipFilter } from './record-scope.js';
 export type RunnerPhase = 'idle' | 'analyzing' | 'probing' | 'planning' | 'executing' | 'verifying' | 'paused' | 'completed' | 'partial' | 'cancelled' | 'failed';
 export type DiagnosticTrigger = 'initial' | 'resume' | 'record-rebind' | 'probe-revision-change' | 'option-refresh' | 'section-continuation';
 export interface RunnerOperationDiagnostic {
@@ -198,7 +200,7 @@ export function createRunner({ page, controls, mappingClient, onProgress, adapte
       if (addition) editor = unwrap(await page.scanSection(editor.sectionId, context()));
       selected.push({ source, editor, savedViewId, addition });
     }
-    snapshot = await scan(); const chosen = { ...snapshot, sections: selected.map(entry => { const section = snapshot.sections.find(section => section.sectionId === entry.editor.sectionId); return section && entry.addition ? { ...section, records: [entry.addition.record] } : section; }).filter((section): section is SectionSnapshot => Boolean(section)) };
+    snapshot = await scan(); const chosen = { ...snapshot, sections: selected.map(entry => { const section = snapshot.sections.find(section => section.sectionId === entry.editor.sectionId); return section && entry.addition ? scopeSectionToRecords(section, [entry.addition.record]) : section; }).filter((section): section is SectionSnapshot => Boolean(section)) };
     if (!chosen.sections.length) throw new Halt('no-editable-scope', true);
     const semantic = await analyze(chosen);
     plan = await buildPlan(chosen, semantic, []); report!.profileVersion = plan.profileVersion; report!.warnings.push(...plan.warnings);
@@ -254,7 +256,7 @@ export function createRunner({ page, controls, mappingClient, onProgress, adapte
     const section = snapshot.sections.find(candidate => candidate.sectionId === sectionId);
     const relevant = section?.records.find(candidate => candidate.viewId === viewId);
     if (!section || !relevant || entry.views.get(recordKey(record)) !== viewId) throw new Halt('current-record-identity-unconfirmed', true);
-    const scoped = { ...snapshot, sections: [{ ...section, records: [relevant] }] };
+    const scoped = { ...snapshot, sections: [scopeSectionToRecords(section, [relevant])] };
     const semantic = await analyze(scoped, trigger, record);
     const freshSemantic = semantic.sections.find(candidate => candidate.sectionId === sectionId);
     if (!freshSemantic || !sameTypes(semanticTypes(freshSemantic), planTypes(entry.plan))) throw new Halt('replan-record-type-changed', true);
@@ -376,7 +378,7 @@ export function createRunner({ page, controls, mappingClient, onProgress, adapte
     if (!record.assignments.some(assignment => assignment.status === 'needs-options' && assignment.sourceRef && assignment.value !== null)) return { record, bound };
     const current = unwrap(await page.scanSection(bound.sectionId, context()));
     const relevant = current.records.find(candidate => candidate.viewId === bound.viewId); if (!relevant) throw new Halt('current-record-missing', true);
-    const snapshot = await scan(); const scoped = { ...snapshot, sections: [{ ...current, records: [relevant] }] };
+    const snapshot = await scan(); const scoped = { ...snapshot, sections: [scopeSectionToRecords(current, [relevant])] };
     // bindRecord has already proved this template's structure. Reuse its source mappings,
     // while changing only the current field identities and page revision.
     const semantic: SemanticPage = { documentId: snapshot.documentId, pageRevision: snapshot.pageRevision, warnings: expectedSiteParser ? [expectedSiteParser] : [], sections: [mapBindings({ ...semanticFor(entry, record), sectionId: current.sectionId, template: relevant }, binding => {
@@ -512,6 +514,11 @@ export function createRunner({ page, controls, mappingClient, onProgress, adapte
   const execute = async () => {
     for (const entry of work) for (const original of entry.plan.records) {
       check(); if (entry.quarantined || entry.finalized.has(recordKey(original))) continue;
+      if (expectedSiteParser === null && requiresInternshipFilter(entry.source.label, entry.semantic)) {
+        entry.quarantined = 'record-subtype-unconfirmed';
+        for (const resultItem of report!.items.filter(item => item.sectionId === entry.plan.sectionId)) { resultItem.status = 'needs-user'; resultItem.reason = 'record-subtype-unconfirmed'; resultItem.verification = 'none'; }
+        report!.warnings.push('record-subtype-unconfirmed'); emit('executing'); continue;
+      }
       try {
         if (continuationCheckRequired && !continuationValidatedSections.has(entry.plan.sectionId)) { await validateContinuation(entry); continuationValidatedSections.add(entry.plan.sectionId); }
         emit('executing'); let bound = await ensureRecord(entry, original); let record = currentPlan(entry, original);

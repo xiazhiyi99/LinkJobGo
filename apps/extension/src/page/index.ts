@@ -1,6 +1,8 @@
 import { PROTOCOL_VERSION } from '@job-assistant/autofill-contracts';
 import { readHashRoute } from '@job-assistant/autofill-contracts';
 import { createSitePageAdapter } from './adapters/sites.js';
+import { ownsSectionNode } from './section-ownership.js';
+import { leadingCaption, nearbyFieldCaption, titledFormSections } from './generic-structure.js';
 import type { ActionKind, Hints, PageSnapshot, SectionSnapshot, RecordSnapshot, FieldSnapshot, StepResult } from '@job-assistant/autofill-contracts';
 
 export interface OperationContext { signal?: AbortSignal; deadlineAt?: number }
@@ -80,7 +82,7 @@ function label(el: Element): string {
   const root = el.getRootNode() as Document | ShadowRoot;
   const refs = el.getAttribute('aria-labelledby')?.split(/\s+/).map(id => safeText(root.getElementById(id))).join(' ');
   const native = 'labels' in el ? Array.from((el as HTMLInputElement).labels ?? []).map(l => safeText(l)).join(' ') : '';
-  return clean(refs || el.getAttribute('aria-label') || native || safeText(el.closest('label')) || el.getAttribute('placeholder') || el.getAttribute('name') || el.getAttribute('title') || safeText(el.parentElement?.querySelector(':scope > label,:scope > .label,:scope > .field-label')));
+  return clean(refs || el.getAttribute('aria-label') || native || safeText(el.closest('label')) || nearbyFieldCaption(el, safeText, controls) || el.getAttribute('placeholder') || el.getAttribute('name') || el.getAttribute('title') || safeText(el.parentElement?.querySelector(':scope > label,:scope > .label,:scope > .field-label')));
 }
 function kind(el: Element): FieldSnapshot['kind'] {
   const tag = el.tagName.toLowerCase(), role = el.getAttribute('role'), type = el.getAttribute('type');
@@ -113,7 +115,7 @@ export class PageSession {
   private refreshing = false;
   private snapshotReusable = false;
   private changeNotificationPending = false;
-  private sectionContexts = new Map<string, { root: Document | ShadowRoot; loose: Element[] }>();
+  private sectionContexts = new Map<string, { root: Document | ShadowRoot; loose: Element[]; boundaries: Element[] }>();
   private dirtySections = new Set<string>();
   private fullRefreshNeeded = true;
   private incrementalReady = false;
@@ -256,23 +258,27 @@ export class PageSession {
       : { subtree: true, childList: true, attributes: true, attributeFilter: ['id','name','type','role','hidden','style','class','aria-hidden','aria-label','aria-labelledby','disabled','data-autofill-exclude'] });
     this.observers.set(root, observer);
   }
-  private scanSectionElement(section: Element, root: Document | ShadowRoot, loose: Element[], isVisible: (element: Element) => boolean): SectionSnapshot {
+  private scanSectionElement(section: Element, root: Document | ShadowRoot, loose: Element[], boundaries: Element[], isVisible: (element: Element) => boolean): SectionSnapshot {
     this.performanceMetrics.sectionsScanned++;
+    const labels = new WeakMap<Element, string>();
+    const fieldLabel = (element: Element) => { let value = labels.get(element); if (value === undefined) { value = label(element); labels.set(element, value); } return value; };
     const sectionId = this.id(section, 'section'); this.sections.set(sectionId, section);
-    const scoped = Array.from(this.adapter?.fields?.(section) ?? (section === (root as Document).body || section === (root as ShadowRoot).host ? root.querySelectorAll(controls) : section.querySelectorAll(controls))).filter(el => isVisible(el) && !el.closest('[role="listbox"],[role="menu"]') && (loose.length === 0 || section !== (root as Document).body || loose.includes(el)));
+    const scoped = Array.from(this.adapter?.fields?.(section) ?? (section === (root as Document).body || section === (root as ShadowRoot).host ? root.querySelectorAll(controls) : section.querySelectorAll(controls))).filter(el => isVisible(el) && !el.closest('[role="listbox"],[role="menu"]') && (loose.length === 0 || section !== (root as Document).body && section !== (root as ShadowRoot).host || loose.includes(el)));
     const adaptedRecords = this.adapter?.records?.(section);
-    const explicit = (adaptedRecords ?? Array.from(section.querySelectorAll('[data-record-id],[data-record],article,[role="group"],.record,.education-item,.experience-item'))).filter(el => isVisible(el) && hasStructure(el));
+    const explicit = (adaptedRecords ?? Array.from(section.querySelectorAll('[data-record-id],[data-record],article,[role="group"],.record,.education-item,.experience-item'))).filter(el => ownsSectionNode(section, el, boundaries) && isVisible(el) && hasStructure(el));
     // An adapter's empty list is authoritative: do not borrow nested groups.
     if (adaptedRecords === undefined && !explicit.length) {
       for (const parent of [section, ...Array.from(section.querySelectorAll('div,ul,ol'))]) {
-        const children = Array.from(parent.children).filter(child => isVisible(child) && child.querySelectorAll(controls).length >= 2);
+        const children = Array.from(parent.children).filter(child => ownsSectionNode(section, child, boundaries) && isVisible(child) && child.querySelectorAll(controls).length >= 2);
         if (children.length < 2) continue;
-        const shape = (child: Element) => Array.from(child.querySelectorAll(controls)).map(control => [label(control),kind(control)]);
+        const shape = (child: Element) => Array.from(child.querySelectorAll(controls)).map(control => [fieldLabel(control),kind(control)]);
         if (children.every(child => JSON.stringify(shape(child)) === JSON.stringify(shape(children[0]!)))) { explicit.push(...children); break; }
       }
     }
     const recordContainers = explicit.filter(el => !explicit.some(other => other !== el && other.contains(el)));
-    if (recordContainers.length && scoped.some(el => !recordContainers.some(record => record.contains(el)))) recordContainers.push(section);
+    // Generic section-level controls (for example “no experience”) are not an
+    // extra experience. The fallback pass retains them as singleton fields.
+    if (this.adapter && recordContainers.length && scoped.some(el => !recordContainers.some(record => record.contains(el)))) recordContainers.push(section);
     const records: RecordSnapshot[] = [];
     const registeredTargets = new Set<Element>();
     for (const record of recordContainers.length ? recordContainers : [section]) {
@@ -287,23 +293,23 @@ export class PageSession {
         const groupLabel = peers.length > 1 ? clean(el.closest('[role="radiogroup"]')?.getAttribute('aria-label') || safeText(el.closest('fieldset')?.querySelector(':scope > legend')) || el.getAttribute('name')) : ''; 
         const value = 'value' in el ? (el as HTMLInputElement).value : el.textContent;
         const state = k === 'checkbox' || k === 'radio' ? (peers.some(peer => (peer as HTMLInputElement).checked || peer.getAttribute('aria-checked') === 'true') ? 'nonempty' : 'empty') : leverLocation(el) ? ((el.parentElement?.querySelector<HTMLInputElement>(':scope > input#selected-location')?.value) ? 'nonempty' : value ? 'unknown' : 'empty') : value ? 'nonempty' : 'empty';
-        const descriptor = { fieldId, label: adaptation?.label || groupLabel || label(el), kind: k, required: adaptation?.required ?? (el.hasAttribute('required') || el.getAttribute('aria-required') === 'true'), currentState: adaptation?.currentState ?? state, ...(adaptation?.partRole ? { partRole: adaptation.partRole } : {}), ...(adaptation?.groupElement ? { groupId: this.id(adaptation.groupElement, 'group') } : {}), hints: { tag: target.tagName.toLowerCase(), name: el.getAttribute('name') ?? '', role: el.getAttribute('role') ?? '', inputType: el.getAttribute('type') ?? '', disabled: el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true', ...adaptation?.hints, ...(peers.length > 1 ? { memberIds: peers.map(peer => this.id(peer, 'radio')) } : {}) }, ...(k === 'radio' && peers.length > 1 ? { groupId: fieldId, options: peers.map((peer, index) => ({ optionId: `${fieldId}-radio-${index}`, label: label(peer), disabled: peer.hasAttribute('disabled') })) } : {}), ...(k === 'select' ? { options: Array.from((el as HTMLSelectElement).options).map((o, i) => ({ optionId: `${fieldId}-option-${i}`, label: clean(o.textContent), disabled: o.disabled })) } : {}) } as FieldSnapshot;
+        const descriptor = { fieldId, label: adaptation?.label || groupLabel || fieldLabel(el), kind: k, required: adaptation?.required ?? (el.hasAttribute('required') || el.getAttribute('aria-required') === 'true'), currentState: adaptation?.currentState ?? state, ...(adaptation?.partRole ? { partRole: adaptation.partRole } : {}), ...(adaptation?.groupElement ? { groupId: this.id(adaptation.groupElement, 'group') } : {}), hints: { tag: target.tagName.toLowerCase(), name: el.getAttribute('name') ?? '', role: el.getAttribute('role') ?? '', inputType: el.getAttribute('type') ?? '', disabled: el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true', ...adaptation?.hints, ...(peers.length > 1 ? { memberIds: peers.map(peer => this.id(peer, 'radio')) } : {}) }, ...(k === 'radio' && peers.length > 1 ? { groupId: fieldId, options: peers.map((peer, index) => ({ optionId: `${fieldId}-radio-${index}`, label: fieldLabel(peer), disabled: peer.hasAttribute('disabled') })) } : {}), ...(k === 'select' ? { options: Array.from((el as HTMLSelectElement).options).map((o, i) => ({ optionId: `${fieldId}-option-${i}`, label: clean(o.textContent), disabled: o.disabled })) } : {}) } as FieldSnapshot;
         fields.push(descriptor); this.fields.set(fieldId, { element: target, elements: adaptation?.elements ?? (adaptation?.element ? [target] : peers) as HTMLElement[], section, record, descriptor, handle: { documentId: this.documentId, pageRevision: this.revision, sectionId, viewId, fieldId } });
       }
       if (fields.length || record !== section && hasStructure(record)) records.push({ viewId, fields });
     }
     const actions: SectionSnapshot['actions'] = [];
     for (const el of new Set([...section.querySelectorAll('button,a,[role="button"],input[type="button"]'), ...this.adapter?.actions?.(section) ?? []])) {
-      if (!isVisible(el) || this.adapter?.allowAction?.(el, section) === false || Array.from(registeredTargets).some(target => target.contains(el))) continue; const text = clean(el.getAttribute('aria-label') || el.textContent || el.getAttribute('value') || el.getAttribute('title'));
+      if (!ownsSectionNode(section, el, boundaries) || !isVisible(el) || this.adapter?.allowAction?.(el, section) === false || Array.from(registeredTargets).some(target => target.contains(el))) continue; const text = clean(el.getAttribute('aria-label') || el.textContent || el.getAttribute('value') || el.getAttribute('title'));
       const adaptedAction = this.adapter?.describeAction?.(el);
       const actionKind = adaptedAction?.kind ?? (/^(添加|新增|增加|add)(\s|教育|工作|经历|记录|项目|$)/i.test(text) ? 'add-record' : /^(保存|save)$/i.test(text) ? 'save-record' : /^(编辑|修改|edit)(\s|教育|工作|经历|记录|项目|$)/i.test(text) ? 'open-record' : /^(取消|关闭|cancel|close)$/i.test(text) ? 'close-record' : /^(下一步|下一节|next)$/i.test(text) ? 'next-section' : undefined);
       if (!actionKind || /投递|提交申请|apply|submit/i.test(text)) continue;
-      const actionId = this.id(el, 'action'); const record = recordContainers.find(r => r.contains(el)); const viewId = record ? this.recordId(record, sectionId, recordContainers) : undefined;
+      const actionId = this.id(el, 'action'); const record = actionKind === 'add-record' ? undefined : recordContainers.find(r => r.contains(el)); const viewId = record ? this.recordId(record, sectionId, recordContainers) : undefined;
       actions.push({ actionId, kind: actionKind, sectionId, ...(viewId ? { viewId } : {}), label: adaptedAction?.label ?? text, hints: { tag: el.tagName.toLowerCase(), disabled: el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true' } });
       this.actions.set(actionId, { element: el as HTMLElement, section, handle: { documentId: this.documentId, pageRevision: this.revision, sectionId, viewId, actionId } });
     }
     const sectionInfo = this.adapter?.describeSection?.(section);
-    return { sectionId, label: sectionInfo?.label ?? (clean(section.getAttribute('aria-label') || section.querySelector('legend,h1,h2,h3,h4')?.textContent) || 'Form'), mode: sectionInfo?.mode ?? (section.matches('[role="dialog"],dialog') ? 'modal' : actions.some(action => action.kind === 'next-section') ? 'multistep' : 'inline'), repeatable: records.length > 1 || actions.some(a => a.kind === 'add-record'), records, actions };
+    return { sectionId, label: sectionInfo?.label ?? (clean(section.getAttribute('aria-label') || safeText(section.querySelector('legend,h1,h2,h3,h4'))) || leadingCaption(section, safeText) || 'Form'), mode: sectionInfo?.mode ?? (section.matches('[role="dialog"],dialog') ? 'modal' : actions.some(action => action.kind === 'next-section') ? 'multistep' : 'inline'), repeatable: records.length > 1 || actions.some(a => a.kind === 'add-record'), records, actions };
   }
   private publish(sections: SectionSnapshot[]): PageSnapshot {
     const signature = JSON.stringify(sections.map(s => [s.sectionId, s.label, s.records.map(r => [r.viewId, r.fields.map(f => [f.fieldId,f.label,f.kind,f.required,f.groupId,f.partRole, Object.fromEntries(Object.entries(f.hints).filter(([key]) => key !== 'disabled'))])]), s.actions.map(a => [a.actionId,a.kind,a.viewId,a.label])] ));
@@ -331,7 +337,7 @@ export class PageSession {
         for (const [id, entry] of this.fields) if (entry.handle.sectionId === previous.sectionId) this.fields.delete(id);
         for (const [id, entry] of this.actions) if (entry.handle.sectionId === previous.sectionId) this.actions.delete(id);
         this.performanceMetrics.sectionRefreshes++;
-        return this.scanSectionElement(section, context.root, context.loose, isVisible);
+        return this.scanSectionElement(section, context.root, context.loose, context.boundaries, isVisible);
       });
       this.dirtySections.clear();
       return this.publish(sections);
@@ -358,7 +364,7 @@ export class PageSession {
       }
     }
     this.snapshotReusable = false;
-    const isVisible = this.adapter?.reuseStructureWithinTask ? scanVisibility() : visible;
+    const isVisible = scanVisibility();
     const started = performance.now(); this.performanceMetrics.refreshes++;
     this.refreshing = true;
     try {
@@ -375,13 +381,25 @@ export class PageSession {
       for (const root of roots) {
         this.observe(root);
         const candidates = (root.nodeType === 9 ? this.adapter?.sections?.(root as Document) : undefined) ?? (this.adapter?.includeUnscopedFields === false ? [] : Array.from(root.querySelectorAll('fieldset,section,[role="region"],[role="dialog"],dialog,form')));
+        if (!this.adapter) for (const parent of [...candidates]) candidates.push(...titledFormSections(parent, { readText: safeText, hasStructure, visible: isVisible, controls }));
         const containers = candidates.filter(el => isVisible(el) && (hasStructure(el) || this.adapter?.actions?.(el).some(action => isVisible(action))) && (this.adapter?.includeNestedSections || !candidates.some(other => other !== el && el.contains(other) && hasStructure(other))));
         const looseCandidates = this.adapter?.includeUnscopedFields === false ? [] : Array.from(root.querySelectorAll(controls)); this.performanceMetrics.looseControlsVisited += looseCandidates.length;
         const loose = looseCandidates.filter(el => isVisible(el) && !el.closest('[role="listbox"],[role="menu"]') && !containers.some(section => section.contains(el)));
-        if (loose.length && this.adapter?.includeUnscopedFields !== false) containers.push(root.nodeType === 9 ? (root as Document).body : (root as ShadowRoot).host);
-        for (const section of [...new Set(containers)]) {
-          this.sectionContexts.set(this.id(section, 'section'), { root, loose });
-          sections.push(this.scanSectionElement(section, root, loose, isVisible));
+        const fallback = root.nodeType === 9 ? (root as Document).body : (root as ShadowRoot).host;
+        const declaredFallback = containers.includes(fallback);
+        if (this.adapter?.includeUnscopedFields !== false) containers.push(fallback);
+        const boundaries = [...new Set(containers)];
+        for (const section of boundaries.filter(section => section !== fallback || declaredFallback)) {
+          this.sectionContexts.set(this.id(section, 'section'), { root, loose, boundaries });
+          sections.push(this.scanSectionElement(section, root, loose, boundaries, isVisible));
+        }
+        if (!this.adapter) {
+          const registered = new Set(Array.from(this.fields.values()).flatMap(field => field.elements));
+          for (const element of looseCandidates) if (!registered.has(element as HTMLElement) && !loose.includes(element) && !element.parentElement?.closest(controls) && isVisible(element) && !element.closest('[role="listbox"],[role="menu"]')) loose.push(element);
+        }
+        if (!declaredFallback && loose.length && this.adapter?.includeUnscopedFields !== false) {
+          this.sectionContexts.set(this.id(fallback, 'section'), { root, loose, boundaries });
+          sections.push(this.scanSectionElement(fallback, root, loose, boundaries, isVisible));
         }
       }
       this.publish(sections);

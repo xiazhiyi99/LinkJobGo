@@ -2,6 +2,17 @@
 
 日期：2026-10-18。入口：`https://linkaigo.com`。用户已明确授权备份后切换正式站，并删除指定历史镜像。
 
+## 后续更新：字节规则与通用扫描器
+
+下文“发布结果”保留首次正式切换记录。当前已更新为扩展 **0.3.4**（构建 `6ada56b5e57507cb963f`）及字节后端规则 `bytedance@1.0.0`；字节已知站点不再回退 AI。
+
+- API：`lingke-api:bytedance-rules-20261018`，镜像 `9fa3c52032be8cd713d654e64e33e7628ae0fce386f6acd0020821bea68488a1`。
+- Web：`lingke-web:bytedance-rules-20261018`，镜像 `ae0fabd066797cd7a6b4a75073407d72f45318c404a11ce1a75827e08fba0b11`；仅替换扩展下载资源。
+- ZIP SHA-256：`408057305fba58c1750792f44a580cd0c9f9be6054bab77cbf35a2b26c8f3476`。
+- 发布配置：`/opt/lingke/releases/bytedance-rules-20261018/`；原镜像保存为 `lingke-api:before-bytedance-rules-20261018`、`lingke-web:before-bytedance-rules-20261018`。沿用正式环境配置和唯一代理别名。
+- 正式/隔离站健康与公开下载校验通过。PostgreSQL、Redis、Caddy、隔离站容器未改变，无数据库迁移。
+- 字节真实按钮测试：42 个改写项正确，预定可填字段 48/48；48.340–61.436 秒间进入部分完成。空区块及多余旧实习记录仍有缺口，详见[测试报告](../testing/bytedance-rules-2026-10-18.md)。
+
 ## 发布结果
 
 | 项目 | 结果 |
