@@ -6,6 +6,8 @@
 
 BUG-03 的远端 AI 路由与供应商配置已在 `d390f10` 修复。真实 TXT/DOCX/PDF、OCR、视觉、填写建议、未知页 AI 匹配与 Chrome 上传预览通过，见[AI 服务修复记录](ai-service-fix-2026-10-18.md)；不代表复杂文件的所有解析字段或导入流程均已验收。
 
+BUG-02 的账号路由、CAPTCHA 构建和发信配置已在 `46b247a` 修复部署。96 项模块测试、8 组本地认证/SMTP 集成、13 项远端校验通过；真实人机验证、收信注册与网页密码重置仍待人工完成，见[账号修复复测记录](auth-service-fix-2026-10-18.md)。
+
 ## 环境与方法
 
 - 产品基线 `b26bae5`（最新功能 `da6fea2`）；GitHub 分支 `codex/autofill-remote-test` 与远端隔离 checkout 一致。
