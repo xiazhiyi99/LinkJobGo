@@ -41,6 +41,7 @@ services:
       SESSION_COOKIE_PATH: /autofill-test
       AUTOFILL_EXTENSION_ORIGINS: ${AUTOFILL_EXTENSION_ORIGINS:?required}
       AI_PROVIDER_MODE: http
+      MOKA_RULES_MODE: ${MOKA_RULES_MODE:-off}
     depends_on:
       postgres:
         condition: service_healthy
