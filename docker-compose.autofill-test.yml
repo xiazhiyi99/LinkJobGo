@@ -26,7 +26,9 @@ services:
     restart: unless-stopped
     # Dedicated provider configuration only; never load the main site's .env,
     # which also contains its database, session and application settings.
-    env_file: .env.autofill-ai
+    env_file:
+      - .env.autofill-ai
+      - .env.autofill-auth
     environment:
       NODE_ENV: production
       API_PORT: 3001
@@ -60,7 +62,10 @@ services:
         NEXT_PUBLIC_API_URL: https://linkaigo.com/autofill-test/api
         NEXT_PUBLIC_BASE_PATH: /autofill-test
         NEXT_PUBLIC_SESSION_COOKIE_NAME: lingke_autofill_test
-        NEXT_PUBLIC_CAPTCHA_PROVIDER: disabled
+        NEXT_PUBLIC_CAPTCHA_PROVIDER: ${NEXT_PUBLIC_CAPTCHA_PROVIDER:?required}
+        NEXT_PUBLIC_ALIYUN_CAPTCHA_REGION: ${NEXT_PUBLIC_ALIYUN_CAPTCHA_REGION:?required}
+        NEXT_PUBLIC_ALIYUN_CAPTCHA_PREFIX: ${NEXT_PUBLIC_ALIYUN_CAPTCHA_PREFIX:?required}
+        NEXT_PUBLIC_ALIYUN_CAPTCHA_SCENE_ID: ${NEXT_PUBLIC_ALIYUN_CAPTCHA_SCENE_ID:?required}
         EXTENSION_API_ORIGIN: https://linkaigo.com
         EXTENSION_API_PATH_PREFIX: /autofill-test/api
         EXTENSION_LOGIN_URL: https://linkaigo.com/autofill-test/login?next=/workspace/autofill

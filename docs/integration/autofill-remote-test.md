@@ -21,10 +21,11 @@
 - 将 `deploy/autofill-test.Caddyfile` 的 handler 插入已有 HTTPS 站点，在 Web fallback 之前。先备份、validate，再 reload；主站 `/api` 和 Web 路由保留。
 - 测试仅录入合成账号和简历。邮箱验证仍启用，测试账号由测试环境管理员种入已验证身份；不开放验证码调试接口。
 - AI/OCR 单独使用服务器上的 `.env.autofill-ai`（600 权限、不入库）。按仓库 `.env.example` 中的 `AI_*`、`BAIDU_OCR_*`、`RESUME_PDF_EXTRACTOR` 提供供应商配置；不得直接加载主站完整 `.env`，以免带入主站数据库、会话或业务配置。扩展不持有模型密钥。
+- 注册与邮件单独使用 `.env.autofill-auth`（600 权限、不入库）：仅配置 `MAIL_PROVIDER`、`MAIL_FROM`、`SMTP_*`、`CAPTCHA_PROVIDER`、`ALIYUN_CAPTCHA_*`。测试 `EMAIL_CODE_SECRET`、`APP_URL`、数据库及 Cookie 继续由独立测试配置覆盖。网页需要在 `.env.autofill-test` 中提供四个公开的 `NEXT_PUBLIC_CAPTCHA_PROVIDER` / `NEXT_PUBLIC_ALIYUN_CAPTCHA_REGION` / `NEXT_PUBLIC_ALIYUN_CAPTCHA_PREFIX` / `NEXT_PUBLIC_ALIYUN_CAPTCHA_SCENE_ID`，变更后重新构建 Web；不能只重启容器。
 
 ```bash
 # 在测试 checkout 中执行
-# 先配置 .env.autofill-test 和仅含 AI/OCR 设置的 .env.autofill-ai
+# 先配置 .env.autofill-test、.env.autofill-ai 和 .env.autofill-auth
 DC='docker compose --env-file .env.autofill-test -p lingke-autofill-test -f docker-compose.autofill-test.yml'
 $DC build api
 $DC up -d postgres
