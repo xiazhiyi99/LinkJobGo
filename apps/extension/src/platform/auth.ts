@@ -21,21 +21,33 @@ export function createAuthService({ apiOrigin, apiPathPrefix = '', api, onAccoun
     initialized = true;
     account = next;
   };
+  const readStatus = async () => {
+    const mine = ++sequence;
+    try {
+      const next = await api.account({ deadlineAt: Date.now() + 8000 });
+      if (mine !== sequence) throw new PlatformError('cancelled');
+      update(next);
+      return { state: 'authenticated', authenticated: true, role: next.role,
+        capabilities: { extensionDebug: next.extensionDebug }, ...(next.extensionDebug ? { backendUrl } : {}) };
+    } catch (error) {
+      if (mine !== sequence) throw new PlatformError('cancelled');
+      // A transport failure is not proof of logout. The popup still hides
+      // privileged UI on failure; every fill remains authenticated by server.
+      if (!(error instanceof PlatformError) || ![401, 403].includes(error.status)) throw error;
+      update(undefined);
+      if (error.status !== 401) throw error;
+      return { state: 'signed-out', authenticated: false, role: 'user', capabilities: { extensionDebug: false } };
+    }
+  };
+  let statusRequest: ReturnType<typeof readStatus> | undefined;
   return {
-    async status() {
-      const mine = ++sequence;
-      try {
-        const next = await api.account({ deadlineAt: Date.now() + 8000 });
-        if (mine !== sequence) throw new PlatformError('cancelled');
-        update(next);
-        return { state: 'authenticated', authenticated: true, role: next.role,
-          capabilities: { extensionDebug: next.extensionDebug }, ...(next.extensionDebug ? { backendUrl } : {}) };
-      } catch (error) {
-        if (mine !== sequence) throw new PlatformError('cancelled');
-        update(undefined);
-        if (!(error instanceof PlatformError) || error.status !== 401) throw error;
-        return { state: 'signed-out', authenticated: false, role: 'user', capabilities: { extensionDebug: false } };
-      }
+    status() {
+      // Popup polling and permission checks share one fresh request instead of
+      // invalidating successful responses whenever the network takes >5 s.
+      if (statusRequest) return statusRequest;
+      const request = readStatus(); statusRequest = request;
+      void request.finally(() => { if (statusRequest === request) statusRequest = undefined; }).catch(() => {});
+      return request;
     },
     async fill(operation: FillOperation, input: ReadinessRequest | AnalyzeRequest | PlanRequest, ctx: OperationContext) {
       if (!account) update(await api.account(ctx));

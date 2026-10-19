@@ -22,7 +22,8 @@ function fixture({ rejectWrite = false, internship = false, filtered = false, de
     writeControl: async () => { if (!rejectWrite) value = '合成候选人'; return ok({ attempted: true, value }); },
   };
   const mappingClient = { analyzePage: async () => semanticPage, buildFillPlan: async input => ({ runId: input.runId, documentId: 'document', pageRevision: 1, profileVersion: 'a'.repeat(64), warnings: [], sections: [{ sectionId: 'basic', ...(internship ? { recordType: 'experience' } : {}), records: [{ recordId: internship ? 'source-internship' : null, recordIndex: internship ? 0 : null, recordType: internship ? 'experience' : null, targetIndex: internship ? 0 : null, assignments: [{ templateFieldId: 'name', sourceRef: derived ? null : internship ? { ...sourceKey, recordId: 'source-internship' } : sourceKey, ...(derived ? { derivation: 'alibaba-awards-summary', sourceRefs: ['name','startDate'].map(key => ({ scope:'record', recordType:'award', recordId:'award-source', path:['fields',key] })) } : {}), value: '合成候选人', transform: derived ? 'join' : 'identity', status: 'ready', resolvedBy: 'site' }] }] }] }) };
-  return { runner: createRunner({ page, controls, mappingClient }), checks };
+  const progress=[];
+  return { runner: createRunner({ page, controls, mappingClient, onProgress:state=>progress.push(state) }), checks, page, controls, mappingClient, snapshot, semanticPage, bound, progress };
 }
 
 test('ordinary filling confirms writes without repeating a whole-form value audit', async () => {
@@ -55,4 +56,38 @@ test('unknown internship sections skip unfiltered work records before any write 
   const filtered = fixture({ internship: true, filtered: true });
   assert.equal((await filtered.runner.start({ overwriteExisting: true })).status, 'completed');
   assert.deepEqual(filtered.checks, ['existing', 'after-write']);
+});
+
+test('a field stability timeout leaves that field for the user and still fills the following field',async()=>{
+  const f=fixture();
+  const email={fieldId:'email',label:'邮箱',kind:'text',required:false,currentState:'empty',hints:{}};
+  f.snapshot.sections[0].records[0].fields.push(email);
+  f.semanticPage.sections[0].bindings.push({templateFieldId:'email',sourceKey:{scope:'profile',path:['email']},status:'resolved',resolvedBy:'site'});
+  f.bound.fieldMap.email={...f.bound.fieldMap.name,fieldId:'email'};
+  const originalPlan=f.mappingClient.buildFillPlan;
+  f.mappingClient.buildFillPlan=async input=>{
+    const plan=await originalPlan(input);
+    plan.sections[0].records[0].assignments.push({templateFieldId:'email',sourceRef:{scope:'profile',path:['email']},value:'candidate@example.test',transform:'identity',status:'ready',resolvedBy:'site'});
+    return plan;
+  };
+  const writes=[];let emailValue='';
+  f.controls.verifyControl=async(handle,assignment)=>handle.fieldId==='name'?{status:'needs-user',code:'value-stability-timeout'}:ok({matches:emailValue===assignment.value,actual:emailValue});
+  f.controls.writeControl=async(handle,assignment)=>{writes.push(handle.fieldId);emailValue=assignment.value;return ok({attempted:true,value:emailValue});};
+  const result=await f.runner.start();
+  assert.equal(result.status,'partial');
+  assert.equal(result.items[0].reason,'value-stability-timeout');
+  assert.equal(result.items[0].status,'needs-user');
+  assert.equal(result.items[1].status,'filled');
+  assert.deepEqual(writes,['email'],'an unconfirmed field is not written or retried in a loop');
+  assert.ok(f.progress.some(state=>state.phase==='executing'&&state.report.items[0].reason==='value-stability-timeout'&&state.report.items[1].reason==='pending'),'progress advances before the next field finishes');
+});
+test('pause state records the current cause and clears it after ending the run',async()=>{
+  const f=fixture();f.mappingClient.analyzePage=async()=>({});
+  assert.equal((await f.runner.start()).status,'paused');
+  assert.equal(f.runner.getState().pauseReason,'invalid-semantic-page');
+  f.runner.cancel();assert.equal(f.runner.getState().pauseReason,undefined);
+  const manual=fixture(),scan=manual.page.scanPage;
+  manual.page.scanPage=async(...args)=>{manual.runner.pause();return scan(...args);};
+  assert.equal((await manual.runner.start()).status,'paused');
+  assert.equal(manual.runner.getState().pauseReason,'paused');
 });

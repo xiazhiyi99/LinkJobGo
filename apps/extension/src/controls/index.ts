@@ -360,13 +360,20 @@ export function createControlDriver({ page, adapters = [] }: { page: PageSession
   };
   const nativeOptions = (handle: FieldHandle, select: HTMLSelectElement) => Array.from(select.options).map((option, index) => ({ optionId: `${handle.fieldId}-option-${index}`, label: text(option.label), disabled: option.disabled || (option.parentElement?.tagName === 'OPTGROUP' && (option.parentElement as HTMLOptGroupElement).disabled) }));
   const stableRead = async (handle: FieldHandle, ctx: ControlContext) => {
-    let previous: Value = readTarget(field(handle, ctx)); let since = Date.now();
-    while (true) {
-      await sleep(ctx);
-      const target = field(handle, ctx);
-      const value = readTarget(target);
-      if (norm(value) !== norm(previous)) { previous = value; since = Date.now(); }
-      if (Date.now() - since >= 120 && !loading(target.element, target.element)) return value;
+    // A permanently busy or changing field must not consume the whole run.
+    const readCtx = { ...ctx, deadlineAt: Math.min(ctx.deadlineAt, Date.now() + 2000) };
+    try {
+      let previous: Value = readTarget(field(handle, readCtx)); let since = Date.now();
+      while (true) {
+        await sleep(readCtx);
+        const target = field(handle, readCtx);
+        const value = readTarget(target);
+        if (norm(value) !== norm(previous)) { previous = value; since = Date.now(); }
+        if (Date.now() - since >= 120 && !loading(target.element, target.element)) return value;
+      }
+    } catch (error) {
+      if (error instanceof ControlError && error.code === 'deadline-exceeded' && Date.now() < ctx.deadlineAt) throw new ControlError('value-stability-timeout', 'needs-user');
+      throw error;
     }
   };
   const dateAdapter = (element: HTMLElement) => adapters.map(adapter => adapter.datePanel?.(element)).find(Boolean);

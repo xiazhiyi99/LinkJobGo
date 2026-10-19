@@ -86,6 +86,46 @@ test('website account switch rejects old in-flight results',async()=>{
     await arrived;current={...user,id:'other-user'};await auth.status();release();await rejected;
   });
 });
+test('overlapping status checks share one request and do not discard its successful result',async()=>{
+  const pending=[];
+  const auth=createAuthService({apiOrigin:'https://synthetic.example.test',api:{account:()=>new Promise(resolve=>pending.push(resolve))}});
+  const checks=[auth.status(),auth.status(),auth.status()];
+  assert.equal(pending.length,1);
+  pending[0]({id:'synthetic-user',role:'admin',extensionDebug:true});
+  for(const status of await Promise.all(checks))assert.equal(status.authenticated,true);
+  const fresh=auth.status();assert.equal(pending.length,2);
+  pending[1]({id:'synthetic-user',role:'user',extensionDebug:false});
+  assert.equal((await fresh).capabilities.extensionDebug,false,'a later check still obtains fresh permissions');
+});
+test('transient status failure does not log out or abort an authenticated fill',async()=>{
+  let unavailable=false,abortCount=0,release;
+  const api={
+    account:async()=>{if(unavailable)throw new PlatformError('backend-unavailable');return{id:'synthetic-user',role:'admin',extensionDebug:true};},
+    fill:()=>new Promise(resolve=>{release=resolve;}),
+  };
+  const auth=createAuthService({apiOrigin:'https://synthetic.example.test',api,onAccountChange:()=>{abortCount++;}});
+  await auth.status();
+  const fill=auth.fill('plan',metadata(),{deadlineAt:Date.now()+2000});
+  unavailable=true;
+  await assert.rejects(auth.status(),error=>error.code==='backend-unavailable');
+  assert.equal(abortCount,0);
+  release({synthetic:true});assert.deepEqual(await fill,{synthetic:true});
+  unavailable=false;assert.equal((await auth.status()).authenticated,true);
+});
+test('a rejected fill invalidates overlapping status results instead of restoring an expired session',async()=>{
+  let pendingStatus,accountCalls=0;
+  const api={
+    account:async()=>{accountCalls++;return accountCalls===1?{id:'synthetic-user',role:'user',extensionDebug:false}:new Promise(resolve=>{pendingStatus=resolve;});},
+    fill:async()=>{throw new PlatformError('authentication-required',401);},
+  };
+  const auth=createAuthService({apiOrigin:'https://synthetic.example.test',api});
+  await auth.status();
+  const status=auth.status();
+  const rejected=assert.rejects(status,error=>error.code==='cancelled');
+  await assert.rejects(auth.fill('plan',metadata(),{deadlineAt:Date.now()+2000}),error=>error.status===401);
+  pendingStatus({id:'synthetic-user',role:'admin',extensionDebug:true});
+  await rejected;
+});
 test('background opens only configured login URL; content cannot request account management',async()=>{
   await upstream(async({origin,received})=>{
     const opened=[];

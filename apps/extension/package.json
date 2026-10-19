@@ -1,7 +1,7 @@
 {
   "name": "@job-assistant/extension",
   "private": true,
-  "version": "0.3.10",
+  "version": "0.3.11",
   "type": "module",
   "scripts": {
     "build": "pnpm --filter @job-assistant/autofill-contracts build && node scripts/build.mjs",

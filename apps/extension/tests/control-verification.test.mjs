@@ -71,3 +71,37 @@ test('a settled write is reused only for the exact unchanged DOM binding', async
     assert.equal((await replaced).value.matches, false, 'a replacement node cannot reuse the old receipt');
   } finally { driver.dispose(); }
 });
+
+test('a perpetually busy or changing value cannot consume the remaining run budget', async () => {
+  for (const busy of [true, false]) {
+    const f = fixture(); f.element.value = 'new';
+    f.element.getAttribute = name => busy && name === 'aria-busy' ? 'true' : null;
+    let sequence = 0;
+    const timer = busy ? undefined : setInterval(() => { f.element.value = `changing-${++sequence}`; }, 30);
+    const deadlineAt = Date.now() + 6000;
+    try {
+      const result = await f.driver.verifyControl(f.handle, f.assignment, { ...f.context, deadlineAt });
+      assert.equal(result.status, 'needs-user');
+      assert.equal(result.code, 'value-stability-timeout');
+      assert.ok(Date.now() < deadlineAt - 1000, 'other fields retain a usable run budget');
+    } finally { clearInterval(timer); f.driver.dispose(); }
+  }
+});
+test('a late stable value is read accurately instead of being skipped', async () => {
+  const f = fixture(); let busy = true;
+  f.element.getAttribute = name => busy && name === 'aria-busy' ? 'true' : null;
+  const timer = setTimeout(() => { f.element.value = 'new'; busy = false; }, 250);
+  try {
+    assert.deepEqual((await f.driver.verifyControl(f.handle, f.assignment, f.context)).value, { matches: true, actual: 'new' });
+  } finally { clearTimeout(timer); f.driver.dispose(); }
+});
+test('local stability deadlines preserve cancellation and the earlier run deadline', async () => {
+  const f = fixture(); f.element.value = 'new';
+  f.element.getAttribute = name => name === 'aria-busy' ? 'true' : null;
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), 30);
+  try {
+    assert.equal((await f.driver.verifyControl(f.handle, f.assignment, { ...f.context, signal: abort.signal })).code, 'aborted');
+    assert.equal((await f.driver.verifyControl(f.handle, f.assignment, { ...f.context, deadlineAt: Date.now() + 60 })).code, 'deadline-exceeded');
+  } finally { clearTimeout(timer); f.driver.dispose(); }
+});

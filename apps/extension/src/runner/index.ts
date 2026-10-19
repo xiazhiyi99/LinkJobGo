@@ -19,7 +19,7 @@ export interface RunnerOperationDiagnostic {
 type PagePerformance = ReturnType<PageSession['getPerformanceMetrics']>;
 export interface RunnerDiagnostics { operations: RunnerOperationDiagnostic[]; droppedOperations: number; pagePerformance: { start: PagePerformance; current: PagePerformance } }
 export interface RunnerTiming { startedAt: number; finishedAt?: number; elapsedMs: number; phaseMs: Partial<Record<RunnerPhase, number>>; diagnostics?: RunnerDiagnostics }
-export interface RunnerState { phase: RunnerPhase; runId: string | null; report: RunReport | null; timing?: RunnerTiming }
+export interface RunnerState { phase: RunnerPhase; runId: string | null; report: RunReport | null; timing?: RunnerTiming; pauseReason?: string }
 export interface RunnerAdapter {
   /** Certifies that add opens a disposable editor, rather than persisting a blank record. */
   canProbeEmptySection?(section: SectionSnapshot): boolean;
@@ -93,7 +93,7 @@ export function createRunner({ page, controls, mappingClient, onProgress, adapte
     try { const result = await operation(); finish('ok'); return result; }
     catch (error) { finish(diagnosticOutcome(error)); throw error; }
   };
-  const emit = (phase: RunnerPhase) => { const now = Date.now(); if (timing) { timing.phaseMs[state.phase] = (timing.phaseMs[state.phase] ?? 0) + Math.max(0, now - phaseStartedAt); phaseStartedAt = now; if (['completed','partial','failed','cancelled'].includes(phase)) timing.finishedAt ??= now; } state = { phase, runId: report?.runId ?? null, report: report ? structuredClone(report) : null }; const snapshot = publicState(); onProgress?.(snapshot); for (const listener of listeners) listener(snapshot); };
+  const emit = (phase: RunnerPhase, pauseReason?: string) => { const now = Date.now(); if (timing) { timing.phaseMs[state.phase] = (timing.phaseMs[state.phase] ?? 0) + Math.max(0, now - phaseStartedAt); phaseStartedAt = now; if (['completed','partial','failed','cancelled'].includes(phase)) timing.finishedAt ??= now; } state = { phase, runId: report?.runId ?? null, report: report ? structuredClone(report) : null, ...(phase === 'paused' && pauseReason ? { pauseReason } : {}) }; const snapshot = publicState(); onProgress?.(snapshot); for (const listener of listeners) listener(snapshot); };
   const check = () => { if (disposed || requested === 'cancel' || options.signal?.aborted) throw new Halt('cancelled'); if (requested === 'pause') throw new Halt('paused', true); if (Date.now() >= deadlineAt) throw new Halt('deadline-exceeded', true); if (documentId && page.getIdentity().documentId !== documentId) throw new Halt('page-identity-changed', true); };
   const context = (): OperationContext => ({ signal: controller.signal, deadlineAt });
   const cctx = (bound: BoundRecord) => ({ ...context(), sectionId: bound.sectionId, viewId: bound.viewId, overwrite: options.overwriteExisting ? 'replace' as const : 'preserve' as const, allowCollegeReset: options.overwriteExisting === true && options.allowCollegeReset === true });
@@ -562,9 +562,9 @@ export function createRunner({ page, controls, mappingClient, onProgress, adapte
           const assignment = pending.find(candidate => candidate.status === 'ready' && candidate.sourceRef?.scope === 'record' && candidate.sourceRef.path.length === 2 && candidate.sourceRef.path[0] === 'fields' && candidate.sourceRef.path[1] === 'current' && typeof candidate.value === 'boolean') ?? pending[0];
           if (!assignment) break; attempted.add(assignment.templateFieldId);
           check(); const resultItem = item(entry, original, assignment); if (resultItem.reason !== 'pending' && resultItem.reason !== 'paused') continue;
-          if (assignment.status !== 'ready' || assignment.value === null) { resultItem.status = assignment.reason?.startsWith('option-probe-') ? 'needs-user' : 'skipped'; resultItem.reason = assignment.reason ?? assignment.status; continue; }
+          if (assignment.status !== 'ready' || assignment.value === null) { resultItem.status = assignment.reason?.startsWith('option-probe-') ? 'needs-user' : 'skipped'; resultItem.reason = assignment.reason ?? assignment.status; emit('executing'); continue; }
           bound = await bind(entry, unwrap(await page.scanSection(bound.sectionId, context())), bound.viewId, record);
-          const handle = bound.fieldMap[assignment.templateFieldId]; if (!handle) { resultItem.status = 'failed'; resultItem.reason = 'missing-field-binding'; continue; }
+          const handle = bound.fieldMap[assignment.templateFieldId]; if (!handle) { resultItem.status = 'failed'; resultItem.reason = 'missing-field-binding'; emit('executing'); continue; }
           const partner = pairedDate(record, assignment);
           const datePair = partner && [assignment, partner].sort((left, right) => left.sourceRef!.path[1] === 'startDate' ? -1 : right.sourceRef!.path[1] === 'startDate' ? 1 : 0);
           const rangeKey = datePair?.map(candidate => candidate.templateFieldId).join(':');
@@ -590,7 +590,8 @@ export function createRunner({ page, controls, mappingClient, onProgress, adapte
               }
             }
           }
-          const existing = await controls.verifyControl(handle, assignment, { ...cctx(bound), verification: 'existing' });
+          const existing = await controls.verifyControl(handle, assignment, { ...cctx(bound), verification: 'existing' }); check();
+          if (existing.status !== 'ok' && existing.code === 'value-stability-timeout') { resultItem.status = 'needs-user'; resultItem.reason = existing.code; emit('executing'); continue; }
           if (existing.status === 'ok' && existing.value.matches) { resultItem.status = 'already-correct'; resultItem.reason = undefined; resultItem.verification = 'readback'; entry.expected.set(assignmentKey(record, assignment), { ...assignment, value: existing.value.actual }); emit('executing'); continue; }
           const linkedBefore = await linkedDefaultBefore(entry, record, assignment, bound);
           const dependentProof = linkedDefaults.get(assignment.templateFieldId);
@@ -607,6 +608,7 @@ export function createRunner({ page, controls, mappingClient, onProgress, adapte
             resultItem.status = wrote.status === 'needs-user' || wrote.status === 'unsupported' ? 'needs-user' : 'failed'; resultItem.reason = wrote.code;
             const partner = wrote.code === 'date-choice-disabled' ? pairedDate(record, assignment) : undefined;
             if (partner && !entry.dateRetried.has(assignmentKey(record, assignment))) entry.pendingDates.set(assignmentKey(record, assignment), { assignment, partnerKey: assignmentKey(record, partner), failedAt: writeSequence });
+            emit('executing');
             continue;
           }
           bound = await bind(entry, unwrap(await page.scanSection(bound.sectionId, context())), bound.viewId, record);
@@ -685,7 +687,7 @@ export function createRunner({ page, controls, mappingClient, onProgress, adapte
       const paused = requested === 'pause' || error instanceof Halt && error.paused; const cancelled = requested === 'cancel' || options.signal?.aborted;
       report!.status = cancelled ? 'cancelled' : paused ? 'paused' : 'failed';
       for (const item of report!.items) if (item.reason === 'pending' || item.reason === 'paused') { item.status = cancelled ? 'cancelled' : 'needs-user'; item.reason = paused ? 'paused' : error instanceof Error ? error.message : 'run-failed'; }
-      if (error instanceof Error && !['paused','cancelled'].includes(error.message)) { const index = report!.warnings.length; report!.warnings.push(error.message); if (error instanceof Halt && error.paused && error.code === 'deadline-exceeded') transientDeadlineWarnings.add(index); } emit(report!.status);
+      if (error instanceof Error && !['paused','cancelled'].includes(error.message)) { const index = report!.warnings.length; report!.warnings.push(error.message); if (error instanceof Halt && error.paused && error.code === 'deadline-exceeded') transientDeadlineWarnings.add(index); } emit(report!.status, paused ? requested === 'pause' ? 'paused' : error instanceof Halt ? error.code : 'paused' : undefined);
     } finally { running = false; options.signal?.removeEventListener('abort', abort); }
     return structuredClone(report!);
   };

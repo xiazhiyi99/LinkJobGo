@@ -85,7 +85,7 @@ function render(state: PopupState) {
   document.getElementById('progress-note')!.textContent = view.note;
   primary.textContent = pendingCommand ? status.textContent : view.primary; primary.disabled = view.disabled || sending || stale || collecting || !!pendingCommand;
   collectButton.disabled = !admin || collecting || sending || stale || state.starting || !['idle', 'completed', 'partial', 'cancelled', 'failed'].includes(state.phase);
-  cancel.hidden = !view.cancel; cancel.disabled = pendingCommand === 'cancel' || stale;
+  cancel.hidden = !view.cancel || view.command === 'cancel'; cancel.disabled = pendingCommand === 'cancel' || stale;
   const selected = nextOptionState(state, { overwriteExisting: overwrite.checked, allowCollegeReset: college.checked }, optionsLocked);
   overwrite.checked = selected.overwriteExisting; college.checked = selected.allowCollegeReset; optionsLocked = selected.locked;
   overwrite.disabled = college.disabled = selected.locked;

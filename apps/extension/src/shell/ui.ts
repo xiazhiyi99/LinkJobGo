@@ -12,17 +12,24 @@ export interface LauncherRunner {
 export function launcherStartOptions(location: Pick<Location, 'origin' | 'pathname'>, overwriteExisting: boolean, allowCollegeReset: boolean): { overwriteExisting: boolean; allowCollegeReset?: true } {
   return location.origin === 'https://zhaopin.meituan.com' && ['/web/delivery-confirm', '/web/personal-center/resume-detail'].includes(location.pathname) && overwriteExisting && allowCollegeReset ? { overwriteExisting, allowCollegeReset: true } : { overwriteExisting };
 }
-export const phaseLabels: Record<RunnerState['phase'], string> = { idle: '准备填写', analyzing: '识别页面字段', probing: '检查页面与可选项', planning: '匹配简历资料', executing: '正在填写', verifying: '核对填写结果', paused: '已暂停', completed: '本轮填写完成', partial: '填写完毕，有待填事项', cancelled: '已停止填写', failed: '填写未完成' };
+export const phaseLabels: Record<RunnerState['phase'], string> = { idle: '准备填写', analyzing: '等待服务识别字段', probing: '检查页面与可选项', planning: '等待服务生成方案', executing: '正在填写', verifying: '核对填写结果', paused: '已暂停', completed: '本轮填写完成', partial: '填写完毕，有待填事项', cancelled: '已停止填写', failed: '填写未完成' };
 export const isRunning = (phase: RunnerState['phase']) => ['analyzing', 'probing', 'planning', 'executing', 'verifying'].includes(phase);
+const restartReasons = new Set(['invalid-page-snapshot', 'invalid-semantic-page', 'invalid-fill-plan', 'invalid-plan-section-type', 'unexpected-record-plan', 'incomplete-field-plan', 'missing-section-plan', 'plan-page-changed', 'analysis-page-changed', 'page-identity-changed', 'resume-version-changed', 'site-parser-changed', 'resume-record-identity-changed', 'replan-record-type-changed', 'replan-source-changed', 'scoped-record-order-gap', 'overwrite-record-order-changed', 'incompatible-template', 'invalid-rebound-semantic', 'missing-record-replan', 'ambiguous-replanned-fields', 'record-variant-missing', 'incomplete-record-save-blocked']);
+export const pauseNeedsRestart = (state: ShellState) => state.phase === 'paused' && restartReasons.has(state.pauseReason ?? '');
 export function reasonLabel(reason?: string): string {
   if (!reason || reason === 'pending') return '等待填写或核验';
   if (reason === 'invalid-page-snapshot') return '页面扫描结果无效，已暂停；请更新扩展并刷新招聘页面，再重新填写';
   if (reason === 'invalid-semantic-page') return '页面字段识别结果无效，已暂停；请停止本轮后重新填写';
   if (reason === 'invalid-fill-plan') return '填写方案未通过校验，已暂停；请停止本轮后重新填写';
+  if (['invalid-plan-section-type', 'unexpected-record-plan', 'incomplete-field-plan', 'missing-section-plan', 'invalid-rebound-semantic', 'ambiguous-replanned-fields'].includes(reason)) return '页面字段与填写方案不一致，请结束本轮后重新填写';
+  if (['record-variant-missing', 'missing-record-replan', 'scoped-record-order-gap'].includes(reason)) return '当前经历无法与原方案对应，请结束本轮后重新填写';
+  if (reason === 'replan-source-changed') return '当前字段对应的简历资料发生变化，请结束本轮后重新填写';
   if (reason === 'invalid-plan-input' || reason === 'invalid-analyze-input') return '当前区块的扫描数据未通过校验，已停止；请更新扩展并刷新招聘页面后重新填写';
   if (reason === 'record-subtype-unconfirmed') return '当前方案尚未区分实习与正式工作，已跳过实习区块，请手动填写';
   if (reason === 'replan-record-type-changed') return '重新识别的经历类型与原方案不一致，已暂停；请检查该区块后停止本轮并重新填写';
   if (reason === 'pending-record-mutation-unconfirmed') return '新增或保存记录的结果尚未确认，已暂停以避免重复或写错记录';
+  if (reason === 'value-stability-timeout') return '此字段持续加载或变化，已停止等待，请在页面检查并补充';
+  if (reason === 'incomplete-record-save-blocked') return '当前经历仍有未完成字段，未自动保存；请先补齐并保存，再结束本轮重新填写';
   if (reason === 'section-identity-unconfirmed' || reason.startsWith('section-quarantined:')) return '此区块的记录归属无法确认，已跳过整个区块；其他已确认归属的区块可继续填写';
   // Free-form parser explanations are not control error codes.
   if (!/^[a-z0-9][a-z0-9:-]*$/.test(reason)) return '请在页面检查此项后再继续';
@@ -84,6 +91,7 @@ export function renderReportDetails(root: HTMLElement, report: RunReport | null)
 }
 export function shellView(state: ShellState) {
   const active = isRunning(state.phase), checking = state.starting || state.readiness.status === 'checking';
+  const restartRequired = pauseNeedsRestart(state);
   const summary = state.report ? reportSummary(state.report) : null;
   const total = state.report?.items.length ?? 0, handled = total - (summary?.pending ?? 0);
   const interrupted = state.readiness.status === 'failed' && ['cancelled', 'paused'].includes(state.readiness.reason ?? '');
@@ -94,10 +102,13 @@ export function shellView(state: ShellState) {
   if (checking) note = '正在检查服务授权与简历，检查通过后自动开始。';
   else if (interrupted) note = '检查已停止；已填写内容保留。';
   else if (blocked) note = reasonLabel(state.readiness.reason);
+  else if (state.phase === 'analyzing') note = '页面已扫描，正在等待服务识别字段；超时会提示重试。';
+  else if (state.phase === 'planning') note = '正在等待服务生成填写方案；超时会提示重试。';
   else if (active) note = total ? `已处理 ${handled} / ${total} 项 · 正在逐项核验` : '正在准备当前页面的填写计划';
-  else if (state.phase === 'paused') note = state.report?.warnings.length ? warningLabel(summary?.warnings.at(-1) ?? 'paused') : '继续前会重新检查页面与简历；已填写内容保留。';
+  else if (state.phase === 'paused') note = state.pauseReason && state.pauseReason !== 'paused' ? reasonLabel(state.pauseReason) : '继续前会重新检查页面与简历；已填写内容保留。';
   else if (terminal && summary) note = summary.warnings.length ? warningLabel(summary.warnings.at(-1)!) : firstIssue ? reasonLabel(firstIssue.reason) : state.phase === 'cancelled' ? '已填写内容保留，请在页面核对。' : summary.saved ? `其中 ${summary.saved} 项已核验局部保存；请自行确认页面最终保存。` : '已验证的是页面回读结果；请自行确认页面保存。';
-  return { status: checking ? '检查连接与简历' : interrupted ? '检查已停止' : blocked ? '暂时无法开始' : phaseLabels[state.phase], command: active ? 'pause' as const : state.phase === 'paused' ? 'resume' as const : 'start' as const, primary: checking ? '检查中…' : active ? '暂停填写' : blocked ? '重新检查' : state.phase === 'paused' ? '继续填写' : terminal ? '重新扫描填写' : '一键填写', disabled: checking, cancel: checking || active || state.phase === 'paused', active, terminal, blocked, note, total, handled, progress: total ? Math.round(handled / total * 100) : null };
+  if (restartRequired) note += ' 结束本轮后可重新填写，已填内容保留。';
+  return { status: checking ? '检查连接与简历' : interrupted ? '检查已停止' : blocked ? '暂时无法开始' : restartRequired ? '需要重新填写' : phaseLabels[state.phase], command: active ? 'pause' as const : restartRequired ? 'cancel' as const : state.phase === 'paused' ? 'resume' as const : 'start' as const, primary: checking ? '检查中…' : active ? '暂停填写' : restartRequired ? '结束本轮' : blocked ? '重新检查' : state.phase === 'paused' ? '继续填写' : terminal ? '重新扫描填写' : '一键填写', disabled: checking, cancel: checking || active || state.phase === 'paused', active, terminal, blocked, note, total, handled, progress: total ? Math.round(handled / total * 100) : null };
 }
 export function nextOptionState(state: ShellState, selected: { overwriteExisting: boolean; allowCollegeReset: boolean }, wasLocked: boolean) {
   const locked = shellView(state).cancel;
@@ -114,15 +125,15 @@ export function launcherBubble(state: ShellState): { kind: 'action' | 'status'; 
   const summary = state.report ? reportSummary(state.report) : null;
   switch (state.phase) {
     case 'idle': return { kind: 'action', text: '开始填写', warning: false };
-    case 'analyzing': return { kind: 'status', text: '正在扫描页面字段…', warning: false };
+    case 'analyzing': return { kind: 'status', text: '正在等待服务识别字段…', warning: false };
     case 'probing': return { kind: 'status', text: '正在确认经历与选项…', warning: false };
-    case 'planning': return { kind: 'status', text: '正在匹配简历与页面…', warning: false };
+    case 'planning': return { kind: 'status', text: '正在等待服务生成方案…', warning: false };
     case 'executing': {
       const total = state.report?.items.length ?? 0, handled = total - (summary?.pending ?? 0);
       return { kind: 'status', text: total ? `正在填写，已处理 ${handled}/${total} 项` : '正在填写页面字段…', warning: false };
     }
     case 'verifying': return { kind: 'status', text: '正在核对填写结果…', warning: false };
-    case 'paused': return { kind: 'action', text: '继续填写', warning: false };
+    case 'paused': return pauseNeedsRestart(state) ? { kind: 'status', text: '需重新填写，请点扩展图标', warning: true } : { kind: 'action', text: '继续填写', warning: false };
     case 'completed': return { kind: 'status', text: `填写完成，已核验 ${summary?.verified ?? 0} 项`, warning: false };
     case 'partial': return { kind: 'status', text: phaseLabels.partial, warning: true };
     case 'cancelled': return { kind: 'status', text: '已停止填写', warning: false };
