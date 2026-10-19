@@ -135,14 +135,14 @@ export function mountLauncher({ runner, root, spriteUrl }: { runner: LauncherRun
   root.dataset.buildId = typeof __AUTOFILL_BUILD_ID__ === 'string' ? __AUTOFILL_BUILD_ID__ : 'development';
   const shadow = root.attachShadow({ mode: 'open' });
   shadow.innerHTML = `<style>
-:host{all:initial;position:fixed;right:28px;bottom:56px;z-index:2147483647;display:block;width:96px;height:96px;font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;color:#36383d;color-scheme:light}
-*{box-sizing:border-box}[hidden]{display:none!important}
+:host{all:initial;position:fixed;right:28px;bottom:56px;z-index:2147483647;display:block;width:96px;height:96px;font:13px/1.4 Geist,-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;color:#20314d;color-scheme:light}
+:host([hidden]){display:none!important}*{box-sizing:border-box}[hidden]{display:none!important}
 .pet{display:block;width:96px;height:96px;cursor:grab;touch-action:none}.pet:active{cursor:grabbing}.pet::part(button){touch-action:none}
-.bubble{position:absolute;top:84px;left:0;display:flex;align-items:center;justify-content:center;width:max-content;max-width:min(176px,calc(100vw - 16px));min-height:28px;padding:0 8px;border:1px solid #424246;border-radius:999px;background:#2b2b2e;box-shadow:0 4px 12px rgba(0,0,0,.2);color:#f8f8f8;text-align:center;white-space:nowrap;animation:pill-drop 180ms cubic-bezier(.2,.8,.2,1) both}
-.bubble[data-kind=action]{min-width:72px;padding:0}.bubble[data-warning=true]{border-color:#66666b}
-.bubble button{display:flex;align-items:center;justify-content:center;gap:4px;width:100%;min-height:26px;padding:0 6px;border:0;border-radius:999px;background:transparent;color:inherit;font:inherit;font-size:11px;font-weight:600;cursor:pointer}.bubble button:hover{background:#424247}
+.bubble{position:absolute;top:84px;left:0;display:flex;align-items:center;justify-content:center;width:max-content;max-width:min(176px,calc(100vw - 16px));min-height:28px;padding:0 8px;border:1px solid #e4eaf2;border-radius:999px;background:#f5f7fb;box-shadow:0 4px 12px rgba(32,49,77,.12);color:#20314d;text-align:center;white-space:nowrap;animation:pill-drop 180ms cubic-bezier(.2,.8,.2,1) both}
+.bubble[data-kind=action]{min-width:72px;padding:0}.bubble[data-warning=true]{border-color:#d3b590}
+.bubble button{display:flex;align-items:center;justify-content:center;gap:4px;width:100%;min-height:26px;padding:0 6px;border:0;border-radius:999px;background:transparent;color:inherit;font:inherit;font-size:11px;font-weight:600;cursor:pointer}.bubble button:hover{background:#e8f0ff}
 .bubble button svg{display:block;flex:none;width:12px;height:12px}
-.bubble button:focus-visible,.pet:focus-visible{outline:2px solid #77777d;outline-offset:2px}
+.bubble button:focus-visible,.pet:focus-visible{outline:2px solid #0755c7;outline-offset:2px}
 .bubble [role=status]{display:block;overflow:hidden;text-overflow:ellipsis;max-width:100%;font-size:10.5px;font-weight:550;letter-spacing:.01em}
 @keyframes pill-drop{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.bubble{animation:none}}

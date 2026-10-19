@@ -1,4 +1,5 @@
 import { extension } from './chrome.js';
+import { normalizeUiPreferences } from './preferences.js';
 
 import { renderReport, renderReportDetails, shellView, nextOptionState } from './ui.js';
 import type { ShellState } from './coordinator.js';
@@ -33,6 +34,8 @@ async function refreshSettings() {
     const account = await extension.runtime.sendMessage({ type: 'autofill-auth-status' });
     if (sequence !== settingsLoadSequence) return;
     signedIn = account.authenticated === true;
+    const connection = document.getElementById('connection-status')!;
+    connection.textContent = signedIn ? '已连接' : account.error ? '连接失败' : '未登录'; connection.dataset.connected = String(signedIn);
     setAdmin(signedIn && account.role === 'admin' && account.capabilities?.extensionDebug === true);
     webLogin.hidden = signedIn;
     loginStatus.textContent = signedIn ? '' : account.error ? '暂时无法连接领客，请稍后重试' : '请在领客网页完成登录，返回后即可填写';
@@ -41,8 +44,31 @@ async function refreshSettings() {
       document.getElementById('auth-build')!.textContent = `平台扩展 · ${__AUTOFILL_BUILD_ID__}`;
     }
     if (current) render(current);
-  } catch { if (sequence === settingsLoadSequence) { signedIn = false; setAdmin(false); webLogin.hidden = false; loginStatus.textContent = '无法读取网页登录状态，请稍后重试'; } }
+  } catch { if (sequence === settingsLoadSequence) { signedIn = false; setAdmin(false); webLogin.hidden = false; loginStatus.textContent = '无法读取网页登录状态，请稍后重试'; const connection = document.getElementById('connection-status')!; connection.textContent = '连接失败'; connection.dataset.connected = 'false'; } }
 }
+const launcherEnabled = document.getElementById('launcher-enabled') as HTMLInputElement;
+const preferenceStatus = document.getElementById('preference-status')!;
+let preferenceSaving = false, preferenceSequence = 0;
+async function refreshPreferences() {
+  if (preferenceSaving) return;
+  const sequence = ++preferenceSequence;
+  try {
+    const result = await extension.runtime.sendMessage({ type: 'autofill-ui-preferences-get' });
+    if (sequence !== preferenceSequence) return;
+    if (!result?.ok) throw new Error('preferences-unavailable');
+    launcherEnabled.checked = normalizeUiPreferences(result.preferences).launcherEnabled;
+    launcherEnabled.disabled = false; preferenceStatus.hidden = true;
+  } catch { if (sequence === preferenceSequence) { launcherEnabled.disabled = false; preferenceStatus.hidden = false; preferenceStatus.textContent = '暂时无法读取设置，请重试'; } }
+}
+launcherEnabled.addEventListener('change', event => {
+  if (!event.isTrusted || preferenceSaving) return;
+  const requested = launcherEnabled.checked, previous = !requested;
+  preferenceSaving = true; preferenceSequence++; launcherEnabled.disabled = true;
+  preferenceStatus.hidden = true;
+  void extension.runtime.sendMessage({ type: 'autofill-ui-preferences-set', launcherEnabled: requested }).then(result => {
+    if (!result?.ok || result.preferences?.launcherEnabled !== requested) throw new Error('preferences-not-saved');
+  }).catch(() => { launcherEnabled.checked = previous; preferenceStatus.textContent = '暂时无法保存设置，请重试'; preferenceStatus.hidden = false; }).finally(() => { preferenceSaving = false; launcherEnabled.disabled = false; });
+});
 const targetTabId = extension.tabs.query({ active: true, currentWindow: true }).then(tabs => tabs[0]?.id);
 type PopupState = ShellState & { commandDocumentId?: string; supportsCollegeReset?: boolean };
 let optionsLocked = false;
@@ -133,8 +159,8 @@ webLogin.addEventListener('click', event => {
   if (!event.isTrusted) return;
   void extension.runtime.sendMessage({ type: 'autofill-open-login' }).catch(() => { loginStatus.textContent = '无法打开领客网页，请重试'; });
 });
-void refreshSettings(); void refresh();
+void refreshSettings(); void refreshPreferences(); void refresh();
 const timer = setInterval(() => void refresh(), 500);
 const authTimer = setInterval(() => void refreshSettings(), 5000);
-window.addEventListener('focus', () => void refreshSettings());
+window.addEventListener('focus', () => { void refreshSettings(); void refreshPreferences(); });
 window.addEventListener('unload', () => { clearInterval(timer); clearInterval(authTimer); }, { once: true });

@@ -38,6 +38,7 @@ export async function buildExtension({ config = buildConfiguration(), outdir = r
   const define = { __AUTOFILL_BUILD_ID__: JSON.stringify(buildId), __AUTOFILL_TRACE_TIMING__: JSON.stringify(traceTiming), __PLATFORM_API_ORIGIN__: JSON.stringify(config.apiOrigin), __PLATFORM_API_PATH_PREFIX__: JSON.stringify(config.apiPathPrefix ?? ''), __PLATFORM_LOGIN_URL__: JSON.stringify(config.loginUrl ?? new URL('/login', config.apiOrigin).href), __PLATFORM_DEVELOPMENT__: JSON.stringify(config.development) };
   for (const name of ['content', 'background', 'popup']) await build({ entryPoints: [resolve(root, `src/shell/${name}.ts`)], outfile: resolve(outdir, name + '.js'), bundle: true, minifySyntax: !config.development, format: name === 'content' ? 'iife' : 'esm', platform: 'browser', target: 'chrome120', define });
   for (const filename of ['popup.html', 'popup.css']) await cp(resolve(root, 'src/shell', filename), resolve(outdir, filename));
+  await cp(resolve(root, 'src/shell/icons'), resolve(outdir, 'icons'), { recursive: true });
   await mkdir(resolve(outdir, 'pet')); await cp(resolve(root, 'src/shell/pet/squirrel-motion.webp'), resolve(outdir, 'pet/squirrel-motion.webp'));
   const manifest = JSON.parse(await readFile(resolve(root, 'manifest.json'), 'utf8'));
   const url = new URL(config.apiOrigin);

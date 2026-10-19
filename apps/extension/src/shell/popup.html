@@ -1,9 +1,37 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><link rel="stylesheet" href="popup.css"><title>领客简历填写</title></head>
-<body><header><span class="brand">领</span><h1>领客 · 简历填写</h1></header><main><p id="status" role="status" aria-live="polite">正在读取当前页面</p><p id="progress-note" class="muted">自动识别、匹配并填写当前页面</p><progress id="progress" max="100" aria-label="已处理项目进度，不代表填写成功率" hidden></progress><p id="report" hidden></p><div id="report-details"></div>
-<details id="fill-options"><summary>填写选项</summary><label class="check"><input id="overwrite-existing" type="checkbox">覆盖页面已有内容（仅本次填写）</label><label class="check" id="college-reset-option" hidden><input id="allow-college-reset" type="checkbox">更换学校时允许清空旧学院</label><p class="muted small">需要覆盖时，请在这里勾选并从本弹窗启动。飞鼠下方的“开始填写”始终保留页面已有内容；不会自动投递。</p></details>
-<details id="run-diagnostics" hidden><summary>运行诊断</summary><p class="muted small">本轮耗时和逐字段状态，不包含填写值或凭据。</p><textarea id="run-json" aria-label="运行诊断 JSON" readonly spellcheck="false" rows="12"></textarea></details>
-<details id="rule-collection" hidden><summary>规则采集</summary><p class="muted small">只采集当前已展开页面的结构，不填写、不增项、不读取简历，也不请求后端或 AI。未打开的经历和自定义菜单需要展开后再次扫描。</p><button id="collect-page" type="button" disabled>只读扫描</button><p id="collection-status" class="muted small" role="status" aria-live="polite"></p><textarea id="collection-json" aria-label="原始扫描 JSON" readonly spellcheck="false" rows="12" hidden></textarea></details>
-<p id="login-status" class="muted small" role="status"></p><button id="web-login" type="button" hidden>前往网页登录</button>
-<details id="admin-tools" hidden><summary>开发信息</summary><p id="backend-origin" class="muted small"></p><p id="auth-build" class="muted small"></p></details></main>
-<footer><p id="mode-note" class="muted small">保留页面已有内容</p><div class="actions"><button class="primary" data-command="start" disabled>一键填写</button><button data-command="cancel" hidden>停止</button></div><p class="footnote">自动识别 → 匹配资料 → 填写核验</p></footer><script type="module" src="popup.js"></script></body></html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width">
+  <link rel="stylesheet" href="popup.css"><title>智能填写 · 领客</title>
+</head>
+<body>
+  <header class="popup-header">
+    <div class="brand"><img src="icons/icon-48.png" width="36" height="36" alt=""><div><p class="brand-name">领客<span>·</span></p><h1>智能填写</h1></div></div>
+    <span id="connection-status" class="connection" role="status">连接中</span>
+  </header>
+  <main>
+    <section class="status-panel" aria-label="填写状态">
+      <span class="section-caption">当前页面</span>
+      <h2 id="status" role="status" aria-live="polite">正在读取当前页面</h2>
+      <p id="progress-note" class="muted">使用领客保存的简历填写</p>
+      <progress id="progress" max="100" aria-label="已处理项目进度，不代表填写成功率" hidden></progress>
+      <p id="report" hidden></p>
+    </section>
+    <div id="report-details"></div>
+    <section class="preferences" aria-label="填写设置">
+      <div class="preference-row">
+        <div><span id="launcher-label" class="preference-title">飞鼠浮动岛</span><p class="muted small">在网页中显示飞鼠填写入口</p></div>
+        <label class="switch"><input id="launcher-enabled" type="checkbox" role="switch" aria-labelledby="launcher-label" checked disabled><span class="switch-track" aria-hidden="true"></span></label>
+      </div>
+      <p id="preference-status" class="small muted" role="status" aria-live="polite" hidden></p>
+      <details id="fill-options"><summary>填写选项</summary><label class="check"><input id="overwrite-existing" type="checkbox">覆盖页面已有内容（仅本次填写）</label><label class="check" id="college-reset-option" hidden><input id="allow-college-reset" type="checkbox">更换学校时允许清空旧学院</label><p class="muted small">覆盖填写请勾选后从这里启动。飞鼠入口会保留页面已有内容。</p></details>
+    </section>
+    <p id="login-status" class="muted small" role="status"></p><button id="web-login" class="secondary" type="button" hidden>前往网页登录</button>
+    <details id="run-diagnostics" hidden><summary>运行诊断</summary><p class="muted small">本轮耗时和逐字段状态，不包含填写值或凭据。</p><textarea id="run-json" aria-label="运行诊断 JSON" readonly spellcheck="false" rows="12"></textarea></details>
+    <details id="rule-collection" hidden><summary>规则采集</summary><p class="muted small">只采集当前已展开页面的结构，不填写、不增项、不读取简历，也不请求后端或 AI。未打开的经历和自定义菜单需要展开后再次扫描。</p><button id="collect-page" type="button" disabled>只读扫描</button><p id="collection-status" class="muted small" role="status" aria-live="polite"></p><textarea id="collection-json" aria-label="原始扫描 JSON" readonly spellcheck="false" rows="12" hidden></textarea></details>
+    <details id="admin-tools" hidden><summary>开发信息</summary><p id="backend-origin" class="muted small"></p><p id="auth-build" class="muted small"></p></details>
+  </main>
+  <footer><p id="mode-note" class="muted small">保留页面已有内容</p><div class="actions"><button class="primary" data-command="start" disabled><span>一键填写</span></button><button class="secondary" data-command="cancel" hidden>停止</button></div><p class="footnote">填写由你掌控，不会自动投递</p></footer>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

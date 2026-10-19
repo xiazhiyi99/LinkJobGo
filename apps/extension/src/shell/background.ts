@@ -3,11 +3,13 @@ import { extension, type ChromeApi, type MessageSender } from './chrome.js';
 import { platformConfig } from '../platform/config.js';
 import { createApiClient, PlatformError } from '../platform/api-client.js';
 import { createAuthService } from '../platform/auth.js';
+import { createUiPreferences } from './preferences.js';
 
 const failure = (requestId: string, code: string): ApiResult<never> => ({ ok: false, requestId, error: { code, message: code, retryable: code === 'backend-unavailable' } });
 export function createBackground(api: ChromeApi, config: { apiOrigin: string; apiPathPrefix?: string; loginUrl?: string }) {
   const pending = new Map<string, AbortController>();
   const runAccounts = new Map<string, number>();
+  const uiPreferences = createUiPreferences(api);
   let accountGeneration = 0;
   const auth = createAuthService({ apiOrigin: config.apiOrigin, apiPathPrefix: config.apiPathPrefix, api: createApiClient(config), onAccountChange() {
     accountGeneration++;
@@ -21,6 +23,8 @@ export function createBackground(api: ChromeApi, config: { apiOrigin: string; ap
     const trustedContent = sender.tab?.id !== undefined && sender.frameId === 0 && typeof sender.documentId === 'string' && /^https?:/.test(sender.url ?? '');
     let requestId = '';
     try {
+      if (data.type === 'autofill-ui-preferences-get' && (popup || trustedContent)) return { ok: true, preferences: await uiPreferences.get() };
+      if (data.type === 'autofill-ui-preferences-set' && popup && typeof data.launcherEnabled === 'boolean') return { ok: true, preferences: await uiPreferences.set(data.launcherEnabled) };
       if (data.type === 'autofill-auth-status' && popup) return await auth.status();
       if (data.type === 'autofill-open-login' && popup) {
         await api.tabs.create({ url: config.loginUrl ?? new URL('/login', config.apiOrigin).href });

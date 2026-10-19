@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "领客 · 平台填写",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "由现有简历 API 生成并验证填写计划；不自动提交申请。",
   "permissions": [
     "storage",
@@ -12,7 +12,19 @@
     "type": "module"
   },
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
   },
   "content_scripts": [
     {

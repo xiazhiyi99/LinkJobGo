@@ -11,6 +11,7 @@ import { createMappingClient, createReadinessClient, backgroundTransport, type T
 import { createStartCoordinator } from './coordinator.js';
 import { mountLauncher, launcherStartOptions } from './ui.js';
 import { extension, type MessageSender } from './chrome.js';
+import { isPreferenceUpdate, normalizeUiPreferences } from './preferences.js';
 declare const __AUTOFILL_BUILD_ID__: string;
 declare const __AUTOFILL_TRACE_TIMING__: boolean;
 const instanceKey = Symbol.for('resume.next.content.instances');
@@ -38,12 +39,20 @@ export function bootstrapContent({ config = {} }: { config?: { document?: Docume
     console.info('[lingke:timing]', JSON.stringify({ buildId: __AUTOFILL_BUILD_ID__, durationMs: state.commandTiming.finishedAt - state.commandTiming.startedAt, phaseMs: state.timing?.phaseMs, diagnostics: state.timing?.diagnostics }));
   }) : () => {};
   const root = doc.createElement('div'); root.id = 'resume-next-launcher'; root.dataset.autofillExclude = 'true'; root.dataset.extensionId = extension.runtime.id;
+  root.hidden = true;
   doc.documentElement.append(root);
   const unmount = mountLauncher({ runner: coordinator, root, spriteUrl: extension.runtime.getURL('pet/squirrel-motion.webp') });
+  let preferencesVersion = 0, disposed = false;
+  const applyPreferences = (value: unknown) => { if (!disposed) root.hidden = !normalizeUiPreferences(value).launcherEnabled; };
+  const loadPreferencesVersion = preferencesVersion;
+  void extension.runtime.sendMessage({ type: 'autofill-ui-preferences-get' }).then(result => {
+    if (preferencesVersion === loadPreferencesVersion) applyPreferences(result?.ok ? result.preferences : undefined);
+  }, () => { if (preferencesVersion === loadPreferencesVersion) applyPreferences(undefined); });
   const commandState = () => ({ ...coordinator.getState(), commandDocumentId: currentDocumentId(), supportsCollegeReset: launcherStartOptions(doc.location, true, true).allowCollegeReset === true });
   const checkDebug = () => extension.runtime.sendMessage({ type: 'autofill-debug-permission' });
   let collecting = false;
   const listener = (message: any, sender: MessageSender, respond: (value: unknown) => void) => {
+    if (isPreferenceUpdate(message, sender, extension.runtime.id)) { preferencesVersion++; applyPreferences(message.preferences); respond({ ok: true }); return; }
     if (sender.id !== extension.runtime.id || sender.url !== `chrome-extension://${extension.runtime.id}/popup.html`) return;
     if (message?.type === 'autofill-state') { respond(publicPopupState(commandState())); return; }
     if (message?.type === 'autofill-debug-state') {
@@ -86,7 +95,7 @@ export function bootstrapContent({ config = {} }: { config?: { document?: Docume
     respond(publicPopupState(commandState()));
   };
   extension.runtime.onMessage.addListener(listener);
-  const dispose = () => { stopTimingTrace(); coordinator.cancel(); coordinator.dispose(); runner.dispose(); controls.dispose(); page.dispose(); unmount(); extension.runtime.onMessage.removeListener(listener); doc.defaultView?.removeEventListener('pagehide', pageHide); instances.delete(doc); };
+  const dispose = () => { disposed = true; stopTimingTrace(); coordinator.cancel(); coordinator.dispose(); runner.dispose(); controls.dispose(); page.dispose(); unmount(); extension.runtime.onMessage.removeListener(listener); doc.defaultView?.removeEventListener('pagehide', pageHide); instances.delete(doc); };
   // BFCache restores the same Document without reinjecting content scripts.
   // Cancel its work while hidden, but retain the launcher/listener for restore.
   const pageHide = (event: PageTransitionEvent) => { if (!event.isTrusted) return; if (event.persisted) coordinator.cancel(); else dispose(); };
