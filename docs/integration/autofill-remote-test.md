@@ -18,10 +18,11 @@
 - 构建 API 镜像，启动测试 PostgreSQL，再执行 `prisma migrate deploy`，最后启动 API。
 - 将 `deploy/autofill-test.Caddyfile` 的 handler 插入已有 HTTPS 站点，在 Web fallback 之前。先备份、validate，再 reload；主站 `/api` 和 Web 路由保留。
 - 测试仅录入合成账号和简历。邮箱验证仍启用，测试账号由测试环境管理员种入已验证身份；不开放验证码调试接口。
-- 当前测试部署只验证已注册规则，无模型密钥，未知站点 AI 不属于此次上线验收。后续配置通过平台统一 AI 网关，不由扩展传密钥。
+- AI/OCR 单独使用服务器上的 `.env.autofill-ai`（600 权限、不入库）。按仓库 `.env.example` 中的 `AI_*`、`BAIDU_OCR_*`、`RESUME_PDF_EXTRACTOR` 提供供应商配置；不得直接加载主站完整 `.env`，以免带入主站数据库、会话或业务配置。扩展不持有模型密钥。
 
 ```bash
 # 在测试 checkout 中执行
+# 先配置 .env.autofill-test 和仅含 AI/OCR 设置的 .env.autofill-ai
 DC='docker compose --env-file .env.autofill-test -p lingke-autofill-test -f docker-compose.autofill-test.yml'
 $DC build api
 $DC up -d postgres

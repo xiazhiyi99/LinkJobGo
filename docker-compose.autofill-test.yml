@@ -24,6 +24,9 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
+    # Dedicated provider configuration only; never load the main site's .env,
+    # which also contains its database, session and application settings.
+    env_file: .env.autofill-ai
     environment:
       NODE_ENV: production
       API_PORT: 3001
