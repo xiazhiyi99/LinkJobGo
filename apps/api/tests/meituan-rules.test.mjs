@@ -25,6 +25,14 @@ test('language exam scores use explicit extra.score, independently of proficienc
   assert.equal(parserFor(snap).resolveOption(input), 'cet6');
 });
 
+test('existing education and work extra fields are not mistaken for missing or unrelated standard fields', () => {
+  const snap = snapshot([section('教育经历', ['学院名称', '成绩排名', '是否全日制', '实验室', '请输入实验室', '导师', '研究方向']), section('工作经历', ['部门名称', '工作类型'])]);
+  const result = parserFor(snap).parse({ snapshot: snap, catalog: FIELD_CATALOG });
+  assert.deepEqual(result.sections[0].bindings.map(binding => binding.sourceKey.path), [['extra', 'college'], ['extra', 'rank'], ['extra', 'fullTime'], ['extra', 'laboratory'], ['extra', 'laboratory'], ['extra', 'advisor'], ['extra', 'researchDirection']]);
+  assert.deepEqual(result.sections[1].bindings.map(binding => binding.sourceKey.path), [['extra', 'department'], ['extra', 'employmentType']]);
+  assert.ok(result.sections.flatMap(s => s.bindings).every(binding => binding.status === 'resolved'));
+});
+
 test('paper sections never receive patent records or unsupported channel/impact-factor guesses', () => {
   const snap = snapshot([section('论文', ['论文名称', '作者顺序', '论文链接', '发表渠道', '影响因子'])]);
   const parser = parserFor(snap), result = parser.parse({ snapshot: snap, catalog: FIELD_CATALOG });

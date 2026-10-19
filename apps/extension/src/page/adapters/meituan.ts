@@ -12,6 +12,15 @@ export function createMeituanPageAdapter(): SiteAdapter {
   return {
     reuseStructureWithinTask: true,
     incrementalSections: true,
+    isTransientMutation(mutation) {
+      const portals = '.mtd-select-popup,.mtd-datepicker-pop';
+      const safe = (element: Element) => !element.matches('style,link,script,iframe,form') && !element.querySelector('style,link,script,iframe,form') && !element.shadowRoot && !Array.from(element.querySelectorAll('*')).some(node => node.shadowRoot);
+      const target = mutation.target.nodeType === 1 ? mutation.target as Element : mutation.target.parentElement;
+      const popup = target?.closest(portals);
+      if (popup) return safe(popup) && [...mutation.addedNodes, ...mutation.removedNodes].every(node => node.nodeType !== 1 || safe(node as Element));
+      const changed = [...mutation.addedNodes, ...mutation.removedNodes];
+      return mutation.type === 'childList' && Boolean(target?.matches('body')) && changed.length > 0 && changed.every(node => node.nodeType === 1 && (node as Element).matches(portals) && safe(node as Element));
+    },
     includeUnscopedFields: false,
     sections(document) { return Array.from(document.querySelectorAll(selectors)); },
     records(section) { return probedSections.some(name => section.classList.contains(name)) ? Array.from(section.querySelectorAll('.model_list')).filter(row => row.querySelectorAll(':scope > .mtd-form').length === 1) : Array.from(section.querySelectorAll('.model_list > .mtd-form,.base_info_form')); },

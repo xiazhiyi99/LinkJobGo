@@ -17,6 +17,8 @@ export interface SiteAdapter {
   reuseStructureWithinTask?: boolean;
   /** Verified section boundaries allow mutation-scoped refresh across async steps. */
   incrementalSections?: boolean;
+  /** Verified external option/calendar portals cannot change form structure. */
+  isTransientMutation?(mutation: MutationRecord): boolean;
   includeUnscopedFields?: boolean;
   /** Adapter-provided fields explicitly partition nested semantic sections. */
   includeNestedSections?: boolean;
@@ -205,7 +207,7 @@ export class PageSession {
     visit(this.document); return roots;
   }
   private relevantMutations(mutations: MutationRecord[]): boolean {
-    return mutations.some(mutation => mutation.type === 'attributes' && mutation.attributeName === 'data-autofill-exclude' || !(mutation.target.nodeType === 1 ? excluded(mutation.target as Element) : mutation.target.parentElement && excluded(mutation.target.parentElement)));
+    return mutations.some(mutation => (mutation.type === 'attributes' && mutation.attributeName === 'data-autofill-exclude' || !(mutation.target.nodeType === 1 ? excluded(mutation.target as Element) : mutation.target.parentElement && excluded(mutation.target.parentElement))) && !this.adapter?.isTransientMutation?.(mutation));
   }
   private consumeMutations(mutations: MutationRecord[]): void {
     const relevant = mutations.filter(mutation => this.relevantMutations([mutation]));

@@ -18,16 +18,19 @@ const recordLabels: Partial<Record<RecordType, Record<string, string>>> = {
   award: { '奖项名称': 'name', '荣誉名称': 'name', '获奖描述': 'description', '荣誉描述': 'description' },
   publication: { '论文名称': 'name', '作者顺序': 'role', '论文链接': 'url' },
 };
-// These observed fields have no equivalent in the fixed catalog: college != school,
-// rank != GPA, and per-education full-time status != the profile's current student status.
+// Extra fields remain distinct: college is not school, rank is not GPA, and
+// full-time education is not the profile's current-student flag.
+const extraLabels: Partial<Record<RecordType, Record<string, string>>> = {
+  education: { '学院名称': 'college', '学院': 'college', '成绩排名': 'rank', '是否全日制': 'fullTime', '实验室': 'laboratory', '请输入实验室': 'laboratory', '导师': 'advisor', '研究方向': 'researchDirection' },
+  experience: { '部门名称': 'department', '工作类型': 'employmentType' },
+  language: { '考试分数': 'score' },
+};
 const noEquivalent: Partial<Record<RecordType, readonly string[]>> = {
-  education: ['学院名称','学院','导师','实验室','研究方向','成绩排名','是否全日制'],
-  experience: ['部门名称','工作类型'],
   publication: ['发表渠道', '影响因子'],
 };
 const clean = (value: string) => value.replace(/[\s*：:]/g, '');
 export const meituanParser: SiteParser = {
-  id: 'meituan-resume', version: '1.4.0', origins: ['https://zhaopin.meituan.com'],
+  id: 'meituan-resume', version: '1.4.1', origins: ['https://zhaopin.meituan.com'],
   includeRecord: ({ record }) => record.recordType === 'publication' && typeof record.extra?.publicationType === 'string' && ['论文', '会议论文', '期刊论文', 'paper', 'conference paper', 'journal article'].includes(record.extra.publicationType.trim().toLowerCase()),
   resolveOption(input) {
     if (input.sourceKey.scope === 'record' && input.sourceKey.recordType === 'publication' && input.sourceKey.path.join('.') === 'fields.role') {
@@ -55,7 +58,8 @@ export const meituanParser: SiteParser = {
             const unsupported = Boolean(recordType && noEquivalent[recordType]?.includes(clean(field.label)));
             const fieldName = recordType ? recordLabels[recordType]?.[clean(field.label)] :
               ['基本信息', '基础信息', '个人信息'].includes(label) ? profileLabels[clean(field.label)] : undefined;
-            const sourceKey: SourceKey | null = recordType === 'language' && clean(field.label) === '考试分数' ? { scope: 'record', recordType, path: ['extra', 'score'] } : fieldName ? recordType
+            const extraName = recordType && extraLabels[recordType]?.[clean(field.label)];
+            const sourceKey: SourceKey | null = extraName ? { scope: 'record', recordType: recordType!, path: ['extra', extraName] } : fieldName ? recordType
               ? { scope: 'record', recordType, path: ['fields', fieldName] }
               : { scope: 'profile', path: [fieldName] } : null;
             const allowed = sourceKey && catalog.some(item => JSON.stringify(item.sourceKey) === JSON.stringify(sourceKey));

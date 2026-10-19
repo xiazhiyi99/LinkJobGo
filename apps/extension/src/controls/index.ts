@@ -40,6 +40,7 @@ export interface ComboControl {
   writeBlockedReason?(label: string, context: ControlContext): string | undefined;
   searchInput(): HTMLInputElement | HTMLTextAreaElement | null;
   loading?(panel: HTMLElement): boolean;
+  empty?(panel: HTMLElement): boolean;
   beforeQuery?(): void;
   queryKeydown?: 'Backspace';
   optionActivation?: 'mousedown' | 'pointer';
@@ -296,7 +297,7 @@ export function createControlDriver({ page, adapters = [] }: { page: PageSession
         const customInput = comboAdapter(control)?.customInput?.();
         const signature = JSON.stringify([nodes.map(node => [node.id, optionText(node, control), node.getAttribute('aria-disabled')]), Boolean(customInput)]);
         if (signature !== lastSignature) { lastSignature = signature; stableSince = Date.now(); }
-        if (!loading(panel, control) && !comboAdapter(control)?.loading?.(panel) && (nodes.length || customInput) && Date.now() - stableSince >= 100) return { panel, nodes };
+        if (!loading(panel, control) && !comboAdapter(control)?.loading?.(panel) && (nodes.length || customInput || comboAdapter(control)?.empty?.(panel)) && Date.now() - stableSince >= 100) return { panel, nodes };
       }
       await sleep(ctx);
     }

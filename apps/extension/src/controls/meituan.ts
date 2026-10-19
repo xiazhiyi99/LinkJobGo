@@ -10,6 +10,7 @@ const visible = (element: HTMLElement) => {
 };
 interface Ownership { before: Map<HTMLElement, string>; focusedBefore: boolean; proven?: HTMLElement; opened: boolean }
 const matches = (element: HTMLElement) => element.ownerDocument.location.origin === 'https://zhaopin.meituan.com' && ['/web/delivery-confirm', '/web/personal-center/resume-detail'].includes(element.ownerDocument.location.pathname);
+const finiteSelectLabels = new Set(['性别', '学历', '成绩排名', '是否全日制', '语言类型', '语言水平', '熟练程度', '语言考试', '工作类型', '发表渠道', '作者顺序']);
 /** No Vue internals or page data: ownership derives from the click's before/after DOM and local geometry. */
 export function createMeituanControlAdapter(): ControlAdapter {
   const comboStates = new WeakMap<HTMLElement, Ownership>();
@@ -65,7 +66,10 @@ export function createMeituanControlAdapter(): ControlAdapter {
         },
         // Finite enums must reach the server intact: searching a résumé alias
         // such as 大学英语六级 or 第一作者 hides CET-6 or 一作 before alias matching.
-        searchInput: () => ['语言考试', '作者顺序'].includes(itemLabel(root.closest('.mtd-form-item'))) ? null : root.querySelector<HTMLInputElement>('.mtd-select-filter-input input'),
+        searchInput: () => finiteSelectLabels.has(itemLabel(root.closest('.mtd-form-item'))) ? null : root.querySelector<HTMLInputElement>('.mtd-select-filter-input input'),
+        // A remote search may debounce its request while an old empty label is
+        // visible. Only a finite, unfiltered enum can prove an empty result here.
+        empty: panel => finiteSelectLabels.has(itemLabel(root.closest('.mtd-form-item'))) && Array.from(panel.querySelectorAll<HTMLElement>('.mtd-select-popup-empty')).some(node => visible(node) && clean(node.textContent) === '无数据'),
         options: panel => Array.from(panel.querySelectorAll<HTMLElement>('.mtd-select-item')).filter(node => !node.classList.contains('mtd-select-item-loading') && !node.classList.contains('mtd-select-item-empty')),
         optionLabel: node => clean(node.querySelector('.mtd-select-item-content')?.textContent ?? node.textContent),
         optionDisabled: node => node.classList.contains('mtd-select-item-disabled'),
