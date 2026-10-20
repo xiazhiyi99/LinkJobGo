@@ -2,7 +2,7 @@ FROM node:22-bookworm-slim
 
 WORKDIR /app
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends poppler-utils unzip openssl \
+  && apt-get install -y --no-install-recommends poppler-utils unzip openssl python3 \
   && rm -rf /var/lib/apt/lists/* \
   && npm install -g pnpm@11.19.0
 

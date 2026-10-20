@@ -6,6 +6,7 @@ const crypto = require('node:crypto');
 const https = require('node:https');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
+const { imapConnectionError } = require('./imap-errors');
 
 const PROVIDERS = [
   { id: 'outlook', name: 'Outlook', label: 'Outlook', authModes: ['oauth'], authMode: 'oauth', domains: ['outlook.com', 'hotmail.com', 'live.com', 'msn.com'], supportsSend: true },
@@ -41,9 +42,15 @@ function requestJson(urlString, { method = 'GET', headers = {}, fields = null, t
 function runPythonProbe(input) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.env.PYTHON_BIN || 'python3', [path.join(__dirname, 'probe.py')], { stdio: ['pipe', 'pipe', 'pipe'] });
-    let out = '', err = '';
-    child.stdout.on('data', (chunk) => { out += chunk; }); child.stderr.on('data', (chunk) => { err += chunk; });
-    child.on('error', reject); child.on('close', (code) => { let result; try { result = JSON.parse(out); } catch { return reject(error('邮箱同步返回了无效结果', 'IMAP_INVALID_RESPONSE', 502)); } if (code !== 0 || result.error) return reject(error(result.error || err || '邮箱连接失败', 'IMAP_CONNECTION_FAILED', 502)); resolve(result); });
+    let out = '';
+    child.stdout.on('data', (chunk) => { out += chunk; }); child.stderr.resume();
+    child.on('error', reject); child.stdin.on('error', reject); child.on('close', (code) => {
+      let result; try { result = JSON.parse(out); } catch { return reject(error('邮箱连接服务返回异常', 'IMAP_INVALID_RESPONSE', 502)); }
+      if (!result || typeof result !== 'object' || Array.isArray(result)) return reject(error('邮箱连接服务返回异常', 'IMAP_INVALID_RESPONSE', 502));
+      if (code !== 0 || result.error) return reject(error('邮箱连接失败', result.code || 'IMAP_CONNECTION_FAILED', 502));
+      if (!Array.isArray(result.messages)) return reject(error('邮箱连接服务返回异常', 'IMAP_INVALID_RESPONSE', 502));
+      resolve(result);
+    });
     child.stdin.end(JSON.stringify(input));
   });
 }
@@ -56,7 +63,12 @@ function createMailService({ prisma, adapters = {}, enqueueSync = null, onMessag
   const accountData = (data) => { if (hasField(prisma, 'MailAccount', 'status')) data.status = data.status || 'connected'; return data; };
   async function providers() { return { items: PROVIDERS.map((item) => ({ ...item, available: item.authMode !== 'oauth' || Boolean(oauthConfig(item.id).clientId), reason: item.authMode === 'oauth' && !oauthConfig(item.id).clientId ? 'OAuth Client ID 未配置' : null })) }; }
   async function listAccounts(userId) { const rows = await prisma.mailAccount.findMany({ where: { userId }, orderBy: { updatedAt: 'desc' } }); return { items: rows.map(accountView).filter((item) => item.status !== 'disconnected') }; }
-  async function probeImap(selected, email, secret, options) { if (imapAdapter?.connect) return imapAdapter.connect({ provider: selected, email, secret, ...options }); if (pythonProbe) return pythonProbe({ provider: selected, email, secret, ...options }); if (process.env.NODE_ENV === 'test') return { messages: [] }; throw error('IMAP 适配器尚未配置', 'IMAP_ADAPTER_NOT_CONFIGURED', 503); }
+  async function probeImap(selected, email, secret, options) {
+    try {
+      if (imapAdapter?.connect) return await imapAdapter.connect({ provider: selected, email, secret, ...options });
+      return await pythonProbe({ provider: selected, email, secret, ...options });
+    } catch (caught) { throw imapConnectionError(selected, caught); }
+  }
   async function createImap(userId, input = {}) { const selected = provider(input.provider) || providerByEmail(input.email); if (!selected || !IMAP_PROVIDERS.has(selected.id)) throw error('请选择支持 IMAP 的邮箱服务商'); const email = text(input.email, 320)?.toLowerCase(); if (!email || !/^\S+@\S+\.\S+$/.test(email)) throw error('请输入有效邮箱'); const secret = text(input.authorizationCode || input.passwordOrCode || input.password, 1000); if (!secret) throw error(selected.authMode === 'app_password' ? '请输入应用专用密码' : selected.authMode === 'authorization_code' ? '请输入邮箱授权码' : '请输入邮箱密码或授权码'); credentialKey(); const probe = await probeImap(selected, email, secret, { rangeDays: 1, verifySmtp: true }); const encrypted = encryptCredential(secret); const data = accountData({ displayName: text(input.displayName, 160), authType: selected.authMode, ...encrypted }); const account = await prisma.mailAccount.upsert({ where: { userId_provider_email: { userId, provider: selected.id, email } }, create: { userId, provider: selected.id, email, ...data }, update: data }); if (probe?.messages?.length) await persistMessages(userId, account, probe.messages, { triggerClassification: false }); return { ...accountView(account), messageCount: probe?.messages?.length || 0 }; }
   async function createOAuthStart(userId, input = {}) { const id = String(input.provider || '').toLowerCase(); if (!OAUTH_PROVIDERS.has(id)) throw error('该邮箱暂不支持 OAuth', 'OAUTH_PROVIDER_UNSUPPORTED'); const config = oauthConfig(id); if (!config.clientId) throw error(`${id === 'outlook' ? 'Outlook' : 'Gmail'} OAuth Client ID 尚未配置`, 'OAUTH_NOT_CONFIGURED', 503); credentialKey(); const state = crypto.randomBytes(32).toString('base64url'); const verifier = crypto.randomBytes(48).toString('base64url'); const challenge = crypto.createHash('sha256').update(verifier).digest('base64url'); oauthStates.set(state, { userId, provider: id, verifier, expiresAt: Date.now() + 10 * 60 * 1000 }); const params = new URLSearchParams({ client_id: config.clientId, redirect_uri: redirectUri(id), response_type: 'code', scope: config.scopes.join(' '), state, code_challenge: challenge, code_challenge_method: 'S256', response_mode: 'query', access_type: 'offline', prompt: 'consent' }); return { provider: id, state, authorizationUrl: `${config.authorize}?${params}`, url: `${config.authorize}?${params}` }; }
   async function completeOAuth(userId, input = {}) { const state = String(input.state || ''); const pending = oauthStates.get(state); if (!pending || pending.userId !== userId || pending.expiresAt < Date.now()) throw error('OAuth 状态无效或已过期', 'OAUTH_STATE_INVALID', 400); credentialKey(); oauthStates.delete(state); const config = oauthConfig(pending.provider); const token = await httpRequest(config.token, { method: 'POST', fields: { client_id: config.clientId, client_secret: config.clientSecret, code: String(input.code || ''), redirect_uri: redirectUri(pending.provider), grant_type: 'authorization_code', code_verifier: pending.verifier } }); const profile = await httpRequest(config.profile, { headers: { authorization: `Bearer ${token.access_token}` } }); const email = pending.provider === 'outlook' ? (profile.mail || profile.userPrincipalName) : profile.emailAddress; if (!email) throw error('授权成功但未读取到邮箱地址', 'OAUTH_PROFILE_INVALID', 502); const encrypted = encryptCredential(JSON.stringify(token)); const data = accountData({ displayName: text(profile.displayName, 160), authType: 'oauth', ...encrypted }); const account = await prisma.mailAccount.upsert({ where: { userId_provider_email: { userId, provider: pending.provider, email: String(email).toLowerCase() } }, create: { userId, provider: pending.provider, email: String(email).toLowerCase(), ...data }, update: data }); return accountView(account); }

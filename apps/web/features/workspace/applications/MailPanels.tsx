@@ -31,10 +31,11 @@ export function AccountsDialog({accounts, providers, onChange, onClose}: {accoun
       <div className="appx-provider-options">{choices.map(item => <button key={item.id} type="button" aria-pressed={provider === item.id} className={provider === item.id ? 'active' : ''} onClick={() => {setProvider(item.id);setError('');}}><ProviderIcon provider={item.id}/>{mailProviderLabel(item)}</button>)}</div>
       {!oauth && <div className="appx-form">
         <label className="appx-full">邮箱地址<input name="email" type="email" placeholder="name@example.com" required autoComplete="email"/></label>
-        <label className="appx-full">{credential.label}<input key={provider} name="passwordOrCode" type="password" autoComplete="new-password" required placeholder={credential.placeholder}/></label>
+        <label className="appx-full">{credential.label}<input key={provider} name="passwordOrCode" type="password" autoComplete="new-password" required placeholder={credential.placeholder} aria-describedby="mail-credential-help"/></label>
+        <p id="mail-credential-help" className="appx-full appx-muted">{credential.help}{credential.helpUrl && <> <a href={credential.helpUrl} target="_blank" rel="noopener noreferrer">查看官方教程 ↗</a></>}</p>
         {provider === 'imap' && <label className="appx-full">IMAP 服务器<input name="host" placeholder="imap.example.com"/></label>}
       </div>}
-      <p className="appx-muted">{oauth ? '使用服务商的网页授权登录。' : '请先在邮箱设置中开启 IMAP。凭据仅提交到服务端，不保存在浏览器。'}</p>
+      <p className="appx-muted">{oauth ? '使用服务商的网页授权登录。' : '凭据仅提交到服务端，不保存在浏览器。'}</p>
       <div className="appx-actions"><button className="appx-primary" disabled={Boolean(busy)}>{busy === 'add' ? '处理中…' : oauth ? '网页登录授权' : '连接邮箱'}</button></div>
     </form>
   </ApplicationModal>;

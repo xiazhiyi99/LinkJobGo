@@ -29,3 +29,14 @@ test('other mailboxes follow their credential mode without combined labels',()=>
   assert.equal(mailCredential({id:'custom',authModes:['app_password']}).label, '应用专用密码');
   assert.equal(mailCredential({id:'imap',authModes:['password_or_code']}).label, '密码');
 });
+
+test('each authorization-code mailbox displays its acquisition path and an official tutorial',()=>{
+  for(const id of ['qq','126','163']) {
+    const credential=mailCredential({id});
+    assert.match(credential.help,/获取位置.*网页版.*设置/);
+    assert.ok(credential.help.includes(id==='qq'?'安全设置':'新增授权密码'));
+    assert.equal(new URL(credential.helpUrl).hostname,id==='qq'?'help.mail.qq.com':'help.mail.126.com');
+    if(id!=='qq')assert.ok(credential.help.includes(id));
+  }
+  assert.match(mailCredential({id:'icloud'}).help,/Apple.*登录和安全.*App 专用密码/);
+});
