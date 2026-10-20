@@ -4,27 +4,39 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { apiRequest } from '../../../lib/api-client';
 import { ApplicationModal } from './ApplicationDialog';
 import { type MailAccount, type MailMessage, type MailProvider, type Application, dateInput, dateText, errorText, safeUrl, statusLabels } from './types';
-import { providerName, mailProviderLabel } from './mail-providers';
+import { providerName, mailProviderLabel, mailCredential } from './mail-providers';
 export { providerName } from './mail-providers';
 
 export function ProviderIcon({provider}: {provider: string}) { return ['gmail','outlook','qq','163','126','icloud'].includes(provider) ? <img className="appx-provider-icon" src={`/mail-providers/${provider}.png`} alt=""/> : <span className="appx-provider-icon appx-envelope" aria-hidden="true">✉</span>; }
 
 export function AccountsDialog({accounts, providers, onChange, onClose}: {accounts: MailAccount[]; providers: MailProvider[]; onChange: () => Promise<void>; onClose: () => void}) {
   const [provider, setProvider] = useState('qq'); const [busy, setBusy] = useState(''); const [error, setError] = useState(''); const [removeId, setRemoveId] = useState('');
-  const choices: MailProvider[] = providers.length ? providers : [{id:'qq',name:'QQ 邮箱',authModes:['imap_password_or_code']},{id:'163',name:'网易 163',authModes:['imap_password_or_code']},{id:'126',name:'网易 126',authModes:['imap_password_or_code']},{id:'imap',name:'其他邮箱',authModes:['imap_password_or_code']},{id:'gmail',name:'Gmail',authModes:['oauth']},{id:'outlook',name:'Outlook',authModes:['oauth']}];
-  const oauth = choices.find(item => item.id === provider)?.authModes?.includes('oauth');
+  const choices: MailProvider[] = providers.length ? providers : [{id:'qq',name:'QQ 邮箱',authModes:['authorization_code']},{id:'163',name:'网易 163',authModes:['authorization_code']},{id:'126',name:'网易 126',authModes:['authorization_code']},{id:'icloud',name:'iCloud',authModes:['app_password']},{id:'imap',name:'其他邮箱',authModes:['password_or_code']},{id:'gmail',name:'Gmail',authModes:['oauth']},{id:'outlook',name:'Outlook',authModes:['oauth']}];
+  const selectedProvider = choices.find(item => item.id === provider) || {id: provider, authModes: []};
+  const oauth = selectedProvider.authModes?.includes('oauth');
+  const credential = mailCredential(selectedProvider);
   async function add(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy('add'); setError(''); const form = event.currentTarget; const data = new FormData(form);
     try {
       if (oauth) { const result = await apiRequest<{url?: string; authorizationUrl?: string; message?: string; status?: string}>('/mail-accounts/oauth/start', {method:'POST',body:JSON.stringify({provider})}); const url = safeUrl(result.authorizationUrl || result.url); if (url) { window.location.assign(url); return; } throw new Error(result.message || '该邮箱的登录授权尚未配置。'); }
-      await apiRequest('/mail-accounts/imap', {method:'POST',body:JSON.stringify({provider,email:data.get('email'),passwordOrCode:data.get('passwordOrCode'),displayName:data.get('displayName'), ...(data.get('host') ? {host:data.get('host')} : {})})}); form.reset(); await onChange();
+      await apiRequest('/mail-accounts/imap', {method:'POST',body:JSON.stringify({provider,email:data.get('email'),passwordOrCode:data.get('passwordOrCode'), ...(data.get('host') ? {host:data.get('host')} : {})})}); form.reset(); await onChange();
     } catch (error) { setError(errorText(error)); } finally { setBusy(''); }
   }
   async function remove(id: string) { setBusy(id); setError(''); try { await apiRequest(`/mail-accounts/${encodeURIComponent(id)}`, {method:'DELETE'}); setRemoveId(''); await onChange(); } catch (error) { setError(errorText(error)); } finally { setBusy(''); } }
   return <ApplicationModal title="管理邮箱连接" onClose={onClose}>
     {error && <p className="appx-error" role="alert">{error}</p>}
-    <section className="appx-account-list"><h3>已添加邮箱 <small>{accounts.length} 个</small></h3>{accounts.map(account => <div className="appx-account-row" key={account.id}><ProviderIcon provider={account.provider}/><div><strong>{providerName(account.provider)}</strong><span>{account.email}</span></div>{removeId === account.id ? <span className="appx-inline-actions"><button disabled={Boolean(busy)} onClick={() => void remove(account.id)}>确认移除</button><button onClick={() => setRemoveId('')}>取消</button></span> : <button disabled={Boolean(busy)} onClick={() => setRemoveId(account.id)}>移除</button>}</div>)}{!accounts.length && <p className="appx-muted">尚未添加邮箱。</p>}{removeId && <p className="appx-muted">移除后，该邮箱的已同步邮件和同步记录也会删除；投递记录保留。</p>}</section>
-    <form className="appx-account-form" onSubmit={add}><h3>添加邮箱</h3><div className="appx-provider-options">{choices.map(item => <button key={item.id} type="button" aria-pressed={provider === item.id} className={provider === item.id ? 'active' : ''} onClick={() => {setProvider(item.id);setError('');}}><ProviderIcon provider={item.id}/>{mailProviderLabel(item)}</button>)}</div>{!oauth && <div className="appx-form"><label>邮箱地址<input name="email" type="email" placeholder="name@example.com" required autoComplete="email"/></label><label>显示名称<input name="displayName" placeholder="求职邮箱（选填）"/></label><label className="appx-full">邮箱密码 / 授权码<input name="passwordOrCode" type="password" autoComplete="new-password" required placeholder="邮箱设置中开启 IMAP 后获取"/></label>{provider === 'imap' && <label className="appx-full">IMAP 服务器<input name="host" placeholder="imap.example.com"/></label>}</div>}<p className="appx-muted">{oauth ? '使用服务商的网页授权登录。' : '请先在邮箱设置中开启 IMAP。凭据仅提交到服务端，不保存在浏览器。'}</p><div className="appx-actions"><button className="appx-primary" disabled={Boolean(busy)}>{busy === 'add' ? '处理中…' : oauth ? '网页登录授权' : '连接邮箱'}</button></div></form>
+    <section className="appx-account-list"><h3>已添加邮箱 <small>{accounts.length} 个</small></h3>{accounts.map(account => <div className="appx-account-row" key={account.id}><ProviderIcon provider={account.provider}/><div><strong>{account.email}</strong><span>{providerName(account.provider)}</span></div>{removeId === account.id ? <span className="appx-inline-actions"><button disabled={Boolean(busy)} onClick={() => void remove(account.id)}>确认移除</button><button onClick={() => setRemoveId('')}>取消</button></span> : <button disabled={Boolean(busy)} onClick={() => setRemoveId(account.id)}>移除</button>}</div>)}{!accounts.length && <p className="appx-muted">尚未添加邮箱。</p>}{removeId && <p className="appx-muted">移除后，该邮箱的已同步邮件和同步记录也会删除；投递记录保留。</p>}</section>
+    <form className="appx-account-form" onSubmit={add}>
+      <h3>添加邮箱</h3>
+      <div className="appx-provider-options">{choices.map(item => <button key={item.id} type="button" aria-pressed={provider === item.id} className={provider === item.id ? 'active' : ''} onClick={() => {setProvider(item.id);setError('');}}><ProviderIcon provider={item.id}/>{mailProviderLabel(item)}</button>)}</div>
+      {!oauth && <div className="appx-form">
+        <label className="appx-full">邮箱地址<input name="email" type="email" placeholder="name@example.com" required autoComplete="email"/></label>
+        <label className="appx-full">{credential.label}<input key={provider} name="passwordOrCode" type="password" autoComplete="new-password" required placeholder={credential.placeholder}/></label>
+        {provider === 'imap' && <label className="appx-full">IMAP 服务器<input name="host" placeholder="imap.example.com"/></label>}
+      </div>}
+      <p className="appx-muted">{oauth ? '使用服务商的网页授权登录。' : '请先在邮箱设置中开启 IMAP。凭据仅提交到服务端，不保存在浏览器。'}</p>
+      <div className="appx-actions"><button className="appx-primary" disabled={Boolean(busy)}>{busy === 'add' ? '处理中…' : oauth ? '网页登录授权' : '连接邮箱'}</button></div>
+    </form>
   </ApplicationModal>;
 }
 
