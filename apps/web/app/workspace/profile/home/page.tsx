@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { WorkspaceHeader } from '../../../../components/workspace/WorkspaceHeader';
-import { getProfile, updateProfile, type ProfilePayload } from '../../../../features/profile/profile-api';
+import { getProfile, getCachedProfile, updateProfile, type ProfilePayload } from '../../../../features/profile/profile-api';
 import { homepageCardUpdate, readHomepageCard, type HomepageCard } from '../../../../features/profile/homepage-card';
 import { prepareAvatarImage } from '../../../../features/profile/avatar-upload';
 import { ProfileAvatar } from '../../../../features/profile/ProfileAvatar';
 
 export default function PersonalHomePage() {
-  const [payload, setPayload] = useState<ProfilePayload | null>(null);
+  const [payload, setPayload] = useState<ProfilePayload | null>(getCachedProfile);
   const [isLoading, setIsLoading] = useState(true);
   const data = useMemo(() => readHomepageCard(payload), [payload]);
   const [draft, setDraft] = useState<HomepageCard>(data);
@@ -56,7 +56,7 @@ export default function PersonalHomePage() {
     event.preventDefault(); setSaving(true); setError(''); setSaved(false);
     try {
       // Read the latest extra fields so editing this card keeps other profile data.
-      const latest = await getProfile();
+      const latest = await getProfile({ fresh: true });
       const result = await updateProfile(homepageCardUpdate(latest, draft));
       setPayload({ ...latest, ...result }); setEditing(false); setSaved(true);
     } catch (error) { setError(error instanceof Error ? error.message : '保存失败，请重试。'); }
@@ -75,7 +75,7 @@ export default function PersonalHomePage() {
           <div className="profile-identity-main">
             <span className="profile-overline">领客个人主页</span>
             <h1>{data.displayName || '未填写姓名'}</h1>
-            <p>{data.headline || '写一句话介绍自己'} <span>·</span> 领客求职者</p>
+            <p>{data.headline || '写一句话介绍自己'}</p>
             <div className="profile-location">{data.location || '未填写所在城市'}</div>
             <div className="profile-hero-actions">
               {!editing && <button type="button" className="profile-primary-action" disabled={isLoading || Boolean(error)} onClick={() => startEditing()}>编辑主页</button>}

@@ -3,16 +3,20 @@
 import { useLayoutEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import Link from "next/link";
+import { useAccountSession } from "../components/auth/AccountProvider";
+import { routes } from "../lib/routes";
 
 const features = [
   { title: "资料中枢", body: "经历、项目和简历版本各就各位，随时准备出发。", className: "feature-a", href: "#profile" },
   { title: "智能填写", body: "识别页面字段，匹配你的资料，确认之后一键完成填写。", className: "feature-b", href: "#autofill" },
-  { title: "投递航迹", body: "从待投递到 Offer，每一次进展都留下可回看的路径；面试、测评和截止时间，也集中在下一步行动里。", className: "feature-c", href: "#applications" },
+  { title: "投递记录", body: "从待投递到 Offer，每一次进展都留下可回看的路径；面试、测评和截止时间，也集中在下一步行动里。", className: "feature-c", href: "#applications" },
   { title: "职位雷达", body: "把散落在不同招聘官网的机会，收进一个清晰的求职视野。", className: "feature-d", status: "测试中", href: "#features" },
 ];
 
 export default function HomePage() {
   const page = useRef<HTMLElement>(null);
+  const { account, status } = useAccountSession();
 
   useLayoutEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
@@ -39,8 +43,8 @@ export default function HomePage() {
     <main ref={page} className="page-shell overflow-x-hidden w-full max-w-full">
       <nav className="nav-wrap">
         <a className="wordmark" href="#top">领客<span>.</span></a>
-        <div className="nav-links"><a href="#features">功能</a><a href="#profile">资料中枢</a><a href="#autofill">智能填写</a><a href="#applications">投递航迹</a></div>
-        <a className="nav-login" href="/login">登录 <span>↗</span></a>
+        <div className="nav-links"><a href="#features">功能</a><a href="#profile">资料中枢</a><a href="#autofill">智能填写</a><a href="#applications">投递记录</a></div>
+        <Link className="nav-login" href={account || status !== 'ready' ? routes.workspace : '/login'}>{account ? '进入工作台' : '登录'} <span>↗</span></Link>
       </nav>
 
       <section id="top" className="hero section-space">
@@ -62,7 +66,7 @@ export default function HomePage() {
       <section id="workflow" className="feature-details section-space">
         <article id="profile" className="detail-panel detail-blue"><div className="detail-number">01 / 03</div><div className="detail-copy"><p className="eyebrow">资料中枢</p><h2>你的经历，<br /><i>随时就位。</i></h2><p>教育经历、项目经验和简历版本集中管理。每一段认真走过的路，都能在下一次机会到来时准确出现。</p></div><div className="detail-visual profile-visual"><span className="visual-label">PROFILE / READY</span><strong>3</strong><small>份简历版本<br />已准备好</small></div></article>
         <article id="autofill" className="detail-panel detail-white"><div className="detail-number">02 / 03</div><div className="detail-copy"><p className="eyebrow">智能填写</p><h2>少一点重复，<br /><i>多一点专注。</i></h2><p>领客识别招聘页面字段，匹配你已经保存的资料。你负责确认，领客负责把每一个空格填得恰到好处。</p></div><div className="detail-visual autofill-visual"><span className="visual-label">FORM / MATCHED</span><div className="fake-field">姓名 <b>林 先生</b><em>✓</em></div><div className="fake-field">教育经历 <b>华南理工大学</b><em>✓</em></div><div className="fake-field">项目经历 <b>增长策略项目</b><em>✓</em></div></div></article>
-        <article id="applications" className="detail-panel detail-navy"><div className="detail-number">03 / 03</div><div className="detail-copy"><p className="eyebrow">投递航迹</p><h2>知道现在，<br /><i>下一步去哪。</i></h2><p>从待投递、测评、面试到 Offer，所有进展都在一条清晰的航迹里。面试、测评和截止时间，也集中在你的下一步行动里。</p></div><div className="detail-visual track-visual"><span className="visual-label">APPLICATION / TRACK</span><div className="track-line"><i /><i /><i /><i /></div><div className="track-labels"><span>已投递</span><span>测评</span><span>面试</span><span>Offer</span></div></div></article>
+        <article id="applications" className="detail-panel detail-navy"><div className="detail-number">03 / 03</div><div className="detail-copy"><p className="eyebrow">投递记录</p><h2>知道现在，<br /><i>下一步去哪。</i></h2><p>从待投递、测评、面试到 Offer，所有进展都在一条清晰的航迹里。面试、测评和截止时间，也集中在你的下一步行动里。</p></div><div className="detail-visual track-visual"><span className="visual-label">APPLICATION / TRACK</span><div className="track-line"><i /><i /><i /><i /></div><div className="track-labels"><span>已投递</span><span>测评</span><span>面试</span><span>Offer</span></div></div></article>
       </section>
 
       <footer><a className="wordmark" href="#top">领客<span>.</span></a><span>为每一次认真准备，留一条更好的路径。</span><span>© 2026 领客</span></footer>

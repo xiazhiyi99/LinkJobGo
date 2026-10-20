@@ -1,4 +1,5 @@
 import { apiRequest } from '../../lib/api-client';
+import { createProfileCache } from './profile-cache';
 
 export type ProfileRecord = Record<string, unknown> & { id?: string };
 
@@ -17,27 +18,41 @@ export type ProfilePayload = {
   [key: string]: unknown;
 };
 
-export const getProfile = () => apiRequest<ProfilePayload>('/profiles/me');
+const profileCache = createProfileCache<ProfilePayload>({ load: signal => apiRequest('/profiles/me', { signal }) });
+export const setProfileAccount = profileCache.setAccount;
+export const getCachedProfile = profileCache.getSnapshot;
+export const subscribeProfile = profileCache.subscribe;
+export const getProfile = (options: { fresh?: boolean } = {}) => profileCache.read(options.fresh);
+const mutate = async <T>(operation: () => Promise<T>): Promise<T> => {
+  const generation = profileCache.generation();
+  const result = await operation();
+  const payload = result as ProfilePayload | undefined;
+  profileCache.update(current => ({ ...current,
+    ...(payload?.profile ? { profile: { ...current.profile, ...payload.profile } } : {}),
+    ...(payload?.preferences ? { preferences: { ...current.preferences, ...payload.preferences } } : {}),
+  }), generation);
+  return result;
+};
 
-export const updateProfile = (body: unknown) => apiRequest<ProfilePayload>('/profiles/me', {
+export const updateProfile = (body: unknown) => mutate(() => apiRequest<ProfilePayload>('/profiles/me', {
   method: 'PATCH',
   body: JSON.stringify(body),
-});
+}));
 
-export const updateProfilePreferences = (body: unknown) => apiRequest<ProfilePayload>('/profiles/me/preferences', {
+export const updateProfilePreferences = (body: unknown) => mutate(() => apiRequest<ProfilePayload>('/profiles/me/preferences', {
   method: 'PATCH',
   body: JSON.stringify(body),
-});
+}));
 
 export const uploadResume = (body: { filename: string; contentType: string; content: string }) => apiRequest('/profiles/me/resume', {
   method: 'POST',
   body: JSON.stringify(body),
 });
 
-export const importResume = (body: { result: unknown; idempotencyKey?: string; resolutions?: Record<string, 'replace' | 'keep'> }) => apiRequest('/profiles/me/resume/import', {
+export const importResume = (body: { result: unknown; idempotencyKey?: string; resolutions?: Record<string, 'replace' | 'keep'> }) => mutate(() => apiRequest('/profiles/me/resume/import', {
   method: 'POST',
   body: JSON.stringify(body),
-});
+}));
 
 export type AiResumeParseResponse = {
   data: { profile: Record<string, unknown>; preferences: Record<string, unknown>; records: Record<string, Array<Record<string, string>>> };
@@ -90,16 +105,16 @@ export const normalizeResumeWithAi = (body: { payload: unknown; requestId?: stri
 });
 
 const createRecordEndpoint = (resource: string) => ({
-  create: (body: unknown) => apiRequest<ProfileRecord>(`/profiles/me/${resource}`, {
+  create: (body: unknown) => mutate(() => apiRequest<ProfileRecord>(`/profiles/me/${resource}`, {
     method: 'POST',
     body: JSON.stringify(body),
-  }),
-  update: (id: string, body: unknown) => apiRequest<ProfileRecord>(`/profiles/me/${resource}/${id}`, {
+  })),
+  update: (id: string, body: unknown) => mutate(() => apiRequest<ProfileRecord>(`/profiles/me/${resource}/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(body),
-  }),
-  remove: (id: string) => apiRequest<void>(`/profiles/me/${resource}/${id}`, { method: 'DELETE' }),
-  restore: (id: string) => apiRequest<ProfileRecord>(`/profiles/me/${resource}/${id}/restore`, { method: 'POST' }),
+  })),
+  remove: (id: string) => mutate(() => apiRequest<void>(`/profiles/me/${resource}/${id}`, { method: 'DELETE' })),
+  restore: (id: string) => mutate(() => apiRequest<ProfileRecord>(`/profiles/me/${resource}/${id}/restore`, { method: 'POST' })),
 });
 
 export const profileRecordsApi = {

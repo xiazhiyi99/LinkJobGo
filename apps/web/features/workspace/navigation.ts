@@ -9,7 +9,7 @@ export const workspaceNavigation = [
     children: [
       { id: "profile-home", label: "个人主页", href: routes.profileHome },
       { id: "profile", label: "个人资料", href: routes.profile },
-      { id: "applications", label: "投递航迹", href: routes.applications },
+      { id: "applications", label: "投递记录", href: routes.applications },
     ],
   },
   { id: "autofill", label: "智能填写", href: routes.autofill, icon: "autofill" },

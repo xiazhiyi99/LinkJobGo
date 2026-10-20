@@ -26,7 +26,10 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}) {
 
   const contentType = response.headers.get('content-type') || '';
   const data = contentType.includes('application/json') ? await response.json() : await response.text();
+  if (response.ok && path === '/auth/logout' && typeof window !== 'undefined') window.dispatchEvent(new Event('lingke-session-expired'));
   if (!response.ok) {
+    // Mailbox credential failures are separate from website session expiry.
+    if (response.status === 401 && typeof data === 'object' && data?.error === '未登录' && typeof window !== 'undefined') window.dispatchEvent(new Event('lingke-session-expired'));
     const message = typeof data === 'object' && data && 'error' in data
       ? String((data as { error?: unknown }).error || '请求失败')
       : '请求失败';

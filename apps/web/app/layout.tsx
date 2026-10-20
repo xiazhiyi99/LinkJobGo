@@ -1,4 +1,5 @@
 import "./globals.css";
+import { AccountProvider } from "../components/auth/AccountProvider";
 
 export const metadata = {
   title: "领客 · 让每次投递都更有准备",
@@ -8,7 +9,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN">
-      <body>{children}</body>
+      <body><AccountProvider>{children}</AccountProvider></body>
     </html>
   );
 }

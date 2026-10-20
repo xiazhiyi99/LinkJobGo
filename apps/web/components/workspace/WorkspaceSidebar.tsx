@@ -1,11 +1,16 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { workspaceNavigation } from "../../features/workspace/navigation";
 import { useAccount } from "../auth/AuthGate";
 import { isAdminAccount } from "../../features/admin/site-rules";
 import { routes } from "../../lib/routes";
+import { getProfile, getCachedProfile, subscribeProfile } from "../../features/profile/profile-api";
+import { readHomepageCard } from "../../features/profile/homepage-card";
+import { ProfileAvatar } from "../../features/profile/ProfileAvatar";
+
+const emptyProfile = () => null;
 
 function NavigationIcon({ name }: { name: "person" | "autofill" | "rules" | "users" }) {
   if (name === "users") return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 4v2"/></svg>;
@@ -21,9 +26,14 @@ export function WorkspaceSidebar() {
   const router = useRouter();
   const account = useAccount();
   const admin = isAdminAccount(account);
+  const profile = useSyncExternalStore(subscribeProfile, getCachedProfile, emptyProfile);
+  const card = readHomepageCard(profile);
+  const name = card.displayName || account?.email.split('@')[0] || '我的账户';
+  useEffect(() => { void getProfile().catch(() => {}); }, [account?.id]);
   const personalCenter = workspaceNavigation[0];
   const isPersonalCenter = pathname.startsWith("/workspace/profile") || pathname === "/workspace/applications";
   const [expanded, setExpanded] = useState(isPersonalCenter);
+  useEffect(() => { if (isPersonalCenter) setExpanded(true); }, [isPersonalCenter, pathname]);
 
   const handlePersonalCenterClick = () => {
     // The parent item is also the entry point for the personal home page.
@@ -60,6 +70,6 @@ export function WorkspaceSidebar() {
       {admin && <Link href={routes.adminSiteRules} aria-current={pathname === routes.adminSiteRules ? "page" : undefined} className={pathname === routes.adminSiteRules ? "active" : ""}><NavigationIcon name="rules" /><span>规则管理</span><span className="nav-indicator" aria-hidden="true" /></Link>}
       {admin && <Link href={routes.adminUsers} aria-current={pathname === routes.adminUsers ? "page" : undefined} className={pathname === routes.adminUsers ? "active" : ""}><NavigationIcon name="users" /><span>用户管理</span><span className="nav-indicator" aria-hidden="true" /></Link>}
     </nav>
-    <div className="sidebar-bottom"><div className="user-card"><span className="avatar">林</span><div><strong>林同学</strong><small>{admin ? '管理员账户' : '求职者账户'}</small></div></div></div>
+    <div className="sidebar-bottom"><div className="user-card"><span className="avatar"><ProfileAvatar url={card.avatarUrl} name={name}/></span><div><strong>{name}</strong><small>{admin ? '管理员账户' : '求职者账户'}</small></div></div></div>
   </aside>;
 }

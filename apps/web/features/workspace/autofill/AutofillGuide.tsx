@@ -14,7 +14,7 @@ const installSteps = [
 const useSteps = [
   { title: "准备好个人资料", text: "在领客完善个人资料并保持网页登录，扩展会自动使用当前账号的资料。" },
   { title: "打开招聘表单", text: "进入目标岗位的简历填写页。刚装好扩展？先刷新一下页面。" },
-  { title: "让松鼠帮你填写", text: "鼠标移到页面上的松鼠，点击「开始填写」。进度会显示在松鼠下方。" },
+  { title: "让飞鼠帮你填写", text: "鼠标移到页面上的飞鼠，点击「开始填写」。进度会显示在飞鼠下方。" },
   { title: "核对后，自行提交", text: "检查填写结果，补充缺失内容，再提交申请。领客不会替你点击提交。" },
 ];
 
@@ -78,13 +78,13 @@ export function AutofillGuide() {
             </> : <div className={styles.fillDemo}>
               <div className={styles.formTitle}><strong>{step === 0 ? "个人资料" : "个人信息"}</strong><span>{step === 3 ? "待你核对" : "简历填写"}</span></div>
               {[["姓名", "林同学"], ["学校", "示例大学"], ["专业", "计算机科学与技术"]].map(([label, value], index) => <div className={styles.fillRow} key={label}><span>{label}</span><div>{step !== 1 ? <b className={step === 2 ? styles.fillValue : ""} style={{ animationDelay: `${index * 450}ms` }}>{value}</b> : <i>请输入{label}</i>}</div></div>)}
-              {step === 0 ? <span className={styles.saved}>✓ 已保存，扩展自动使用网页登录状态</span> : <div className={styles.demoPet}><span className={styles.squirrel} style={{ backgroundImage: `url(${basePath}/downloads/squirrel-motion.webp)` }} role="img" aria-label="领客松鼠" /><span className={styles.petBubble}>{step === 1 ? "开始填写" : step === 2 ? "正在填写个人信息…" : "填写结束，请核对"}</span></div>}
+              {step === 0 ? <span className={styles.saved}>✓ 已保存，扩展自动使用网页登录状态</span> : <div className={styles.demoPet}><span className={styles.squirrel} style={{ backgroundImage: `url(${basePath}/downloads/squirrel-motion.webp)` }} role="img" aria-label="领客飞鼠" /><span className={styles.petBubble}>{step === 1 ? "开始填写" : step === 2 ? "正在填写个人信息…" : "填写结束，请核对"}</span></div>}
             </div>}
           </div>
           <div className={styles.demoFooter}><span>{String(step + 1).padStart(2, "0")} / {String(steps.length).padStart(2, "0")}</span><span aria-live={playing ? "off" : "polite"}>{steps[step].title}</span><button onClick={() => { setStep((step + 1) % steps.length); setPlaying(false); }} aria-label="查看下一步">下一步 →</button></div>
         </div>
       </div>
     </section>
-    <aside className={styles.help}><strong>没有看到松鼠？</strong><p>确认扩展已开启，再刷新招聘页面。若提示未登录，点击扩展内「前往网页登录」，登录后返回即可。</p><a href="https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world#load-unpacked" target="_blank" rel="noreferrer">Chrome 安装说明 ↗</a></aside>
+    <aside className={styles.help}><strong>没有看到飞鼠？</strong><p>确认扩展已开启，再刷新招聘页面。若提示未登录，点击扩展内「前往网页登录」，登录后返回即可。</p><a href="https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world#load-unpacked" target="_blank" rel="noreferrer">Chrome 安装说明 ↗</a></aside>
   </div>;
 }

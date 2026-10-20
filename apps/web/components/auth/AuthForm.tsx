@@ -4,12 +4,14 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiRequest } from '../../lib/api-client';
 import { CaptchaChallenge, CaptchaPayload } from './CaptchaChallenge';
+import { useAccountSession } from './AccountProvider';
+import type { AccountIdentity } from '../../features/auth/account-session';
 
 type AuthResult = {
   resetToken?: string;
   message?: string;
   debugCode?: string;
-  user?: { emailVerified?: boolean };
+  user?: AccountIdentity;
 };
 
 const nextPath = () => {
@@ -28,6 +30,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' | 'forgot' }) {
   const [loading, setLoading] = useState(false);
   const [codeCooldown, setCodeCooldown] = useState(0);
   const router = useRouter();
+  const session = useAccountSession();
 
   useEffect(() => {
     if (codeCooldown <= 0) return undefined;
@@ -113,9 +116,11 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' | 'forgot' }) {
 
       const destination = nextPath();
       if (result.user?.emailVerified === false) {
+        session.accept(null);
         router.replace('/verify-email?email=' + encodeURIComponent(email) + '&next=' + encodeURIComponent(destination));
         return;
       }
+      if (result.user?.id) session.accept(result.user);
       router.replace(destination);
     } catch (error) {
       setMessageKind('error');

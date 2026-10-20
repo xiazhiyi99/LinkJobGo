@@ -74,7 +74,7 @@ export function UsersManagement() {
         <td><button type="button" className={styles.edit} disabled={loading || !canChangeUserRole(account, user)} onClick={() => { setNotice(''); setEditing(user); }}>{account?.id === user.id ? '自身权限不可修改' : '调整权限'}</button></td>
       </tr>)}</tbody></table>{!items.length && <p className={base.empty}>没有匹配的用户，请调整搜索条件。</p>}
     </div>}
-    <div className={styles.footer}><p className={base.footnote}>网站来自投递航迹中的链接，仅收藏不计为已投递；此处不统计扩展访问或填写过的全部页面。</p><nav aria-label="用户列表分页"><button type="button" disabled={loading || page <= 1} onClick={() => setPage(value => value - 1)}>上一页</button><span>第 {page} / {pages} 页</span><button type="button" disabled={loading || !data || page >= pages} onClick={() => setPage(value => value + 1)}>下一页</button></nav></div>
+    <div className={styles.footer}><p className={base.footnote}>网站来自投递记录中的链接，仅收藏不计为已投递；此处不统计扩展访问或填写过的全部页面。</p><nav aria-label="用户列表分页"><button type="button" disabled={loading || page <= 1} onClick={() => setPage(value => value - 1)}>上一页</button><span>第 {page} / {pages} 页</span><button type="button" disabled={loading || !data || page >= pages} onClick={() => setPage(value => value + 1)}>下一页</button></nav></div>
     {editing && <RoleChangeDialog key={editing.id} user={editing} onClose={() => setEditing(null)} onChanged={() => { setEditing(null); setNotice('用户权限已更新。'); void load(); }} onForbidden={() => { setEditing(null); setData(null); setError('当前账号已失去管理员权限，请刷新页面。'); }} />}
   </section>;
 }

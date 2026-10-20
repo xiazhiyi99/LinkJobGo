@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { WorkspaceHeader } from '../../../components/workspace/WorkspaceHeader';
 import { ProfileSidebar } from '../../../components/profile/ProfileSidebar';
-import { getProfile, importResume, updateProfile, updateProfilePreferences, uploadResume, type ProfilePayload } from '../../../features/profile/profile-api';
+import { getProfile, getCachedProfile, importResume, updateProfile, updateProfilePreferences, uploadResume, type ProfilePayload } from '../../../features/profile/profile-api';
 import type { ResumeDraft } from '../../../features/profile/resume-parser';
 import { validateProfile } from '../../../features/profile/profile-validation';
 import { profileSectionUpdate, skillRecords } from '../../../features/profile/profile-section-update';
@@ -271,9 +271,9 @@ function RecordPreview({ item, fields, index }: { item: ProfileRecord; fields: F
 export default function ProfilePage() {
   const [editing, setEditing] = useState<string | null>(null);
   const [selectedSectionId, setSelectedSectionId] = useState('profile-section-0');
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string>>(() => hydrateProfile(getCachedProfile() || {}).values);
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
-  const [records, setRecords] = useState<Record<string, ProfileRecord[]>>({});
+  const [records, setRecords] = useState<Record<string, ProfileRecord[]>>(() => hydrateProfile(getCachedProfile() || {}).records);
   const [draftRecords, setDraftRecords] = useState<Record<string, ProfileRecord[]>>({});
   const [removed, setRemoved] = useState<RemovedItem[]>([]);
   const [message, setMessage] = useState('');
