@@ -51,7 +51,10 @@ const directory = Buffer.concat(central), end = Buffer.alloc(22);
 end.writeUInt32LE(0x06054b50); end.writeUInt16LE(central.length / 2, 8); end.writeUInt16LE(central.length / 2, 10); end.writeUInt32LE(directory.length, 12); end.writeUInt32LE(offset, 16);
 const destination = resolve(root, '../web/public/downloads');
 await mkdir(destination, { recursive: true });
-await writeFile(resolve(destination, 'lingke-extension.zip'), Buffer.concat([...local, directory, end]));
+const archive = Buffer.concat([...local, directory, end]);
+await writeFile(resolve(destination, 'AI-领客扩展.zip'), archive);
+// Keep previously shared download addresses working.
+await writeFile(resolve(destination, 'lingke-extension.zip'), archive);
 await cp(resolve(outdir, 'pet/squirrel-motion.webp'), resolve(destination, 'squirrel-motion.webp'));
 await writeFile(resolve(destination, 'release.json'), JSON.stringify({ ...metadata, extensionPath: undefined, extensionId, version: manifest.version, loginUrl: config.loginUrl }, null, 2) + '\n');
 console.log(`Website download ready: ${manifest.version}; allowed origin: chrome-extension://${extensionId}`);

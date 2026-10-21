@@ -3,11 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { browserSteps, installSteps, profilePreview, useSteps, type GuideScreenshot } from "./guide-content";
+import { browserSteps, extensionDownloadFilename, installSteps, profilePreview, useSteps, type GuideScreenshot } from "./guide-content";
 import styles from "./guide.module.css";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
-const downloadPath = `${basePath}/downloads/lingke-extension.zip`;
+const downloadPath = `${basePath}/downloads/${encodeURIComponent(extensionDownloadFilename)}`;
 const downloadAddress = `https://linkaigo.com${downloadPath}`;
 const imageUrl = (image: GuideScreenshot) => `${basePath}/autofill-guide/${image.src}`;
 const tutorials = {
@@ -44,8 +44,8 @@ export function AutofillGuide() {
     catch { setCopied(`请手动选中并复制：${address}`); }
   }
   const stepAction = current.action === "download" ? <div className={styles.downloadBox}>
-    <a className={styles.download} href={downloadPath} download="lingke-extension.zip">↓ 下载安装包</a>
-    <div className={styles.copyBox}><a href={downloadAddress} download="lingke-extension.zip">{downloadAddress}</a><button onClick={() => copyAddress(downloadAddress)}>复制下载地址</button><span role="status">{copied || "下载地址 · ZIP 安装包"}</span></div>
+    <a className={styles.download} href={downloadPath} download={extensionDownloadFilename}>↓ 下载安装包</a>
+    <div className={styles.copyBox}><a href={downloadAddress} download={extensionDownloadFilename}>{decodeURI(downloadAddress)}</a><button onClick={() => copyAddress(downloadAddress)}>复制下载地址</button><span role="status">{copied || "下载地址 · ZIP 安装包"}</span></div>
   </div> : current.action === "extensionsAddress" ? <div className={styles.copyBox}><code>chrome://extensions</code><button onClick={() => copyAddress("chrome://extensions")}>复制管理页地址</button><span role="status">{copied || "浏览器内部地址，需要在地址栏打开"}</span></div> : null;
 
   return <div className={styles.guide}>
@@ -55,7 +55,7 @@ export function AutofillGuide() {
         <h2 id="autofill-heading">资料备好，<br />重复填写交给领客。</h2>
         <p>把保存的个人资料带到招聘页面。<br />点击一次，开始填写你的网申简历。</p>
         <div className={styles.ctas}>
-          <a className={styles.download} href={downloadPath} download="lingke-extension.zip"><span aria-hidden="true">↓</span> 下载 Chrome 扩展</a>
+          <a className={styles.download} href={downloadPath} download={extensionDownloadFilename}><span aria-hidden="true">↓</span> 下载 Chrome 扩展</a>
           <Link href="/workspace/profile" className={styles.profileLink}>完善个人资料 <span aria-hidden="true">↗</span></Link>
         </div>
         <small className={styles.downloadNote}>桌面版 Chrome · ZIP 安装包 · 按下方图解安装</small>

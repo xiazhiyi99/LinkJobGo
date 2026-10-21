@@ -1,5 +1,6 @@
 export type GuideScreenshot = { src: string; width: number; height: number; alt: string; caption: string };
 export type GuideStep = { title: string; text: string; screenshot: GuideScreenshot; action?: 'download' | 'extensionsAddress' };
+export const extensionDownloadFilename = 'AI-领客扩展.zip';
 
 export const profilePreview: GuideScreenshot = {
   src: 'profile-with-pet.webp', width: 950, height: 232,
@@ -12,8 +13,8 @@ export const browserSteps: GuideStep[] = [
 ];
 
 export const installSteps: GuideStep[] = [
-  { title: '下载领客扩展', text: '点击下方「下载安装包」，或复制下载地址打开，保存 lingke-extension.zip。', action: 'download', screenshot: { src: 'download.webp', width: 503, height: 324, alt: '领客智能填写页面上的下载 Chrome 扩展按钮', caption: '领客页面实拍 · 上方按钮与下方地址下载同一安装包' } },
-  { title: '解压安装包', text: 'Windows 右键 ZIP，选择「全部解压缩」；macOS 双击 ZIP。得到 lingke-extension 文件夹，安装后请保留。', screenshot: { src: 'unpacked.webp', width: 1553, height: 330, alt: '访达中真实的 lingke-extension.zip 安装包和解压后的 lingke-extension 文件夹', caption: '安装文件实拍 · 安装时选择解压后的文件夹' } },
+  { title: '下载领客扩展', text: `点击下方「下载安装包」，或复制下载地址打开，保存 ${extensionDownloadFilename}。`, action: 'download', screenshot: { src: 'download.webp', width: 503, height: 324, alt: '领客智能填写页面上的下载 Chrome 扩展按钮', caption: '领客页面实拍 · 上方按钮与下方地址下载同一安装包' } },
+  { title: '解压安装包', text: 'Windows 右键 ZIP，选择「全部解压缩」；macOS 双击 ZIP。找到解压后的 lingke-extension 文件夹，安装后请保留。', screenshot: { src: 'unpacked.webp', width: 1553, height: 210, alt: '访达中真实的 lingke-extension 扩展文件夹', caption: '解压后的文件夹实拍 · 安装时选择此文件夹' } },
   { title: '打开扩展管理', text: '复制下方地址，粘贴到 Chrome 新标签页的地址栏并打开。截图红圈标出了地址栏。', action: 'extensionsAddress', screenshot: { src: 'extensions.webp', width: 2690, height: 1552, alt: '完整 Chrome 浏览器实拍，红圈标出地址栏中的 chrome://extensions', caption: '完整浏览器实拍 · 红圈为地址栏，点击图片可放大' } },
   { title: '开启开发者模式', text: '打开右上角红圈内的「开发者模式 / Developer mode」开关，蓝色表示已开启。', screenshot: { src: 'developer-mode.webp', width: 2690, height: 1552, alt: '完整 Chrome 扩展管理页面，红圈标出右上角的 Developer mode 开关', caption: '完整浏览器实拍 · 右上角红圈为开发者模式' } },
   { title: '加载已解压的扩展', text: '点击左上角红圈内的「加载已解压的扩展程序 / Load unpacked」，打开文件夹选择窗口。', screenshot: { src: 'load-unpacked.webp', width: 2690, height: 1552, alt: '完整 Chrome 扩展管理页面，红圈标出左上角的 Load unpacked 按钮', caption: '完整浏览器实拍 · 左上角红圈为加载按钮' } },
