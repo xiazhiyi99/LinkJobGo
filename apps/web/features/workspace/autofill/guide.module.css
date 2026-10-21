@@ -32,11 +32,16 @@
 [aria-current=step] .stepNumber { color:var(--ws-blue); }
 .instructions strong { display:block; font-size:13px; font-weight:500; }
 .stepText { display:block; font-size:12px; color:var(--ws-muted); line-height:1.85; margin-top:7px; }
+.instructions li button:not([aria-current=step]) .stepText { display:none; }
 .chromeInstall { display:flex; flex-wrap:wrap; align-items:center; gap:16px; margin:16px 12px 0; font-size:11px; }
 .chromeInstall a { color:var(--ws-blue); }
 .chromeInstall button { padding:0; border:0; background:transparent; color:var(--ws-muted); font-size:11px; }
+.downloadBox { margin:12px 12px 18px; }
+.downloadBox > .download { padding:10px 14px; font-size:12px; }
+.downloadBox .copyBox { margin:12px 0 0; }
 .copyBox { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:17px 12px 0; }
 .copyBox code { font-size:12px; color:var(--ws-ink); user-select:all; }
+.copyBox a { max-width:100%; color:var(--ws-blue); font-size:11px; line-height:1.8; overflow-wrap:anywhere; }
 .copyBox button { padding:4px 0; color:var(--ws-blue); font-size:11px; border:0; background:transparent; }
 .copyBox > span { flex-basis:100%; color:var(--ws-muted); font-size:10px; line-height:1.7; }
 .tip { color:var(--ws-muted); font-size:11px; line-height:1.8; margin:14px 12px 0; }
@@ -61,5 +66,5 @@
 .lightbox img { display:block; max-width:100%; height:auto; max-height:calc(100dvh - 130px); object-fit:contain; }
 @media(max-width:1100px) { .walkthrough { gap:20px; grid-template-columns:1fr 1fr; } .tutorial { padding:24px; } .intro { gap:16px; } }
 @media(max-width:950px) { .intro,.walkthrough { grid-template-columns:1fr; } .introVisual { max-width:680px; } .help { grid-template-columns:1fr; gap:9px; } }
-@media(max-width:480px) { .tutorial { padding:18px 14px; } .intro { padding:30px 0; } .intro h2 { font-size:30px; } .tutorialHeading h3 { font-size:18px; } .stepText { font-size:11px; } .imageButton { min-height:240px; padding:12px; } .lightbox > div { padding:12px; } .lightbox header { align-items:start; font-size:11px; line-height:1.8; } }
+@media(max-width:480px) { .tutorial { padding:18px 14px; } .intro { padding:30px 0; } .intro h2 { font-size:30px; } .tutorialHeading h3 { font-size:18px; } .modeSwitch { display:flex; } .modeSwitch button { flex:1; padding:9px 8px; white-space:nowrap; } .stepText { font-size:11px; } .imageButton { min-height:240px; padding:12px; } .lightbox > div { padding:12px; } .lightbox header { align-items:start; font-size:11px; line-height:1.8; } }
 @media(prefers-reduced-motion:reduce) { .guide * { transition:none!important; } }
