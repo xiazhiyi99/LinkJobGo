@@ -36,12 +36,8 @@
 .chromeInstall { display:flex; flex-wrap:wrap; align-items:center; gap:16px; margin:16px 12px 0; font-size:11px; }
 .chromeInstall a { color:var(--ws-blue); }
 .chromeInstall button { padding:0; border:0; background:transparent; color:var(--ws-muted); font-size:11px; }
-.downloadBox { margin:12px 12px 18px; }
-.downloadBox > .download { padding:10px 14px; font-size:12px; }
-.downloadBox .copyBox { margin:12px 0 0; }
 .copyBox { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:17px 12px 0; }
 .copyBox code { font-size:12px; color:var(--ws-ink); user-select:all; }
-.copyBox a { max-width:100%; color:var(--ws-blue); font-size:11px; line-height:1.8; overflow-wrap:anywhere; }
 .copyBox button { padding:4px 0; color:var(--ws-blue); font-size:11px; border:0; background:transparent; }
 .copyBox > span { flex-basis:100%; color:var(--ws-muted); font-size:10px; line-height:1.7; }
 .tip { color:var(--ws-muted); font-size:11px; line-height:1.8; margin:14px 12px 0; }

@@ -8,7 +8,6 @@ import styles from "./guide.module.css";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 const downloadPath = `${basePath}/downloads/${encodeURIComponent(extensionDownloadFilename)}`;
-const downloadAddress = `https://linkaigo.com${downloadPath}`;
 const imageUrl = (image: GuideScreenshot) => `${basePath}/autofill-guide/${image.src}`;
 const tutorials = {
   browser: { title: "安装浏览器", steps: browserSteps, next: "install" },
@@ -43,10 +42,7 @@ export function AutofillGuide() {
     try { await navigator.clipboard.writeText(address); setCopied("已复制，在新标签页地址栏粘贴即可"); }
     catch { setCopied(`请手动选中并复制：${address}`); }
   }
-  const stepAction = current.action === "download" ? <div className={styles.downloadBox}>
-    <a className={styles.download} href={downloadPath} download={extensionDownloadFilename}>↓ 下载安装包</a>
-    <div className={styles.copyBox}><a href={downloadAddress} download={extensionDownloadFilename}>{decodeURI(downloadAddress)}</a><button onClick={() => copyAddress(downloadAddress)}>复制下载地址</button><span role="status">{copied || "下载地址 · ZIP 安装包"}</span></div>
-  </div> : current.action === "extensionsAddress" ? <div className={styles.copyBox}><code>chrome://extensions</code><button onClick={() => copyAddress("chrome://extensions")}>复制管理页地址</button><span role="status">{copied || "浏览器内部地址，需要在地址栏打开"}</span></div> : null;
+  const stepAction = current.action === "extensionsAddress" ? <div className={styles.copyBox}><code>chrome://extensions</code><button onClick={() => copyAddress("chrome://extensions")}>复制管理页地址</button><span role="status">{copied || "浏览器内部地址，需要在地址栏打开"}</span></div> : null;
 
   return <div className={styles.guide}>
     <section className={styles.intro} aria-labelledby="autofill-heading">
@@ -78,7 +74,7 @@ export function AutofillGuide() {
       <div className={styles.walkthrough}>
         <div className={styles.instructions}>
           <ol>{steps.map((item, index) => <li key={item.title}><button aria-current={step === index ? "step" : undefined} onClick={() => selectStep(index)}><span className={styles.stepNumber}>{String(index + 1).padStart(2, "0")}</span><span><strong>{item.title}</strong><span className={styles.stepText}>{item.text}</span></span></button>{step === index && stepAction}</li>)}</ol>
-          {mode === "browser" && <div className={styles.chromeInstall}><a href="https://www.google.cn/chrome/" target="_blank" rel="noopener noreferrer">下载 Chrome 浏览器 ↗</a><button onClick={() => selectMode("install")}>已安装，去安装扩展 →</button></div>}
+          {mode === "browser" && <div className={styles.chromeInstall}>{step === 0 && <a href="https://www.google.cn/chrome/" target="_blank" rel="noopener noreferrer">下载 Chrome 浏览器 ↗</a>}<button onClick={() => selectMode("install")}>已安装，去安装扩展 →</button></div>}
           {mode === "use" && <p className={styles.tip}>更多填写选项，可点击浏览器右上角的领客扩展图标。</p>}
         </div>
         <figure className={styles.screenshot}>
